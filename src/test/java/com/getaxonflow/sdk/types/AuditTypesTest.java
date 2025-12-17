@@ -75,7 +75,7 @@ class AuditTypesTest {
     @DisplayName("AuditOptions - should build with required fields")
     void auditOptionsShouldBuildWithRequired() {
         AuditOptions options = AuditOptions.builder()
-            .contextId("ctx_123")
+            .contextId("ctx_123").clientId("test-client")
             .build();
 
         assertThat(options.getContextId()).isEqualTo("ctx_123");
@@ -88,7 +88,7 @@ class AuditTypesTest {
         TokenUsage tokenUsage = TokenUsage.of(100, 150);
 
         AuditOptions options = AuditOptions.builder()
-            .contextId("ctx_123")
+            .contextId("ctx_123").clientId("test-client")
             .responseSummary("Weather information provided")
             .provider("openai")
             .model("gpt-4")
@@ -120,7 +120,7 @@ class AuditTypesTest {
     @DisplayName("AuditOptions - should add metadata entries")
     void auditOptionsShouldAddMetadata() {
         AuditOptions options = AuditOptions.builder()
-            .contextId("ctx_123")
+            .contextId("ctx_123").clientId("test-client")
             .addMetadata("key1", "value1")
             .addMetadata("key2", 42)
             .build();
@@ -134,7 +134,7 @@ class AuditTypesTest {
     @DisplayName("AuditOptions - should support error case")
     void auditOptionsShouldSupportError() {
         AuditOptions options = AuditOptions.builder()
-            .contextId("ctx_123")
+            .contextId("ctx_123").clientId("test-client")
             .success(false)
             .errorMessage("LLM call failed: timeout")
             .build();

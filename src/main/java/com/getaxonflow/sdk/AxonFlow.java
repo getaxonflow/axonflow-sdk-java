@@ -222,7 +222,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/v1/gateway/pre-check", request);
+            Request httpRequest = buildRequest("POST", "/api/policy/pre-check", request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 PolicyApprovalResult result = parseResponse(response, PolicyApprovalResult.class);
 
@@ -273,7 +273,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(options, "options cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/v1/gateway/audit", options);
+            Request httpRequest = buildRequest("POST", "/api/audit/llm-call", options);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, AuditResult.class);
             }

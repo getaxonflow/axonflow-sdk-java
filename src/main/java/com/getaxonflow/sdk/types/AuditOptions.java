@@ -49,6 +49,9 @@ public final class AuditOptions {
     @JsonProperty("context_id")
     private final String contextId;
 
+    @JsonProperty("client_id")
+    private final String clientId;
+
     @JsonProperty("response_summary")
     private final String responseSummary;
 
@@ -75,6 +78,7 @@ public final class AuditOptions {
 
     private AuditOptions(Builder builder) {
         this.contextId = Objects.requireNonNull(builder.contextId, "contextId cannot be null");
+        this.clientId = Objects.requireNonNull(builder.clientId, "clientId cannot be null");
         this.responseSummary = builder.responseSummary;
         this.provider = builder.provider;
         this.model = builder.model;
@@ -89,6 +93,10 @@ public final class AuditOptions {
 
     public String getContextId() {
         return contextId;
+    }
+
+    public String getClientId() {
+        return clientId;
     }
 
     public String getResponseSummary() {
@@ -133,6 +141,7 @@ public final class AuditOptions {
         if (o == null || getClass() != o.getClass()) return false;
         AuditOptions that = (AuditOptions) o;
         return Objects.equals(contextId, that.contextId) &&
+               Objects.equals(clientId, that.clientId) &&
                Objects.equals(responseSummary, that.responseSummary) &&
                Objects.equals(provider, that.provider) &&
                Objects.equals(model, that.model) &&
@@ -145,7 +154,7 @@ public final class AuditOptions {
 
     @Override
     public int hashCode() {
-        return Objects.hash(contextId, responseSummary, provider, model, tokenUsage,
+        return Objects.hash(contextId, clientId, responseSummary, provider, model, tokenUsage,
                            latencyMs, metadata, success, errorMessage);
     }
 
@@ -153,6 +162,7 @@ public final class AuditOptions {
     public String toString() {
         return "AuditOptions{" +
                "contextId='" + contextId + '\'' +
+               ", clientId='" + clientId + '\'' +
                ", provider='" + provider + '\'' +
                ", model='" + model + '\'' +
                ", tokenUsage=" + tokenUsage +
@@ -166,6 +176,7 @@ public final class AuditOptions {
      */
     public static final class Builder {
         private String contextId;
+        private String clientId;
         private String responseSummary;
         private String provider;
         private String model;
@@ -185,6 +196,17 @@ public final class AuditOptions {
          */
         public Builder contextId(String contextId) {
             this.contextId = contextId;
+            return this;
+        }
+
+        /**
+         * Sets the client identifier.
+         *
+         * @param clientId the client identifier
+         * @return this builder
+         */
+        public Builder clientId(String clientId) {
+            this.clientId = clientId;
             return this;
         }
 

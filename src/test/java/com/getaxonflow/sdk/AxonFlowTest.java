@@ -119,7 +119,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("preCheck should be alias for getPolicyApprovedContext")
     void preCheckShouldBeAlias() {
-        stubFor(post(urlEqualTo("/api/v1/gateway/pre-check"))
+        stubFor(post(urlEqualTo("/api/policy/pre-check"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -138,7 +138,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("getPolicyApprovedContextAsync should return future")
     void getPolicyApprovedContextAsyncShouldReturnFuture() throws Exception {
-        stubFor(post(urlEqualTo("/api/v1/gateway/pre-check"))
+        stubFor(post(urlEqualTo("/api/policy/pre-check"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -169,14 +169,14 @@ class AxonFlowTest {
     @Test
     @DisplayName("auditLLMCallAsync should return future")
     void auditLLMCallAsyncShouldReturnFuture() throws Exception {
-        stubFor(post(urlEqualTo("/api/v1/gateway/audit"))
+        stubFor(post(urlEqualTo("/api/audit/llm-call"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
                 .withBody("{\"success\":true,\"audit_id\":\"audit_123\"}")));
 
         AuditOptions options = AuditOptions.builder()
-            .contextId("ctx_123")
+            .contextId("ctx_123").clientId("test-client")
             .build();
 
         CompletableFuture<AuditResult> future = axonflow.auditLLMCallAsync(options);

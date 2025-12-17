@@ -66,7 +66,7 @@ class AxonFlowIntegrationTest {
     @Test
     @DisplayName("getPolicyApprovedContext should return approval")
     void getPolicyApprovedContextShouldReturnApproval() {
-        stubFor(post(urlEqualTo("/api/v1/gateway/pre-check"))
+        stubFor(post(urlEqualTo("/api/policy/pre-check"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -88,7 +88,7 @@ class AxonFlowIntegrationTest {
         assertThat(result.getContextId()).isEqualTo("ctx_abc123");
         assertThat(result.getPolicies()).containsExactly("policy1", "policy2");
 
-        verify(postRequestedFor(urlEqualTo("/api/v1/gateway/pre-check"))
+        verify(postRequestedFor(urlEqualTo("/api/policy/pre-check"))
             .withHeader("Content-Type", containing("application/json"))
             .withRequestBody(containing("\"user_token\":\"user-123\""))
             .withRequestBody(containing("\"query\":\"What is the weather?\"")));
@@ -97,7 +97,7 @@ class AxonFlowIntegrationTest {
     @Test
     @DisplayName("getPolicyApprovedContext should throw on block")
     void getPolicyApprovedContextShouldThrowOnBlock() {
-        stubFor(post(urlEqualTo("/api/v1/gateway/pre-check"))
+        stubFor(post(urlEqualTo("/api/policy/pre-check"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -122,7 +122,7 @@ class AxonFlowIntegrationTest {
     @Test
     @DisplayName("auditLLMCall should record audit")
     void auditLLMCallShouldRecordAudit() {
-        stubFor(post(urlEqualTo("/api/v1/gateway/audit"))
+        stubFor(post(urlEqualTo("/api/audit/llm-call"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -133,6 +133,7 @@ class AxonFlowIntegrationTest {
 
         AuditResult result = axonflow.auditLLMCall(AuditOptions.builder()
             .contextId("ctx_abc123")
+            .clientId("test-client")
             .provider("openai")
             .model("gpt-4")
             .tokenUsage(TokenUsage.of(100, 150))
@@ -143,7 +144,7 @@ class AxonFlowIntegrationTest {
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getAuditId()).isEqualTo("audit_xyz789");
 
-        verify(postRequestedFor(urlEqualTo("/api/v1/gateway/audit"))
+        verify(postRequestedFor(urlEqualTo("/api/audit/llm-call"))
             .withRequestBody(containing("\"context_id\":\"ctx_abc123\""))
             .withRequestBody(containing("\"provider\":\"openai\"")));
     }
