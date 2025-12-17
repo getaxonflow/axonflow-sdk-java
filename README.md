@@ -3,7 +3,7 @@
 Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platform for Enterprise LLM Applications.
 
 [![CI](https://github.com/getaxonflow/axonflow-sdk-java/actions/workflows/ci.yml/badge.svg)](https://github.com/getaxonflow/axonflow-sdk-java/actions/workflows/ci.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/com.axonflow/axonflow-sdk.svg)](https://search.maven.org/artifact/com.axonflow/axonflow-sdk)
+[![Maven Central](https://img.shields.io/maven-central/v/com.getaxonflow/axonflow-sdk.svg)](https://search.maven.org/artifact/com.getaxonflow/axonflow-sdk)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ## Requirements
@@ -17,7 +17,7 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 
 ```xml
 <dependency>
-    <groupId>com.axonflow</groupId>
+    <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
     <version>1.0.0</version>
 </dependency>
@@ -26,7 +26,7 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 ### Gradle
 
 ```groovy
-implementation 'com.axonflow:axonflow-sdk:1.0.0'
+implementation 'com.getaxonflow:axonflow-sdk:1.0.0'
 ```
 
 ## Quick Start
@@ -36,9 +36,9 @@ implementation 'com.axonflow:axonflow-sdk:1.0.0'
 Gateway mode provides the most control, allowing you to pre-check requests before making LLM calls:
 
 ```java
-import com.axonflow.sdk.AxonFlow;
-import com.axonflow.sdk.AxonFlowConfig;
-import com.axonflow.sdk.types.*;
+import com.getaxonflow.sdk.AxonFlow;
+import com.getaxonflow.sdk.AxonFlowConfig;
+import com.getaxonflow.sdk.types.*;
 
 public class GatewayExample {
     public static void main(String[] args) {
@@ -91,9 +91,9 @@ public class GatewayExample {
 Proxy mode is simpler but provides less control - AxonFlow handles the LLM call:
 
 ```java
-import com.axonflow.sdk.AxonFlow;
-import com.axonflow.sdk.AxonFlowConfig;
-import com.axonflow.sdk.types.*;
+import com.getaxonflow.sdk.AxonFlow;
+import com.getaxonflow.sdk.AxonFlowConfig;
+import com.getaxonflow.sdk.types.*;
 
 public class ProxyExample {
     public static void main(String[] args) {

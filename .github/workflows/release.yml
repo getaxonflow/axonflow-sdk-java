@@ -54,7 +54,7 @@ jobs:
             **Maven:**
             ```xml
             <dependency>
-                <groupId>com.axonflow</groupId>
+                <groupId>com.getaxonflow</groupId>
                 <artifactId>axonflow-sdk</artifactId>
                 <version>${{ steps.version.outputs.VERSION }}</version>
             </dependency>
@@ -62,7 +62,7 @@ jobs:
 
             **Gradle:**
             ```groovy
-            implementation 'com.axonflow:axonflow-sdk:${{ steps.version.outputs.VERSION }}'
+            implementation 'com.getaxonflow:axonflow-sdk:${{ steps.version.outputs.VERSION }}'
             ```
 
             ### Changes
