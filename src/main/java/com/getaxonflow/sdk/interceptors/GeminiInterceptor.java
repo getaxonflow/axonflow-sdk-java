@@ -1,7 +1,7 @@
 package com.getaxonflow.sdk.interceptors;
 
 import com.getaxonflow.sdk.AxonFlow;
-import com.getaxonflow.sdk.PolicyViolationException;
+import com.getaxonflow.sdk.exceptions.PolicyViolationException;
 import com.getaxonflow.sdk.types.ClientRequest;
 import com.getaxonflow.sdk.types.ClientResponse;
 import com.getaxonflow.sdk.types.RequestType;
@@ -157,11 +157,9 @@ public class GeminiInterceptor {
         try {
             String summary = response != null ? response.getSummary() : "";
 
-            TokenUsage usage = TokenUsage.builder()
-                .promptTokens(response != null ? response.getPromptTokenCount() : 0)
-                .completionTokens(response != null ? response.getCandidatesTokenCount() : 0)
-                .totalTokens(response != null ? response.getTotalTokenCount() : 0)
-                .build();
+            int promptTokens = response != null ? response.getPromptTokenCount() : 0;
+            int completionTokens = response != null ? response.getCandidatesTokenCount() : 0;
+            TokenUsage usage = TokenUsage.of(promptTokens, completionTokens);
 
             AuditOptions auditOptions = AuditOptions.builder()
                 .contextId(contextId)

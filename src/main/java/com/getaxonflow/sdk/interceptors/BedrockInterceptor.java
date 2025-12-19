@@ -1,7 +1,7 @@
 package com.getaxonflow.sdk.interceptors;
 
 import com.getaxonflow.sdk.AxonFlow;
-import com.getaxonflow.sdk.PolicyViolationException;
+import com.getaxonflow.sdk.exceptions.PolicyViolationException;
 import com.getaxonflow.sdk.types.ClientRequest;
 import com.getaxonflow.sdk.types.ClientResponse;
 import com.getaxonflow.sdk.types.RequestType;
@@ -156,11 +156,9 @@ public class BedrockInterceptor {
         try {
             String summary = response != null ? response.getSummary() : "";
 
-            TokenUsage usage = TokenUsage.builder()
-                .promptTokens(response != null ? response.getInputTokens() : 0)
-                .completionTokens(response != null ? response.getOutputTokens() : 0)
-                .totalTokens(response != null ? response.getInputTokens() + response.getOutputTokens() : 0)
-                .build();
+            int promptTokens = response != null ? response.getInputTokens() : 0;
+            int completionTokens = response != null ? response.getOutputTokens() : 0;
+            TokenUsage usage = TokenUsage.of(promptTokens, completionTokens);
 
             AuditOptions auditOptions = AuditOptions.builder()
                 .contextId(contextId)

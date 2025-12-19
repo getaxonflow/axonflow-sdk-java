@@ -1,7 +1,7 @@
 package com.getaxonflow.sdk.interceptors;
 
 import com.getaxonflow.sdk.AxonFlow;
-import com.getaxonflow.sdk.PolicyViolationException;
+import com.getaxonflow.sdk.exceptions.PolicyViolationException;
 import com.getaxonflow.sdk.types.ClientRequest;
 import com.getaxonflow.sdk.types.ClientResponse;
 import com.getaxonflow.sdk.types.RequestType;
@@ -190,11 +190,9 @@ public class OllamaInterceptor {
                 summary = summary.substring(0, 100) + "...";
             }
 
-            TokenUsage usage = TokenUsage.builder()
-                .promptTokens(response != null ? response.getPromptEvalCount() : 0)
-                .completionTokens(response != null ? response.getEvalCount() : 0)
-                .totalTokens(response != null ? response.getPromptEvalCount() + response.getEvalCount() : 0)
-                .build();
+            int promptTokens = response != null ? response.getPromptEvalCount() : 0;
+            int completionTokens = response != null ? response.getEvalCount() : 0;
+            TokenUsage usage = TokenUsage.of(promptTokens, completionTokens);
 
             AuditOptions auditOptions = AuditOptions.builder()
                 .contextId(contextId)
@@ -218,11 +216,9 @@ public class OllamaInterceptor {
                 summary = summary.substring(0, 100) + "...";
             }
 
-            TokenUsage usage = TokenUsage.builder()
-                .promptTokens(response != null ? response.getPromptEvalCount() : 0)
-                .completionTokens(response != null ? response.getEvalCount() : 0)
-                .totalTokens(response != null ? response.getPromptEvalCount() + response.getEvalCount() : 0)
-                .build();
+            int promptTokens = response != null ? response.getPromptEvalCount() : 0;
+            int completionTokens = response != null ? response.getEvalCount() : 0;
+            TokenUsage usage = TokenUsage.of(promptTokens, completionTokens);
 
             AuditOptions auditOptions = AuditOptions.builder()
                 .contextId(contextId)
