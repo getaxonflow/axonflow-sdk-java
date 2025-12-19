@@ -72,8 +72,8 @@
         <maven-gpg-plugin.version>3.1.0</maven-gpg-plugin.version>
         <nexus-staging-plugin.version>1.6.13</nexus-staging-plugin.version>
 
-        <!-- Coverage Threshold (lowered temporarily due to new interceptors) -->
-        <jacoco.minimum.coverage>0.50</jacoco.minimum.coverage>
+        <!-- Coverage Threshold -->
+        <jacoco.minimum.coverage>0.70</jacoco.minimum.coverage>
     </properties>
 
     <dependencies>
