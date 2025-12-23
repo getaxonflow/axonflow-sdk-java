@@ -229,11 +229,12 @@ class AxonFlowTest {
     @Test
     @DisplayName("generatePlanAsync should return future")
     void generatePlanAsyncShouldReturnFuture() throws Exception {
-        stubFor(post(urlEqualTo("/api/v1/orchestrator/plan"))
+        // Now uses Agent API endpoint with request_type: multi-agent-plan
+        stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"plan_id\":\"plan_123\",\"steps\":[]}")));
+                .withBody("{\"success\":true,\"plan_id\":\"plan_123\",\"data\":{\"steps\":[]}}")));
 
         PlanRequest request = PlanRequest.builder()
             .objective("test")

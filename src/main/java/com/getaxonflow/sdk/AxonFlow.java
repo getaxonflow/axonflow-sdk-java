@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -361,6 +362,9 @@ public final class AxonFlow implements Closeable {
     /**
      * Generates a multi-agent plan for a complex task.
      *
+     * <p>This method uses the Agent API with request_type "multi-agent-plan"
+     * to generate and execute plans through the governance layer.
+     *
      * @param request the plan request
      * @return the generated plan
      * @throws PlanExecutionException if plan generation fails
@@ -369,11 +373,81 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/v1/orchestrator/plan", request);
+            // Build agent request format - use HashMap to allow null-safe values
+            String userToken = request.getUserToken();
+            if (userToken == null) {
+                userToken = config.getClientId() != null ? config.getClientId() : "default";
+            }
+            String clientId = config.getClientId() != null ? config.getClientId() : "default";
+            String domain = request.getDomain() != null ? request.getDomain() : "generic";
+
+            Map<String, Object> agentRequest = new java.util.HashMap<>();
+            agentRequest.put("query", request.getObjective());
+            agentRequest.put("user_token", userToken);
+            agentRequest.put("client_id", clientId);
+            agentRequest.put("request_type", "multi-agent-plan");
+            agentRequest.put("context", Map.of("domain", domain));
+
+            Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, PlanResponse.class);
+                return parsePlanResponse(response, request.getDomain());
             }
         }, "generatePlan");
+    }
+
+    /**
+     * Parses the Agent API response format into PlanResponse.
+     * The Agent API returns: {success, plan_id, data: {steps, domain, ...}, metadata, result}
+     */
+    @SuppressWarnings("unchecked")
+    private PlanResponse parsePlanResponse(Response response, String requestDomain) throws IOException {
+        handleErrorResponse(response);
+
+        ResponseBody body = response.body();
+        if (body == null) {
+            throw new AxonFlowException("Empty response body", response.code(), null);
+        }
+
+        String json = body.string();
+        Map<String, Object> agentResponse = objectMapper.readValue(json,
+            new TypeReference<Map<String, Object>>() {});
+
+        // Check for errors
+        Boolean success = (Boolean) agentResponse.get("success");
+        if (success == null || !success) {
+            String error = (String) agentResponse.get("error");
+            throw new PlanExecutionException(error != null ? error : "Plan generation failed");
+        }
+
+        // Extract fields from Agent API response format
+        String planId = (String) agentResponse.get("plan_id");
+        Map<String, Object> data = (Map<String, Object>) agentResponse.get("data");
+        Map<String, Object> metadata = (Map<String, Object>) agentResponse.get("metadata");
+        String result = (String) agentResponse.get("result");
+
+        // Extract nested fields from data
+        List<PlanStep> steps = Collections.emptyList();
+        String domain = requestDomain != null ? requestDomain : "generic";
+        Integer complexity = null;
+        Boolean parallel = null;
+        String estimatedDuration = null;
+
+        if (data != null) {
+            // Parse steps if present
+            List<Map<String, Object>> rawSteps = (List<Map<String, Object>>) data.get("steps");
+            if (rawSteps != null) {
+                steps = rawSteps.stream()
+                    .map(stepMap -> objectMapper.convertValue(stepMap, PlanStep.class))
+                    .toList();
+            }
+            domain = data.get("domain") != null ? (String) data.get("domain") : domain;
+            complexity = data.get("complexity") != null ? ((Number) data.get("complexity")).intValue() : null;
+            parallel = (Boolean) data.get("parallel");
+            estimatedDuration = (String) data.get("estimated_duration");
+        }
+
+        return new PlanResponse(planId, steps, domain, complexity, parallel,
+            estimatedDuration, metadata, null, result);
     }
 
     /**
