@@ -438,7 +438,7 @@ public final class AxonFlow implements Closeable {
             if (rawSteps != null) {
                 steps = rawSteps.stream()
                     .map(stepMap -> objectMapper.convertValue(stepMap, PlanStep.class))
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
             }
             domain = data.get("domain") != null ? (String) data.get("domain") : domain;
             complexity = data.get("complexity") != null ? ((Number) data.get("complexity")).intValue() : null;
