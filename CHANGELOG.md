@@ -5,6 +5,14 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2025-12-23
+
+### Fixed
+
+- **Java 11 Compatibility** - Fixed compilation error on Java 11
+  - Replaced `Stream.toList()` (Java 16+) with `Collectors.toList()` (Java 8+)
+  - MAP plan parsing now works correctly on all supported Java versions (11, 17, 21)
+
 ## [1.1.1] - 2025-12-23
 
 ### Fixed
