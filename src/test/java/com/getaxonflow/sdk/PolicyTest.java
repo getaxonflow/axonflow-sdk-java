@@ -274,7 +274,7 @@ class PolicyTest {
                 "]" +
                 "}";
 
-            stubFor(post(urlEqualTo("/api/v1/static-policies/test-pattern"))
+            stubFor(post(urlEqualTo("/api/v1/static-policies/test"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")

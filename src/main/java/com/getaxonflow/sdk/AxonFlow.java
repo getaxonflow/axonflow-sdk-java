@@ -752,7 +752,7 @@ public final class AxonFlow implements Closeable {
                 "pattern", pattern,
                 "test_inputs", testInputs
             );
-            Request httpRequest = buildRequest("POST", "/api/v1/static-policies/test-pattern", body);
+            Request httpRequest = buildRequest("POST", "/api/v1/static-policies/test", body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, TestPatternResult.class);
             }
@@ -1144,6 +1144,15 @@ public final class AxonFlow implements Closeable {
         }
         if (options.getOffset() != null) {
             appendQueryParam(query, "offset", options.getOffset().toString());
+        }
+        if (options.getSortBy() != null) {
+            appendQueryParam(query, "sort_by", options.getSortBy());
+        }
+        if (options.getSortOrder() != null) {
+            appendQueryParam(query, "sort_order", options.getSortOrder());
+        }
+        if (options.getSearch() != null) {
+            appendQueryParam(query, "search", options.getSearch());
         }
 
         if (query.length() > 0) {

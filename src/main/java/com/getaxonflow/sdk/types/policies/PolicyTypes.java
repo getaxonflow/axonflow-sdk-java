@@ -602,6 +602,9 @@ public final class PolicyTypes {
         private Boolean enabled;
         private Integer limit;
         private Integer offset;
+        private String sortBy;
+        private String sortOrder;
+        private String search;
 
         public static Builder builder() {
             return new Builder();
@@ -612,6 +615,9 @@ public final class PolicyTypes {
         public Boolean getEnabled() { return enabled; }
         public Integer getLimit() { return limit; }
         public Integer getOffset() { return offset; }
+        public String getSortBy() { return sortBy; }
+        public String getSortOrder() { return sortOrder; }
+        public String getSearch() { return search; }
 
         public static class Builder {
             private final ListDynamicPoliciesOptions options = new ListDynamicPoliciesOptions();
@@ -638,6 +644,21 @@ public final class PolicyTypes {
 
             public Builder offset(Integer offset) {
                 options.offset = offset;
+                return this;
+            }
+
+            public Builder sortBy(String sortBy) {
+                options.sortBy = sortBy;
+                return this;
+            }
+
+            public Builder sortOrder(String sortOrder) {
+                options.sortOrder = sortOrder;
+                return this;
+            }
+
+            public Builder search(String search) {
+                options.search = search;
                 return this;
             }
 
