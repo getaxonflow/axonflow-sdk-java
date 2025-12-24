@@ -609,7 +609,8 @@ public final class AxonFlow implements Closeable {
             String path = buildPolicyQueryString("/api/v1/static-policies", options);
             Request httpRequest = buildRequest("GET", path, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, new TypeReference<List<StaticPolicy>>() {});
+                StaticPoliciesResponse wrapper = parseResponse(response, StaticPoliciesResponse.class);
+                return wrapper.getPolicies() != null ? wrapper.getPolicies() : java.util.Collections.emptyList();
             }
         }, "listStaticPolicies");
     }
@@ -731,7 +732,8 @@ public final class AxonFlow implements Closeable {
             }
             Request httpRequest = buildRequest("GET", path.toString(), null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, new TypeReference<List<StaticPolicy>>() {});
+                EffectivePoliciesResponse wrapper = parseResponse(response, EffectivePoliciesResponse.class);
+                return wrapper.getStaticPolicies() != null ? wrapper.getStaticPolicies() : java.util.Collections.emptyList();
             }
         }, "getEffectiveStaticPolicies");
     }
@@ -750,7 +752,7 @@ public final class AxonFlow implements Closeable {
         return retryExecutor.execute(() -> {
             Map<String, Object> body = Map.of(
                 "pattern", pattern,
-                "test_inputs", testInputs
+                "inputs", testInputs
             );
             Request httpRequest = buildRequest("POST", "/api/v1/static-policies/test", body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
@@ -1015,6 +1017,11 @@ public final class AxonFlow implements Closeable {
 
         // Add authentication headers
         addAuthHeaders(builder);
+
+        // Add tenant ID for policy APIs (uses clientId)
+        if (config.getClientId() != null && !config.getClientId().isEmpty()) {
+            builder.header("X-Tenant-ID", config.getClientId());
+        }
 
         // Add mode header
         if (config.getMode() != null) {

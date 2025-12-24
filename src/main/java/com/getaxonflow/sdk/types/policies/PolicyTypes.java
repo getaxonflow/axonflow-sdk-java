@@ -125,6 +125,27 @@ public final class PolicyTypes {
         }
     }
 
+    /**
+     * Policy severity levels.
+     */
+    public enum PolicySeverity {
+        CRITICAL("critical"),
+        HIGH("high"),
+        MEDIUM("medium"),
+        LOW("low");
+
+        private final String value;
+
+        PolicySeverity(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+    }
+
     // ========================================================================
     // Static Policy Types
     // ========================================================================
@@ -139,7 +160,7 @@ public final class PolicyTypes {
         private PolicyCategory category;
         private PolicyTier tier;
         private String pattern;
-        private int severity;
+        private PolicySeverity severity;
         private boolean enabled;
         private PolicyAction action;
         @JsonProperty("organization_id")
@@ -168,8 +189,8 @@ public final class PolicyTypes {
         public void setTier(PolicyTier tier) { this.tier = tier; }
         public String getPattern() { return pattern; }
         public void setPattern(String pattern) { this.pattern = pattern; }
-        public int getSeverity() { return severity; }
-        public void setSeverity(int severity) { this.severity = severity; }
+        public PolicySeverity getSeverity() { return severity; }
+        public void setSeverity(PolicySeverity severity) { this.severity = severity; }
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public PolicyAction getAction() { return action; }
@@ -305,8 +326,9 @@ public final class PolicyTypes {
         private String name;
         private String description;
         private PolicyCategory category;
+        private PolicyTier tier = PolicyTier.TENANT;
         private String pattern;
-        private int severity = 5;
+        private PolicySeverity severity = PolicySeverity.MEDIUM;
         private boolean enabled = true;
         private PolicyAction action = PolicyAction.BLOCK;
 
@@ -317,8 +339,9 @@ public final class PolicyTypes {
         public String getName() { return name; }
         public String getDescription() { return description; }
         public PolicyCategory getCategory() { return category; }
+        public PolicyTier getTier() { return tier; }
         public String getPattern() { return pattern; }
-        public int getSeverity() { return severity; }
+        public PolicySeverity getSeverity() { return severity; }
         public boolean isEnabled() { return enabled; }
         public PolicyAction getAction() { return action; }
 
@@ -340,12 +363,17 @@ public final class PolicyTypes {
                 return this;
             }
 
+            public Builder tier(PolicyTier tier) {
+                request.tier = tier;
+                return this;
+            }
+
             public Builder pattern(String pattern) {
                 request.pattern = pattern;
                 return this;
             }
 
-            public Builder severity(int severity) {
+            public Builder severity(PolicySeverity severity) {
                 request.severity = severity;
                 return this;
             }
@@ -374,7 +402,7 @@ public final class PolicyTypes {
         private String description;
         private PolicyCategory category;
         private String pattern;
-        private Integer severity;
+        private PolicySeverity severity;
         private Boolean enabled;
         private PolicyAction action;
 
@@ -386,7 +414,7 @@ public final class PolicyTypes {
         public String getDescription() { return description; }
         public PolicyCategory getCategory() { return category; }
         public String getPattern() { return pattern; }
-        public Integer getSeverity() { return severity; }
+        public PolicySeverity getSeverity() { return severity; }
         public Boolean getEnabled() { return enabled; }
         public PolicyAction getAction() { return action; }
 
@@ -413,7 +441,7 @@ public final class PolicyTypes {
                 return this;
             }
 
-            public Builder severity(Integer severity) {
+            public Builder severity(PolicySeverity severity) {
                 request.severity = severity;
                 return this;
             }
@@ -786,14 +814,20 @@ public final class PolicyTypes {
     public static class TestPatternResult {
         private boolean valid;
         private String error;
-        private List<TestPatternMatch> results;
+        private String pattern;
+        private List<String> inputs;
+        private List<TestPatternMatch> matches;
 
         public boolean isValid() { return valid; }
         public void setValid(boolean valid) { this.valid = valid; }
         public String getError() { return error; }
         public void setError(String error) { this.error = error; }
-        public List<TestPatternMatch> getResults() { return results; }
-        public void setResults(List<TestPatternMatch> results) { this.results = results; }
+        public String getPattern() { return pattern; }
+        public void setPattern(String pattern) { this.pattern = pattern; }
+        public List<String> getInputs() { return inputs; }
+        public void setInputs(List<String> inputs) { this.inputs = inputs; }
+        public List<TestPatternMatch> getMatches() { return matches; }
+        public void setMatches(List<TestPatternMatch> matches) { this.matches = matches; }
     }
 
     /**
@@ -892,5 +926,34 @@ public final class PolicyTypes {
                 return options;
             }
         }
+    }
+
+    // ========================================================================
+    // Response Wrappers
+    // ========================================================================
+
+    /**
+     * Wrapper for list static policies response.
+     */
+    public static class StaticPoliciesResponse {
+        private List<StaticPolicy> policies;
+
+        public List<StaticPolicy> getPolicies() { return policies; }
+        public void setPolicies(List<StaticPolicy> policies) { this.policies = policies; }
+    }
+
+    /**
+     * Wrapper for effective policies response.
+     */
+    public static class EffectivePoliciesResponse {
+        @JsonProperty("static")
+        private List<StaticPolicy> staticPolicies;
+        @JsonProperty("dynamic")
+        private List<DynamicPolicy> dynamicPolicies;
+
+        public List<StaticPolicy> getStaticPolicies() { return staticPolicies; }
+        public void setStaticPolicies(List<StaticPolicy> staticPolicies) { this.staticPolicies = staticPolicies; }
+        public List<DynamicPolicy> getDynamicPolicies() { return dynamicPolicies; }
+        public void setDynamicPolicies(List<DynamicPolicy> dynamicPolicies) { this.dynamicPolicies = dynamicPolicies; }
     }
 }
