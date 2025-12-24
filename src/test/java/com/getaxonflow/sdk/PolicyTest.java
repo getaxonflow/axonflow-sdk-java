@@ -286,9 +286,9 @@ class PolicyTest {
             );
 
             assertThat(result.isValid()).isTrue();
-            assertThat(result.getResults()).hasSize(2);
-            assertThat(result.getResults().get(0).isMatched()).isTrue();
-            assertThat(result.getResults().get(1).isMatched()).isFalse();
+            assertThat(result.getMatches()).hasSize(2);
+            assertThat(result.getMatches().get(0).isMatched()).isTrue();
+            assertThat(result.getMatches().get(1).isMatched()).isFalse();
         }
 
         @Test
