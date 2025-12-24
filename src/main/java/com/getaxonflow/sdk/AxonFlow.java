@@ -800,34 +800,6 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
-     * Gets a policy override.
-     *
-     * @param policyId the policy ID
-     * @return the override, or null if not found
-     */
-    public PolicyOverride getPolicyOverride(String policyId) {
-        Objects.requireNonNull(policyId, "policyId cannot be null");
-
-        try {
-            return retryExecutor.execute(() -> {
-                Request httpRequest = buildRequest("GET", "/api/v1/static-policies/" + policyId + "/override", null);
-                try (Response response = httpClient.newCall(httpRequest).execute()) {
-                    if (response.code() == 404) {
-                        return null;
-                    }
-                    return parseResponse(response, PolicyOverride.class);
-                }
-            }, "getPolicyOverride");
-        } catch (AxonFlowException e) {
-            // Check if it's a 404 wrapped in an exception
-            if (e.getStatusCode() == 404) {
-                return null;
-            }
-            throw e;
-        }
-    }
-
-    /**
      * Deletes a policy override.
      *
      * @param policyId the policy ID
@@ -867,7 +839,7 @@ public final class AxonFlow implements Closeable {
      */
     public List<DynamicPolicy> listDynamicPolicies(ListDynamicPoliciesOptions options) {
         return retryExecutor.execute(() -> {
-            String path = buildDynamicPolicyQueryString("/api/v1/dynamic-policies", options);
+            String path = buildDynamicPolicyQueryString("/api/v1/policies", options);
             Request httpRequest = buildRequest("GET", path, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
@@ -885,7 +857,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(policyId, "policyId cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("GET", "/api/v1/dynamic-policies/" + policyId, null);
+            Request httpRequest = buildRequest("GET", "/api/v1/policies/" + policyId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -902,7 +874,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/v1/dynamic-policies", request);
+            Request httpRequest = buildRequest("POST", "/api/v1/policies", request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -921,7 +893,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("PUT", "/api/v1/dynamic-policies/" + policyId, request);
+            Request httpRequest = buildRequest("PUT", "/api/v1/policies/" + policyId, request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -937,7 +909,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(policyId, "policyId cannot be null");
 
         retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("DELETE", "/api/v1/dynamic-policies/" + policyId, null);
+            Request httpRequest = buildRequest("DELETE", "/api/v1/policies/" + policyId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 if (!response.isSuccessful() && response.code() != 204) {
                     handleErrorResponse(response);
@@ -959,7 +931,7 @@ public final class AxonFlow implements Closeable {
 
         return retryExecutor.execute(() -> {
             Map<String, Object> body = Map.of("enabled", enabled);
-            Request httpRequest = buildPatchRequest("/api/v1/dynamic-policies/" + policyId, body);
+            Request httpRequest = buildPatchRequest("/api/v1/policies/" + policyId, body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -983,7 +955,7 @@ public final class AxonFlow implements Closeable {
      */
     public List<DynamicPolicy> getEffectiveDynamicPolicies(EffectivePoliciesOptions options) {
         return retryExecutor.execute(() -> {
-            StringBuilder path = new StringBuilder("/api/v1/dynamic-policies/effective");
+            StringBuilder path = new StringBuilder("/api/v1/policies/effective");
             if (options != null) {
                 String query = buildEffectivePoliciesQuery(options);
                 if (!query.isEmpty()) {
