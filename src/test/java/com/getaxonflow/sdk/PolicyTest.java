@@ -105,7 +105,7 @@ class PolicyTest {
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("[" + SAMPLE_STATIC_POLICY + "]")));
+                    .withBody("{\"policies\": [" + SAMPLE_STATIC_POLICY + "]}")));
 
             List<StaticPolicy> policies = axonflow.listStaticPolicies();
 
@@ -124,7 +124,7 @@ class PolicyTest {
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("[" + SAMPLE_STATIC_POLICY + "]")));
+                    .withBody("{\"policies\": [" + SAMPLE_STATIC_POLICY + "]}")));
 
             ListStaticPoliciesOptions options = ListStaticPoliciesOptions.builder()
                 .category(PolicyCategory.SECURITY_SQLI)
@@ -255,7 +255,7 @@ class PolicyTest {
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("[" + SAMPLE_STATIC_POLICY + "]")));
+                    .withBody("{\"static\": [" + SAMPLE_STATIC_POLICY + "], \"dynamic\": []}")));
 
             List<StaticPolicy> policies = axonflow.getEffectiveStaticPolicies();
 
@@ -268,7 +268,7 @@ class PolicyTest {
             String responseBody =
                 "{" +
                 "\"valid\": true," +
-                "\"results\": [" +
+                "\"matches\": [" +
                 "{\"input\": \"SELECT * FROM users\", \"matched\": true}," +
                 "{\"input\": \"Hello world\", \"matched\": false}" +
                 "]" +
@@ -582,7 +582,7 @@ class PolicyTest {
             assertThat(request.getName()).isEqualTo("Test Policy");
             assertThat(request.getCategory()).isEqualTo(PolicyCategory.PII_GLOBAL);
             assertThat(request.isEnabled()).isTrue();
-            assertThat(request.getSeverity()).isEqualTo(5);
+            assertThat(request.getSeverity()).isEqualTo(PolicySeverity.MEDIUM);
             assertThat(request.getAction()).isEqualTo(PolicyAction.BLOCK);
         }
 
