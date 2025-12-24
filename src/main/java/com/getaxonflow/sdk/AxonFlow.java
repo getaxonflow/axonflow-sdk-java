@@ -17,6 +17,7 @@ package com.getaxonflow.sdk;
 
 import com.getaxonflow.sdk.exceptions.*;
 import com.getaxonflow.sdk.types.*;
+import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
 import com.getaxonflow.sdk.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -585,6 +586,392 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // Policy CRUD - Static Policies
+    // ========================================================================
+
+    /**
+     * Lists static policies with optional filtering.
+     *
+     * @return list of static policies
+     */
+    public List<StaticPolicy> listStaticPolicies() {
+        return listStaticPolicies(null);
+    }
+
+    /**
+     * Lists static policies with filtering options.
+     *
+     * @param options filtering options
+     * @return list of static policies
+     */
+    public List<StaticPolicy> listStaticPolicies(ListStaticPoliciesOptions options) {
+        return retryExecutor.execute(() -> {
+            String path = buildPolicyQueryString("/api/v1/static-policies", options);
+            Request httpRequest = buildRequest("GET", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                StaticPoliciesResponse wrapper = parseResponse(response, StaticPoliciesResponse.class);
+                return wrapper.getPolicies() != null ? wrapper.getPolicies() : java.util.Collections.emptyList();
+            }
+        }, "listStaticPolicies");
+    }
+
+    /**
+     * Gets a specific static policy by ID.
+     *
+     * @param policyId the policy ID
+     * @return the static policy
+     */
+    public StaticPolicy getStaticPolicy(String policyId) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("GET", "/api/v1/static-policies/" + policyId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, StaticPolicy.class);
+            }
+        }, "getStaticPolicy");
+    }
+
+    /**
+     * Creates a new static policy.
+     *
+     * @param request the create request
+     * @return the created policy
+     */
+    public StaticPolicy createStaticPolicy(CreateStaticPolicyRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("POST", "/api/v1/static-policies", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, StaticPolicy.class);
+            }
+        }, "createStaticPolicy");
+    }
+
+    /**
+     * Updates an existing static policy.
+     *
+     * @param policyId the policy ID
+     * @param request  the update request
+     * @return the updated policy
+     */
+    public StaticPolicy updateStaticPolicy(String policyId, UpdateStaticPolicyRequest request) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("PUT", "/api/v1/static-policies/" + policyId, request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, StaticPolicy.class);
+            }
+        }, "updateStaticPolicy");
+    }
+
+    /**
+     * Deletes a static policy.
+     *
+     * @param policyId the policy ID
+     */
+    public void deleteStaticPolicy(String policyId) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("DELETE", "/api/v1/static-policies/" + policyId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful() && response.code() != 204) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "deleteStaticPolicy");
+    }
+
+    /**
+     * Toggles a static policy's enabled status.
+     *
+     * @param policyId the policy ID
+     * @param enabled  the new enabled status
+     * @return the updated policy
+     */
+    public StaticPolicy toggleStaticPolicy(String policyId, boolean enabled) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Map<String, Object> body = Map.of("enabled", enabled);
+            Request httpRequest = buildPatchRequest("/api/v1/static-policies/" + policyId, body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, StaticPolicy.class);
+            }
+        }, "toggleStaticPolicy");
+    }
+
+    /**
+     * Gets effective static policies after inheritance and overrides.
+     *
+     * @return list of effective policies
+     */
+    public List<StaticPolicy> getEffectiveStaticPolicies() {
+        return getEffectiveStaticPolicies(null);
+    }
+
+    /**
+     * Gets effective static policies with options.
+     *
+     * @param options filtering options
+     * @return list of effective policies
+     */
+    public List<StaticPolicy> getEffectiveStaticPolicies(EffectivePoliciesOptions options) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/static-policies/effective");
+            if (options != null) {
+                String query = buildEffectivePoliciesQuery(options);
+                if (!query.isEmpty()) {
+                    path.append("?").append(query);
+                }
+            }
+            Request httpRequest = buildRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                EffectivePoliciesResponse wrapper = parseResponse(response, EffectivePoliciesResponse.class);
+                return wrapper.getStaticPolicies() != null ? wrapper.getStaticPolicies() : java.util.Collections.emptyList();
+            }
+        }, "getEffectiveStaticPolicies");
+    }
+
+    /**
+     * Tests a regex pattern against sample inputs.
+     *
+     * @param pattern    the regex pattern
+     * @param testInputs sample inputs to test
+     * @return the test result
+     */
+    public TestPatternResult testPattern(String pattern, List<String> testInputs) {
+        Objects.requireNonNull(pattern, "pattern cannot be null");
+        Objects.requireNonNull(testInputs, "testInputs cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Map<String, Object> body = Map.of(
+                "pattern", pattern,
+                "inputs", testInputs
+            );
+            Request httpRequest = buildRequest("POST", "/api/v1/static-policies/test", body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, TestPatternResult.class);
+            }
+        }, "testPattern");
+    }
+
+    /**
+     * Gets version history for a static policy.
+     *
+     * @param policyId the policy ID
+     * @return list of policy versions
+     */
+    public List<PolicyVersion> getStaticPolicyVersions(String policyId) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("GET", "/api/v1/static-policies/" + policyId + "/versions", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, new TypeReference<List<PolicyVersion>>() {});
+            }
+        }, "getStaticPolicyVersions");
+    }
+
+    // ========================================================================
+    // Policy CRUD - Overrides (Enterprise)
+    // ========================================================================
+
+    /**
+     * Creates a policy override.
+     *
+     * @param policyId the policy ID
+     * @param request  the override request
+     * @return the created override
+     */
+    public PolicyOverride createPolicyOverride(String policyId, CreatePolicyOverrideRequest request) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("POST", "/api/v1/static-policies/" + policyId + "/override", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, PolicyOverride.class);
+            }
+        }, "createPolicyOverride");
+    }
+
+    /**
+     * Deletes a policy override.
+     *
+     * @param policyId the policy ID
+     */
+    public void deletePolicyOverride(String policyId) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("DELETE", "/api/v1/static-policies/" + policyId + "/override", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful() && response.code() != 204) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "deletePolicyOverride");
+    }
+
+    // ========================================================================
+    // Policy CRUD - Dynamic Policies
+    // ========================================================================
+
+    /**
+     * Lists dynamic policies.
+     *
+     * @return list of dynamic policies
+     */
+    public List<DynamicPolicy> listDynamicPolicies() {
+        return listDynamicPolicies(null);
+    }
+
+    /**
+     * Lists dynamic policies with filtering options.
+     *
+     * @param options filtering options
+     * @return list of dynamic policies
+     */
+    public List<DynamicPolicy> listDynamicPolicies(ListDynamicPoliciesOptions options) {
+        return retryExecutor.execute(() -> {
+            String path = buildDynamicPolicyQueryString("/api/v1/policies", options);
+            Request httpRequest = buildRequest("GET", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
+            }
+        }, "listDynamicPolicies");
+    }
+
+    /**
+     * Gets a specific dynamic policy by ID.
+     *
+     * @param policyId the policy ID
+     * @return the dynamic policy
+     */
+    public DynamicPolicy getDynamicPolicy(String policyId) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("GET", "/api/v1/policies/" + policyId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, DynamicPolicy.class);
+            }
+        }, "getDynamicPolicy");
+    }
+
+    /**
+     * Creates a new dynamic policy.
+     *
+     * @param request the create request
+     * @return the created policy
+     */
+    public DynamicPolicy createDynamicPolicy(CreateDynamicPolicyRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("POST", "/api/v1/policies", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, DynamicPolicy.class);
+            }
+        }, "createDynamicPolicy");
+    }
+
+    /**
+     * Updates an existing dynamic policy.
+     *
+     * @param policyId the policy ID
+     * @param request  the update request
+     * @return the updated policy
+     */
+    public DynamicPolicy updateDynamicPolicy(String policyId, UpdateDynamicPolicyRequest request) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("PUT", "/api/v1/policies/" + policyId, request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, DynamicPolicy.class);
+            }
+        }, "updateDynamicPolicy");
+    }
+
+    /**
+     * Deletes a dynamic policy.
+     *
+     * @param policyId the policy ID
+     */
+    public void deleteDynamicPolicy(String policyId) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("DELETE", "/api/v1/policies/" + policyId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful() && response.code() != 204) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "deleteDynamicPolicy");
+    }
+
+    /**
+     * Toggles a dynamic policy's enabled status.
+     *
+     * @param policyId the policy ID
+     * @param enabled  the new enabled status
+     * @return the updated policy
+     */
+    public DynamicPolicy toggleDynamicPolicy(String policyId, boolean enabled) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Map<String, Object> body = Map.of("enabled", enabled);
+            Request httpRequest = buildPatchRequest("/api/v1/policies/" + policyId, body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, DynamicPolicy.class);
+            }
+        }, "toggleDynamicPolicy");
+    }
+
+    /**
+     * Gets effective dynamic policies after inheritance.
+     *
+     * @return list of effective policies
+     */
+    public List<DynamicPolicy> getEffectiveDynamicPolicies() {
+        return getEffectiveDynamicPolicies(null);
+    }
+
+    /**
+     * Gets effective dynamic policies with options.
+     *
+     * @param options filtering options
+     * @return list of effective policies
+     */
+    public List<DynamicPolicy> getEffectiveDynamicPolicies(EffectivePoliciesOptions options) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/policies/effective");
+            if (options != null) {
+                String query = buildEffectivePoliciesQuery(options);
+                if (!query.isEmpty()) {
+                    path.append("?").append(query);
+                }
+            }
+            Request httpRequest = buildRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
+            }
+        }, "getEffectiveDynamicPolicies");
+    }
+
+    // ========================================================================
     // Configuration Access
     // ========================================================================
 
@@ -631,6 +1018,11 @@ public final class AxonFlow implements Closeable {
         // Add authentication headers
         addAuthHeaders(builder);
 
+        // Add tenant ID for policy APIs (uses clientId)
+        if (config.getClientId() != null && !config.getClientId().isEmpty()) {
+            builder.header("X-Tenant-ID", config.getClientId());
+        }
+
         // Add mode header
         if (config.getMode() != null) {
             builder.header("X-AxonFlow-Mode", config.getMode().getValue());
@@ -665,6 +1057,138 @@ public final class AxonFlow implements Closeable {
         }
 
         return builder.build();
+    }
+
+    private Request buildPatchRequest(String path, Object body) {
+        HttpUrl url = HttpUrl.parse(config.getAgentUrl() + path);
+        if (url == null) {
+            throw new ConfigurationException("Invalid URL: " + config.getAgentUrl() + path);
+        }
+
+        Request.Builder builder = new Request.Builder()
+            .url(url)
+            .header("User-Agent", config.getUserAgent())
+            .header("Accept", "application/json");
+
+        addAuthHeaders(builder);
+
+        if (config.getMode() != null) {
+            builder.header("X-AxonFlow-Mode", config.getMode().getValue());
+        }
+
+        RequestBody requestBody = null;
+        if (body != null) {
+            try {
+                String json = objectMapper.writeValueAsString(body);
+                requestBody = RequestBody.create(json, JSON);
+            } catch (JsonProcessingException e) {
+                throw new AxonFlowException("Failed to serialize request body", e);
+            }
+        }
+
+        builder.patch(requestBody != null ? requestBody : RequestBody.create("", JSON));
+        return builder.build();
+    }
+
+    private String buildPolicyQueryString(String basePath, ListStaticPoliciesOptions options) {
+        if (options == null) {
+            return basePath;
+        }
+
+        StringBuilder path = new StringBuilder(basePath);
+        StringBuilder query = new StringBuilder();
+
+        if (options.getCategory() != null) {
+            appendQueryParam(query, "category", options.getCategory().getValue());
+        }
+        if (options.getTier() != null) {
+            appendQueryParam(query, "tier", options.getTier().getValue());
+        }
+        if (options.getEnabled() != null) {
+            appendQueryParam(query, "enabled", options.getEnabled().toString());
+        }
+        if (options.getLimit() != null) {
+            appendQueryParam(query, "limit", options.getLimit().toString());
+        }
+        if (options.getOffset() != null) {
+            appendQueryParam(query, "offset", options.getOffset().toString());
+        }
+        if (options.getSortBy() != null) {
+            appendQueryParam(query, "sort_by", options.getSortBy());
+        }
+        if (options.getSortOrder() != null) {
+            appendQueryParam(query, "sort_order", options.getSortOrder());
+        }
+        if (options.getSearch() != null) {
+            appendQueryParam(query, "search", options.getSearch());
+        }
+
+        if (query.length() > 0) {
+            path.append("?").append(query);
+        }
+        return path.toString();
+    }
+
+    private String buildDynamicPolicyQueryString(String basePath, ListDynamicPoliciesOptions options) {
+        if (options == null) {
+            return basePath;
+        }
+
+        StringBuilder path = new StringBuilder(basePath);
+        StringBuilder query = new StringBuilder();
+
+        if (options.getCategory() != null) {
+            appendQueryParam(query, "category", options.getCategory().getValue());
+        }
+        if (options.getTier() != null) {
+            appendQueryParam(query, "tier", options.getTier().getValue());
+        }
+        if (options.getEnabled() != null) {
+            appendQueryParam(query, "enabled", options.getEnabled().toString());
+        }
+        if (options.getLimit() != null) {
+            appendQueryParam(query, "limit", options.getLimit().toString());
+        }
+        if (options.getOffset() != null) {
+            appendQueryParam(query, "offset", options.getOffset().toString());
+        }
+        if (options.getSortBy() != null) {
+            appendQueryParam(query, "sort_by", options.getSortBy());
+        }
+        if (options.getSortOrder() != null) {
+            appendQueryParam(query, "sort_order", options.getSortOrder());
+        }
+        if (options.getSearch() != null) {
+            appendQueryParam(query, "search", options.getSearch());
+        }
+
+        if (query.length() > 0) {
+            path.append("?").append(query);
+        }
+        return path.toString();
+    }
+
+    private String buildEffectivePoliciesQuery(EffectivePoliciesOptions options) {
+        StringBuilder query = new StringBuilder();
+
+        if (options.getCategory() != null) {
+            appendQueryParam(query, "category", options.getCategory().getValue());
+        }
+        if (options.isIncludeDisabled()) {
+            appendQueryParam(query, "include_disabled", "true");
+        }
+        if (options.isIncludeOverridden()) {
+            appendQueryParam(query, "include_overridden", "true");
+        }
+
+        return query.toString();
+    }
+
+    private void appendQueryParam(StringBuilder query, String name, String value) {
+        if (query.length() > 0) {
+            query.append("&");
+        }
+        query.append(name).append("=").append(value);
     }
 
     private void addAuthHeaders(Request.Builder builder) {
