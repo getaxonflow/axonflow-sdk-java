@@ -48,7 +48,7 @@ class PolicyTest {
         "\"category\": \"security-sqli\"," +
         "\"tier\": \"system\"," +
         "\"pattern\": \"(?i)(union\\\\s+select|drop\\\\s+table)\"," +
-        "\"severity\": 9," +
+        "\"severity\": \"critical\"," +
         "\"enabled\": true," +
         "\"action\": \"block\"," +
         "\"created_at\": \"2025-01-01T00:00:00Z\"," +
@@ -172,7 +172,7 @@ class PolicyTest {
                 .name("Block SQL Injection")
                 .category(PolicyCategory.SECURITY_SQLI)
                 .pattern("(?i)(union\\\\s+select|drop\\\\s+table)")
-                .severity(9)
+                .severity(PolicySeverity.CRITICAL)
                 .build();
 
             StaticPolicy policy = axonflow.createStaticPolicy(request);
@@ -193,7 +193,7 @@ class PolicyTest {
         @Test
         @DisplayName("updateStaticPolicy should update and return policy")
         void updateStaticPolicyShouldUpdateAndReturnPolicy() {
-            String updatedPolicy = SAMPLE_STATIC_POLICY.replace("\"severity\": 9", "\"severity\": 10");
+            String updatedPolicy = SAMPLE_STATIC_POLICY.replace("\"severity\": \"critical\"", "\"severity\": \"high\"");
             stubFor(put(urlEqualTo("/api/v1/static-policies/pol_123"))
                 .willReturn(aResponse()
                     .withStatus(200)
@@ -201,12 +201,12 @@ class PolicyTest {
                     .withBody(updatedPolicy)));
 
             UpdateStaticPolicyRequest request = UpdateStaticPolicyRequest.builder()
-                .severity(10)
+                .severity(PolicySeverity.HIGH)
                 .build();
 
             StaticPolicy policy = axonflow.updateStaticPolicy("pol_123", request);
 
-            assertThat(policy.getSeverity()).isEqualTo(10);
+            assertThat(policy.getSeverity()).isEqualTo(PolicySeverity.HIGH);
 
             verify(putRequestedFor(urlEqualTo("/api/v1/static-policies/pol_123")));
         }
