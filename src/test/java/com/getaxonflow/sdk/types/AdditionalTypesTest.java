@@ -33,7 +33,8 @@ class AdditionalTypesTest {
                 List.of("static-check-1"),
                 "17.48ms",
                 "tenant-123",
-                0.75
+                0.75,
+                null
             );
 
             assertThat(info.getPoliciesEvaluated()).containsExactly("policy1", "policy2");
@@ -46,7 +47,7 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("Should handle null lists")
         void testPolicyInfoNullLists() {
-            PolicyInfo info = new PolicyInfo(null, null, "10ms", "tenant", null);
+            PolicyInfo info = new PolicyInfo(null, null, "10ms", "tenant", null, null);
 
             assertThat(info.getPoliciesEvaluated()).isEmpty();
             assertThat(info.getStaticChecks()).isEmpty();
@@ -55,7 +56,7 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("getProcessingDuration should parse milliseconds")
         void testProcessingDurationMilliseconds() {
-            PolicyInfo info = new PolicyInfo(null, null, "17.48ms", null, null);
+            PolicyInfo info = new PolicyInfo(null, null, "17.48ms", null, null, null);
 
             Duration duration = info.getProcessingDuration();
             assertThat(duration.toNanos()).isGreaterThan(17_000_000L);
@@ -65,7 +66,7 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("getProcessingDuration should parse seconds")
         void testProcessingDurationSeconds() {
-            PolicyInfo info = new PolicyInfo(null, null, "1.5s", null, null);
+            PolicyInfo info = new PolicyInfo(null, null, "1.5s", null, null, null);
 
             Duration duration = info.getProcessingDuration();
             assertThat(duration.toMillis()).isGreaterThanOrEqualTo(1500L);
@@ -75,7 +76,7 @@ class AdditionalTypesTest {
         @DisplayName("getProcessingDuration should parse microseconds (us)")
         void testProcessingDurationMicroseconds() {
             // Note: the implementation may not handle 'us' suffix perfectly
-            PolicyInfo info = new PolicyInfo(null, null, "500µs", null, null);
+            PolicyInfo info = new PolicyInfo(null, null, "500µs", null, null, null);
 
             Duration duration = info.getProcessingDuration();
             // If µs parsing works, we get microseconds; otherwise it falls through
@@ -85,7 +86,7 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("getProcessingDuration should handle ns suffix")
         void testProcessingDurationNanoseconds() {
-            PolicyInfo info = new PolicyInfo(null, null, "1000ns", null, null);
+            PolicyInfo info = new PolicyInfo(null, null, "1000ns", null, null, null);
 
             Duration duration = info.getProcessingDuration();
             // Implementation may return ZERO if parsing fails
@@ -95,24 +96,24 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("getProcessingDuration should handle empty/null")
         void testProcessingDurationEmpty() {
-            PolicyInfo info1 = new PolicyInfo(null, null, null, null, null);
+            PolicyInfo info1 = new PolicyInfo(null, null, null, null, null, null);
             assertThat(info1.getProcessingDuration()).isEqualTo(Duration.ZERO);
 
-            PolicyInfo info2 = new PolicyInfo(null, null, "", null, null);
+            PolicyInfo info2 = new PolicyInfo(null, null, "", null, null, null);
             assertThat(info2.getProcessingDuration()).isEqualTo(Duration.ZERO);
         }
 
         @Test
         @DisplayName("getProcessingDuration should handle invalid format")
         void testProcessingDurationInvalid() {
-            PolicyInfo info = new PolicyInfo(null, null, "invalid", null, null);
+            PolicyInfo info = new PolicyInfo(null, null, "invalid", null, null, null);
             assertThat(info.getProcessingDuration()).isEqualTo(Duration.ZERO);
         }
 
         @Test
         @DisplayName("getProcessingDuration should handle raw number as milliseconds")
         void testProcessingDurationRawNumber() {
-            PolicyInfo info = new PolicyInfo(null, null, "100", null, null);
+            PolicyInfo info = new PolicyInfo(null, null, "100", null, null, null);
 
             Duration duration = info.getProcessingDuration();
             assertThat(duration.toMillis()).isEqualTo(100L);
@@ -126,7 +127,8 @@ class AdditionalTypesTest {
                 List.of("check1"),
                 "10ms",
                 "tenant1",
-                0.5
+                0.5,
+                null
             );
 
             PolicyInfo info2 = new PolicyInfo(
@@ -134,7 +136,8 @@ class AdditionalTypesTest {
                 List.of("check1"),
                 "10ms",
                 "tenant1",
-                0.5
+                0.5,
+                null
             );
 
             PolicyInfo info3 = new PolicyInfo(
@@ -142,7 +145,8 @@ class AdditionalTypesTest {
                 List.of("check1"),
                 "10ms",
                 "tenant1",
-                0.5
+                0.5,
+                null
             );
 
             assertThat(info1).isEqualTo(info2);
@@ -161,7 +165,8 @@ class AdditionalTypesTest {
                 List.of("check1"),
                 "10ms",
                 "tenant1",
-                0.5
+                0.5,
+                null
             );
 
             String str = info.toString();
