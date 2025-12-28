@@ -354,11 +354,12 @@ class AxonFlowTest {
     @Test
     @DisplayName("queryConnector should throw on failure")
     void queryConnectorShouldThrowOnFailure() {
-        stubFor(post(urlEqualTo("/api/v1/connectors/query"))
+        // MCP connector queries now use /api/request with request_type: "mcp-query"
+        stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":false,\"error\":\"Connector not found\"}")));
+                .withBody("{\"success\":false,\"error\":\"Connector not found\",\"blocked\":false}")));
 
         ConnectorQuery query = ConnectorQuery.builder()
             .connectorId("unknown")
@@ -373,11 +374,12 @@ class AxonFlowTest {
     @Test
     @DisplayName("queryConnectorAsync should return future")
     void queryConnectorAsyncShouldReturnFuture() throws Exception {
-        stubFor(post(urlEqualTo("/api/v1/connectors/query"))
+        // MCP connector queries now use /api/request with request_type: "mcp-query"
+        stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":[]}")));
+                .withBody("{\"success\":true,\"data\":[],\"blocked\":false}")));
 
         ConnectorQuery query = ConnectorQuery.builder()
             .connectorId("salesforce")
