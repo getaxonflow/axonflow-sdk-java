@@ -571,10 +571,16 @@ public final class AxonFlow implements Closeable {
                 context.put("params", query.getParameters());
             }
 
+            // Determine clientId: prefer config.getClientId(), fallback to license key
+            String clientId = config.getClientId();
+            if (clientId == null || clientId.isEmpty()) {
+                clientId = config.getLicenseKey();
+            }
+
             ClientRequest clientRequest = ClientRequest.builder()
                 .query(query.getOperation())
-                .userToken(query.getUserToken() != null ? query.getUserToken() : config.getLicenseKey())
-                .clientId(config.getLicenseKey())
+                .userToken(query.getUserToken() != null ? query.getUserToken() : clientId)
+                .clientId(clientId)
                 .requestType(RequestType.MCP_QUERY)
                 .context(context)
                 .build();
@@ -584,13 +590,14 @@ public final class AxonFlow implements Closeable {
                 ClientResponse clientResponse = parseResponse(response, ClientResponse.class);
 
                 // Convert ClientResponse to ConnectorResponse
-                ConnectorResponse result = ConnectorResponse.builder()
-                    .success(clientResponse.isSuccess())
-                    .data(clientResponse.getData())
-                    .error(clientResponse.getError())
-                    .connectorId(query.getConnectorId())
-                    .operation(query.getOperation())
-                    .build();
+                ConnectorResponse result = new ConnectorResponse(
+                    clientResponse.isSuccess(),
+                    clientResponse.getData(),
+                    clientResponse.getError(),
+                    query.getConnectorId(),
+                    query.getOperation(),
+                    null  // processingTime not available from ClientResponse
+                );
 
                 if (!result.isSuccess()) {
                     throw new ConnectorException(
