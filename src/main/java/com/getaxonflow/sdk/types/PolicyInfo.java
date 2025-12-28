@@ -44,17 +44,22 @@ public final class PolicyInfo {
     @JsonProperty("risk_score")
     private final Double riskScore;
 
+    @JsonProperty("code_artifact")
+    private final CodeArtifact codeArtifact;
+
     public PolicyInfo(
             @JsonProperty("policies_evaluated") List<String> policiesEvaluated,
             @JsonProperty("static_checks") List<String> staticChecks,
             @JsonProperty("processing_time") String processingTime,
             @JsonProperty("tenant_id") String tenantId,
-            @JsonProperty("risk_score") Double riskScore) {
+            @JsonProperty("risk_score") Double riskScore,
+            @JsonProperty("code_artifact") CodeArtifact codeArtifact) {
         this.policiesEvaluated = policiesEvaluated != null ? Collections.unmodifiableList(policiesEvaluated) : Collections.emptyList();
         this.staticChecks = staticChecks != null ? Collections.unmodifiableList(staticChecks) : Collections.emptyList();
         this.processingTime = processingTime;
         this.tenantId = tenantId;
         this.riskScore = riskScore;
+        this.codeArtifact = codeArtifact;
     }
 
     /**
@@ -137,6 +142,15 @@ public final class PolicyInfo {
         return riskScore;
     }
 
+    /**
+     * Returns the code artifact metadata if code was detected in the response.
+     *
+     * @return the code artifact, or null if no code was detected
+     */
+    public CodeArtifact getCodeArtifact() {
+        return codeArtifact;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -146,12 +160,13 @@ public final class PolicyInfo {
                Objects.equals(staticChecks, that.staticChecks) &&
                Objects.equals(processingTime, that.processingTime) &&
                Objects.equals(tenantId, that.tenantId) &&
-               Objects.equals(riskScore, that.riskScore);
+               Objects.equals(riskScore, that.riskScore) &&
+               Objects.equals(codeArtifact, that.codeArtifact);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(policiesEvaluated, staticChecks, processingTime, tenantId, riskScore);
+        return Objects.hash(policiesEvaluated, staticChecks, processingTime, tenantId, riskScore, codeArtifact);
     }
 
     @Override
@@ -162,6 +177,7 @@ public final class PolicyInfo {
                ", processingTime='" + processingTime + '\'' +
                ", tenantId='" + tenantId + '\'' +
                ", riskScore=" + riskScore +
+               ", codeArtifact=" + codeArtifact +
                '}';
     }
 }
