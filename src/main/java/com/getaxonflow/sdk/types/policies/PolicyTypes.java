@@ -84,12 +84,20 @@ public final class PolicyTypes {
 
     /**
      * Override action for policy overrides.
+     * <ul>
+     *   <li>BLOCK: Immediately block the request</li>
+     *   <li>REQUIRE_APPROVAL: Pause for human approval (HITL)</li>
+     *   <li>REDACT: Mask sensitive content</li>
+     *   <li>WARN: Log warning, allow request</li>
+     *   <li>LOG: Audit only</li>
+     * </ul>
      */
     public enum OverrideAction {
         BLOCK("block"),
+        REQUIRE_APPROVAL("require_approval"),
+        REDACT("redact"),
         WARN("warn"),
-        LOG("log"),
-        REDACT("redact");
+        LOG("log");
 
         private final String value;
 
@@ -105,12 +113,21 @@ public final class PolicyTypes {
 
     /**
      * Action to take when a policy matches.
+     * <ul>
+     *   <li>BLOCK: Immediately block the request</li>
+     *   <li>REQUIRE_APPROVAL: Pause for human approval (HITL)</li>
+     *   <li>REDACT: Mask sensitive content</li>
+     *   <li>WARN: Log warning, allow request</li>
+     *   <li>LOG: Audit only</li>
+     *   <li>ALLOW: Explicitly allow (for overrides)</li>
+     * </ul>
      */
     public enum PolicyAction {
         BLOCK("block"),
+        REQUIRE_APPROVAL("require_approval"),
+        REDACT("redact"),
         WARN("warn"),
         LOG("log"),
-        REDACT("redact"),
         ALLOW("allow");
 
         private final String value;
