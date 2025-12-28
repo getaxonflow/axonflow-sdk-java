@@ -649,18 +649,20 @@ class PolicyTest {
         @DisplayName("OverrideAction enum values should serialize correctly")
         void overrideActionEnumValuesShouldSerializeCorrectly() {
             assertThat(OverrideAction.BLOCK.getValue()).isEqualTo("block");
+            assertThat(OverrideAction.REQUIRE_APPROVAL.getValue()).isEqualTo("require_approval");
+            assertThat(OverrideAction.REDACT.getValue()).isEqualTo("redact");
             assertThat(OverrideAction.WARN.getValue()).isEqualTo("warn");
             assertThat(OverrideAction.LOG.getValue()).isEqualTo("log");
-            assertThat(OverrideAction.REDACT.getValue()).isEqualTo("redact");
         }
 
         @Test
         @DisplayName("PolicyAction enum values should serialize correctly")
         void policyActionEnumValuesShouldSerializeCorrectly() {
             assertThat(PolicyAction.BLOCK.getValue()).isEqualTo("block");
+            assertThat(PolicyAction.REQUIRE_APPROVAL.getValue()).isEqualTo("require_approval");
+            assertThat(PolicyAction.REDACT.getValue()).isEqualTo("redact");
             assertThat(PolicyAction.WARN.getValue()).isEqualTo("warn");
             assertThat(PolicyAction.LOG.getValue()).isEqualTo("log");
-            assertThat(PolicyAction.REDACT.getValue()).isEqualTo("redact");
             assertThat(PolicyAction.ALLOW.getValue()).isEqualTo("allow");
         }
     }
