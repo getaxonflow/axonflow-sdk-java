@@ -1249,6 +1249,12 @@ public final class AxonFlow implements Closeable {
         }
     }
 
+    private void addTenantIdHeader(Request.Builder builder) {
+        if (config.getClientId() != null && !config.getClientId().isEmpty()) {
+            builder.header("X-Tenant-ID", config.getClientId());
+        }
+    }
+
     private <T> T parseResponse(Response response, Class<T> type) throws IOException {
         handleErrorResponse(response);
 
@@ -1551,6 +1557,116 @@ public final class AxonFlow implements Closeable {
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, PRRecord.class);
+        }
+    }
+
+    /**
+     * Gets aggregated code governance metrics for the tenant.
+     *
+     * @return aggregated metrics including PR counts, file counts, and security findings
+     * @throws IOException if the request fails
+     */
+    public CodeGovernanceMetrics getCodeGovernanceMetrics() throws IOException {
+        logger.debug("Getting code governance metrics");
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/metrics")
+                .get();
+
+        addAuthHeaders(builder);
+        addTenantIdHeader(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, CodeGovernanceMetrics.class);
+        }
+    }
+
+    /**
+     * Exports code governance data in JSON format.
+     *
+     * @param options export options (format, date range, state filter)
+     * @return export response with PR records
+     * @throws IOException if the request fails
+     */
+    public ExportResponse exportCodeGovernanceData(ExportOptions options) throws IOException {
+        logger.debug("Exporting code governance data");
+
+        StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/export");
+        StringBuilder query = new StringBuilder();
+
+        if (options != null) {
+            appendQueryParam(query, "format", options.getFormat() != null ? options.getFormat() : "json");
+            if (options.getStartDate() != null) {
+                appendQueryParam(query, "start_date", options.getStartDate().toString());
+            }
+            if (options.getEndDate() != null) {
+                appendQueryParam(query, "end_date", options.getEndDate().toString());
+            }
+            if (options.getState() != null) {
+                appendQueryParam(query, "state", options.getState());
+            }
+        } else {
+            appendQueryParam(query, "format", "json");
+        }
+
+        if (query.length() > 0) {
+            url.append("?").append(query);
+        }
+
+        Request.Builder builder = new Request.Builder()
+                .url(url.toString())
+                .get();
+
+        addAuthHeaders(builder);
+        addTenantIdHeader(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, ExportResponse.class);
+        }
+    }
+
+    /**
+     * Exports code governance data in CSV format.
+     *
+     * @param options export options (date range, state filter)
+     * @return CSV data as a string
+     * @throws IOException if the request fails
+     */
+    public String exportCodeGovernanceDataCSV(ExportOptions options) throws IOException {
+        logger.debug("Exporting code governance data as CSV");
+
+        StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/export");
+        StringBuilder query = new StringBuilder();
+
+        appendQueryParam(query, "format", "csv");
+        if (options != null) {
+            if (options.getStartDate() != null) {
+                appendQueryParam(query, "start_date", options.getStartDate().toString());
+            }
+            if (options.getEndDate() != null) {
+                appendQueryParam(query, "end_date", options.getEndDate().toString());
+            }
+            if (options.getState() != null) {
+                appendQueryParam(query, "state", options.getState());
+            }
+        }
+
+        url.append("?").append(query);
+
+        Request.Builder builder = new Request.Builder()
+                .url(url.toString())
+                .get();
+
+        addAuthHeaders(builder);
+        addTenantIdHeader(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            handleErrorResponse(response);
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new AxonFlowException("Empty response body", response.code(), null);
+            }
+            return body.string();
         }
     }
 
