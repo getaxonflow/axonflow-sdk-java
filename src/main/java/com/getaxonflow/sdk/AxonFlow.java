@@ -931,8 +931,16 @@ public final class AxonFlow implements Closeable {
         return retryExecutor.execute(() -> {
             Request httpRequest = buildRequest("GET", "/api/v1/static-policies/overrides", null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                PolicyOverride[] overrides = parseResponse(response, PolicyOverride[].class);
-                return overrides != null ? java.util.Arrays.asList(overrides) : java.util.Collections.emptyList();
+                // Backend returns wrapped response: {"overrides": [...], "count": N}
+                Map<String, Object> wrapper = parseResponse(response, new TypeReference<Map<String, Object>>() {});
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> overridesRaw = (List<Map<String, Object>>) wrapper.get("overrides");
+                if (overridesRaw == null) {
+                    return java.util.Collections.emptyList();
+                }
+                return overridesRaw.stream()
+                    .map(raw -> objectMapper.convertValue(raw, PolicyOverride.class))
+                    .collect(java.util.stream.Collectors.toList());
             }
         }, "listPolicyOverrides");
     }
