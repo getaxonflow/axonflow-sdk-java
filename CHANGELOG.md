@@ -5,6 +5,23 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-12-29
+
+### Added
+
+- **Enterprise Policy Features**:
+  - `organizationId()` builder method in `CreateStaticPolicyRequest` for organization-tier policies
+  - `organizationId()` builder method in `ListStaticPoliciesOptions` for filtering by organization
+  - `listPolicyOverrides()` method to list all active policy overrides
+
+- **Convenience Methods**:
+  - `listStaticPolicies(PolicyTier tier, String organizationId)` - filter by tier and organization
+  - `listStaticPolicies(PolicyTier tier, PolicyCategory category)` - filter by tier and category
+  - `listStaticPolicies(PolicyCategory category)` - filter by category
+  - `getEffectiveStaticPolicies(PolicyCategory category)` - filter effective policies by category
+
+---
+
 ## [1.5.0] - 2025-12-29
 
 ### Added
