@@ -267,6 +267,7 @@ public final class PolicyTypes {
     public static class ListStaticPoliciesOptions {
         private PolicyCategory category;
         private PolicyTier tier;
+        private String organizationId;
         private Boolean enabled;
         private Integer limit;
         private Integer offset;
@@ -280,6 +281,7 @@ public final class PolicyTypes {
 
         public PolicyCategory getCategory() { return category; }
         public PolicyTier getTier() { return tier; }
+        public String getOrganizationId() { return organizationId; }
         public Boolean getEnabled() { return enabled; }
         public Integer getLimit() { return limit; }
         public Integer getOffset() { return offset; }
@@ -297,6 +299,17 @@ public final class PolicyTypes {
 
             public Builder tier(PolicyTier tier) {
                 options.tier = tier;
+                return this;
+            }
+
+            /**
+             * Filters policies by organization ID (Enterprise).
+             *
+             * @param organizationId the organization ID
+             * @return this builder
+             */
+            public Builder organizationId(String organizationId) {
+                options.organizationId = organizationId;
                 return this;
             }
 
@@ -344,6 +357,8 @@ public final class PolicyTypes {
         private String description;
         private PolicyCategory category;
         private PolicyTier tier = PolicyTier.TENANT;
+        @JsonProperty("organization_id")
+        private String organizationId;
         private String pattern;
         private PolicySeverity severity = PolicySeverity.MEDIUM;
         private boolean enabled = true;
@@ -357,6 +372,7 @@ public final class PolicyTypes {
         public String getDescription() { return description; }
         public PolicyCategory getCategory() { return category; }
         public PolicyTier getTier() { return tier; }
+        public String getOrganizationId() { return organizationId; }
         public String getPattern() { return pattern; }
         public PolicySeverity getSeverity() { return severity; }
         public boolean isEnabled() { return enabled; }
@@ -382,6 +398,17 @@ public final class PolicyTypes {
 
             public Builder tier(PolicyTier tier) {
                 request.tier = tier;
+                return this;
+            }
+
+            /**
+             * Sets the organization ID for organization-tier policies (Enterprise).
+             *
+             * @param organizationId the organization ID
+             * @return this builder
+             */
+            public Builder organizationId(String organizationId) {
+                request.organizationId = organizationId;
                 return this;
             }
 

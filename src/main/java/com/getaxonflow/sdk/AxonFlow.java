@@ -633,7 +633,7 @@ public final class AxonFlow implements Closeable {
      * @return list of static policies
      */
     public List<StaticPolicy> listStaticPolicies() {
-        return listStaticPolicies(null);
+        return listStaticPolicies((ListStaticPoliciesOptions) null);
     }
 
     /**
@@ -651,6 +651,46 @@ public final class AxonFlow implements Closeable {
                 return wrapper.getPolicies() != null ? wrapper.getPolicies() : java.util.Collections.emptyList();
             }
         }, "listStaticPolicies");
+    }
+
+    /**
+     * Lists static policies filtered by tier and organization ID (Enterprise).
+     *
+     * @param tier           the policy tier
+     * @param organizationId the organization ID
+     * @return list of static policies
+     */
+    public List<StaticPolicy> listStaticPolicies(PolicyTier tier, String organizationId) {
+        return listStaticPolicies(ListStaticPoliciesOptions.builder()
+                .tier(tier)
+                .organizationId(organizationId)
+                .build());
+    }
+
+    /**
+     * Lists static policies filtered by tier and category.
+     *
+     * @param tier     the policy tier
+     * @param category the policy category
+     * @return list of static policies
+     */
+    public List<StaticPolicy> listStaticPolicies(PolicyTier tier, PolicyCategory category) {
+        return listStaticPolicies(ListStaticPoliciesOptions.builder()
+                .tier(tier)
+                .category(category)
+                .build());
+    }
+
+    /**
+     * Lists static policies filtered by category.
+     *
+     * @param category the policy category
+     * @return list of static policies
+     */
+    public List<StaticPolicy> listStaticPolicies(PolicyCategory category) {
+        return listStaticPolicies(ListStaticPoliciesOptions.builder()
+                .category(category)
+                .build());
     }
 
     /**
@@ -750,7 +790,19 @@ public final class AxonFlow implements Closeable {
      * @return list of effective policies
      */
     public List<StaticPolicy> getEffectiveStaticPolicies() {
-        return getEffectiveStaticPolicies(null);
+        return getEffectiveStaticPolicies((EffectivePoliciesOptions) null);
+    }
+
+    /**
+     * Gets effective static policies filtered by category.
+     *
+     * @param category the policy category
+     * @return list of effective policies
+     */
+    public List<StaticPolicy> getEffectiveStaticPolicies(PolicyCategory category) {
+        return getEffectiveStaticPolicies(EffectivePoliciesOptions.builder()
+                .category(category)
+                .build());
     }
 
     /**
@@ -856,6 +908,21 @@ public final class AxonFlow implements Closeable {
                 return null;
             }
         }, "deletePolicyOverride");
+    }
+
+    /**
+     * Lists all active policy overrides (Enterprise).
+     *
+     * @return list of policy overrides
+     */
+    public List<PolicyOverride> listPolicyOverrides() {
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("GET", "/api/v1/policies/overrides", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                PolicyOverride[] overrides = parseResponse(response, PolicyOverride[].class);
+                return overrides != null ? java.util.Arrays.asList(overrides) : java.util.Collections.emptyList();
+            }
+        }, "listPolicyOverrides");
     }
 
     // ========================================================================
@@ -1141,6 +1208,9 @@ public final class AxonFlow implements Closeable {
         }
         if (options.getTier() != null) {
             appendQueryParam(query, "tier", options.getTier().getValue());
+        }
+        if (options.getOrganizationId() != null) {
+            appendQueryParam(query, "organization_id", options.getOrganizationId());
         }
         if (options.getEnabled() != null) {
             appendQueryParam(query, "enabled", options.getEnabled().toString());
