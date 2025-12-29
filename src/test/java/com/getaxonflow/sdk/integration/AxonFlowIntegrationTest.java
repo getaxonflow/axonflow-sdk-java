@@ -304,15 +304,15 @@ class AxonFlowIntegrationTest {
     @Test
     @DisplayName("queryConnector should return response")
     void queryConnectorShouldReturnResponse() {
-        stubFor(post(urlEqualTo("/api/v1/connectors/query"))
+        // MCP connector queries now use /api/request with request_type: "mcp-query"
+        stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
                 .withBody("{"
                     + "\"success\": true,"
                     + "\"data\": [{\"name\": \"Acme Corp\"}],"
-                    + "\"connector_id\": \"salesforce\","
-                    + "\"operation\": \"getAccounts\""
+                    + "\"blocked\": false"
                     + "}")));
 
         ConnectorResponse response = axonflow.queryConnector(ConnectorQuery.builder()
