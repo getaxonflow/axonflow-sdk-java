@@ -17,6 +17,7 @@ package com.getaxonflow.sdk;
 
 import com.getaxonflow.sdk.exceptions.*;
 import com.getaxonflow.sdk.types.*;
+import com.getaxonflow.sdk.types.codegovernance.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
 import com.getaxonflow.sdk.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -1341,6 +1342,216 @@ public final class AxonFlow implements Closeable {
         }
 
         return defaultMessage;
+    }
+
+    // ========================================================================
+    // Code Governance - Git Provider APIs (Enterprise)
+    // ========================================================================
+
+    /**
+     * Validates Git provider credentials without saving them.
+     *
+     * @param request the validation request with provider type and credentials
+     * @return validation result
+     * @throws IOException if the request fails
+     */
+    public ValidateGitProviderResponse validateGitProvider(ValidateGitProviderRequest request) throws IOException {
+        logger.debug("Validating Git provider: {}", request.getType());
+
+        String json = objectMapper.writeValueAsString(request);
+        RequestBody body = RequestBody.create(json, JSON);
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers/validate")
+                .post(body);
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, ValidateGitProviderResponse.class);
+        }
+    }
+
+    /**
+     * Configures a Git provider for code governance.
+     *
+     * @param request the configuration request with provider type and credentials
+     * @return configuration result
+     * @throws IOException if the request fails
+     */
+    public ConfigureGitProviderResponse configureGitProvider(ConfigureGitProviderRequest request) throws IOException {
+        logger.debug("Configuring Git provider: {}", request.getType());
+
+        String json = objectMapper.writeValueAsString(request);
+        RequestBody body = RequestBody.create(json, JSON);
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers")
+                .post(body);
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, ConfigureGitProviderResponse.class);
+        }
+    }
+
+    /**
+     * Lists configured Git providers.
+     *
+     * @return list of configured providers
+     * @throws IOException if the request fails
+     */
+    public ListGitProvidersResponse listGitProviders() throws IOException {
+        logger.debug("Listing Git providers");
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers")
+                .get();
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, ListGitProvidersResponse.class);
+        }
+    }
+
+    /**
+     * Deletes a configured Git provider.
+     *
+     * @param providerType the provider type to delete
+     * @throws IOException if the request fails
+     */
+    public void deleteGitProvider(GitProviderType providerType) throws IOException {
+        logger.debug("Deleting Git provider: {}", providerType);
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers/" + providerType.getValue())
+                .delete();
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            handleErrorResponse(response);
+        }
+    }
+
+    /**
+     * Creates a Pull Request from LLM-generated code.
+     *
+     * @param request the PR creation request with repository info and files
+     * @return the created PR details
+     * @throws IOException if the request fails
+     */
+    public CreatePRResponse createPR(CreatePRRequest request) throws IOException {
+        logger.debug("Creating PR: {} in {}/{}", request.getTitle(), request.getOwner(), request.getRepo());
+
+        String json = objectMapper.writeValueAsString(request);
+        RequestBody body = RequestBody.create(json, JSON);
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/prs")
+                .post(body);
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, CreatePRResponse.class);
+        }
+    }
+
+    /**
+     * Lists PRs with optional filtering.
+     *
+     * @param options filtering options (limit, offset, state)
+     * @return list of PRs
+     * @throws IOException if the request fails
+     */
+    public ListPRsResponse listPRs(ListPRsOptions options) throws IOException {
+        logger.debug("Listing PRs");
+
+        StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/prs");
+        StringBuilder query = new StringBuilder();
+
+        if (options != null) {
+            if (options.getLimit() != null) {
+                appendQueryParam(query, "limit", String.valueOf(options.getLimit()));
+            }
+            if (options.getOffset() != null) {
+                appendQueryParam(query, "offset", String.valueOf(options.getOffset()));
+            }
+            if (options.getState() != null) {
+                appendQueryParam(query, "state", options.getState());
+            }
+        }
+
+        if (query.length() > 0) {
+            url.append("?").append(query);
+        }
+
+        Request.Builder builder = new Request.Builder()
+                .url(url.toString())
+                .get();
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, ListPRsResponse.class);
+        }
+    }
+
+    /**
+     * Lists PRs with default options.
+     *
+     * @return list of PRs
+     * @throws IOException if the request fails
+     */
+    public ListPRsResponse listPRs() throws IOException {
+        return listPRs(null);
+    }
+
+    /**
+     * Gets a specific PR by ID.
+     *
+     * @param prId the PR record ID
+     * @return the PR record
+     * @throws IOException if the request fails
+     */
+    public PRRecord getPR(String prId) throws IOException {
+        logger.debug("Getting PR: {}", prId);
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/prs/" + prId)
+                .get();
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, PRRecord.class);
+        }
+    }
+
+    /**
+     * Syncs PR status from the Git provider.
+     *
+     * @param prId the PR record ID to sync
+     * @return the updated PR record
+     * @throws IOException if the request fails
+     */
+    public PRRecord syncPRStatus(String prId) throws IOException {
+        logger.debug("Syncing PR status: {}", prId);
+
+        RequestBody body = RequestBody.create("{}", JSON);
+
+        Request.Builder builder = new Request.Builder()
+                .url(config.getAgentUrl() + "/api/v1/code-governance/prs/" + prId + "/sync")
+                .post(body);
+
+        addAuthHeaders(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, PRRecord.class);
+        }
     }
 
     @Override
