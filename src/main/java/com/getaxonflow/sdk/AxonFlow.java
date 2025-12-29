@@ -1249,6 +1249,12 @@ public final class AxonFlow implements Closeable {
         }
     }
 
+    private void addTenantIdHeader(Request.Builder builder) {
+        if (config.getClientId() != null && !config.getClientId().isEmpty()) {
+            builder.header("X-Tenant-ID", config.getClientId());
+        }
+    }
+
     private <T> T parseResponse(Response response, Class<T> type) throws IOException {
         handleErrorResponse(response);
 
@@ -1560,7 +1566,7 @@ public final class AxonFlow implements Closeable {
      * @return aggregated metrics including PR counts, file counts, and security findings
      * @throws IOException if the request fails
      */
-    public CodeGovernanceMetrics getMetrics() throws IOException {
+    public CodeGovernanceMetrics getCodeGovernanceMetrics() throws IOException {
         logger.debug("Getting code governance metrics");
 
         Request.Builder builder = new Request.Builder()
@@ -1568,6 +1574,7 @@ public final class AxonFlow implements Closeable {
                 .get();
 
         addAuthHeaders(builder);
+        addTenantIdHeader(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, CodeGovernanceMetrics.class);
@@ -1581,7 +1588,7 @@ public final class AxonFlow implements Closeable {
      * @return export response with PR records
      * @throws IOException if the request fails
      */
-    public ExportResponse exportData(ExportOptions options) throws IOException {
+    public ExportResponse exportCodeGovernanceData(ExportOptions options) throws IOException {
         logger.debug("Exporting code governance data");
 
         StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/export");
@@ -1611,6 +1618,7 @@ public final class AxonFlow implements Closeable {
                 .get();
 
         addAuthHeaders(builder);
+        addTenantIdHeader(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, ExportResponse.class);
@@ -1624,7 +1632,7 @@ public final class AxonFlow implements Closeable {
      * @return CSV data as a string
      * @throws IOException if the request fails
      */
-    public String exportDataCSV(ExportOptions options) throws IOException {
+    public String exportCodeGovernanceDataCSV(ExportOptions options) throws IOException {
         logger.debug("Exporting code governance data as CSV");
 
         StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/export");
@@ -1650,6 +1658,7 @@ public final class AxonFlow implements Closeable {
                 .get();
 
         addAuthHeaders(builder);
+        addTenantIdHeader(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             handleErrorResponse(response);
