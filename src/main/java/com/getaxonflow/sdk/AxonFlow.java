@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -550,6 +551,10 @@ public final class AxonFlow implements Closeable {
     /**
      * Queries an MCP connector.
      *
+     * <p>This method sends the query to the AxonFlow Agent using the standard
+     * request format with request_type: "mcp-query", which is routed to the
+     * configured MCP connector.
+     *
      * @param query the connector query
      * @return the query response
      * @throws ConnectorException if the query fails
@@ -558,9 +563,41 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(query, "query cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/v1/connectors/query", query);
+            // Build a ClientRequest with MCP_QUERY request type
+            // This follows the same pattern as Go and TypeScript SDKs
+            Map<String, Object> context = new HashMap<>();
+            context.put("connector", query.getConnectorId());
+            if (query.getParameters() != null && !query.getParameters().isEmpty()) {
+                context.put("params", query.getParameters());
+            }
+
+            // Determine clientId: prefer config.getClientId(), fallback to license key
+            String clientId = config.getClientId();
+            if (clientId == null || clientId.isEmpty()) {
+                clientId = config.getLicenseKey();
+            }
+
+            ClientRequest clientRequest = ClientRequest.builder()
+                .query(query.getOperation())
+                .userToken(query.getUserToken() != null ? query.getUserToken() : clientId)
+                .clientId(clientId)
+                .requestType(RequestType.MCP_QUERY)
+                .context(context)
+                .build();
+
+            Request httpRequest = buildRequest("POST", "/api/request", clientRequest);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                ConnectorResponse result = parseResponse(response, ConnectorResponse.class);
+                ClientResponse clientResponse = parseResponse(response, ClientResponse.class);
+
+                // Convert ClientResponse to ConnectorResponse
+                ConnectorResponse result = new ConnectorResponse(
+                    clientResponse.isSuccess(),
+                    clientResponse.getData(),
+                    clientResponse.getError(),
+                    query.getConnectorId(),
+                    query.getOperation(),
+                    null  // processingTime not available from ClientResponse
+                );
 
                 if (!result.isSuccess()) {
                     throw new ConnectorException(

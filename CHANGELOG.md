@@ -5,6 +5,17 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2025-12-29
+
+### Fixed
+
+- **MCP Connector Queries**: Fixed endpoint mismatch causing 404 errors
+  - Changed `queryConnector()` to use `/api/request` with `request_type: "mcp-query"` (matches Go and TypeScript SDKs)
+  - Previously used non-existent `/api/v1/connectors/query` endpoint
+  - MCP connector examples now work correctly with configured connectors
+
+---
+
 ## [1.3.0] - 2025-12-28
 
 ### Added
