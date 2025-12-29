@@ -77,8 +77,8 @@ class PolicyTest {
     private static final String SAMPLE_OVERRIDE =
         "{" +
         "\"policy_id\": \"pol_123\"," +
-        "\"action\": \"warn\"," +
-        "\"reason\": \"Testing override\"," +
+        "\"action_override\": \"warn\"," +
+        "\"override_reason\": \"Testing override\"," +
         "\"created_at\": \"2025-01-01T00:00:00Z\"," +
         "\"active\": true" +
         "}";
@@ -304,10 +304,14 @@ class PolicyTest {
         @DisplayName("getStaticPolicyVersions should return version history")
         void getStaticPolicyVersionsShouldReturnVersionHistory() {
             String responseBody =
-                "[" +
+                "{" +
+                "\"policy_id\": \"pol_123\"," +
+                "\"versions\": [" +
                 "{\"version\": 2, \"changed_at\": \"2025-01-02T00:00:00Z\", \"change_type\": \"updated\"}," +
                 "{\"version\": 1, \"changed_at\": \"2025-01-01T00:00:00Z\", \"change_type\": \"created\"}" +
-                "]";
+                "]," +
+                "\"count\": 2" +
+                "}";
 
             stubFor(get(urlEqualTo("/api/v1/static-policies/pol_123/versions"))
                 .willReturn(aResponse()
@@ -340,14 +344,14 @@ class PolicyTest {
                     .withBody(SAMPLE_OVERRIDE)));
 
             CreatePolicyOverrideRequest request = CreatePolicyOverrideRequest.builder()
-                .action(OverrideAction.WARN)
-                .reason("Testing override")
+                .actionOverride(OverrideAction.WARN)
+                .overrideReason("Testing override")
                 .build();
 
             PolicyOverride override = axonflow.createPolicyOverride("pol_123", request);
 
-            assertThat(override.getAction()).isEqualTo(OverrideAction.WARN);
-            assertThat(override.getReason()).isEqualTo("Testing override");
+            assertThat(override.getActionOverride()).isEqualTo(OverrideAction.WARN);
+            assertThat(override.getOverrideReason()).isEqualTo("Testing override");
 
             verify(postRequestedFor(urlEqualTo("/api/v1/static-policies/pol_123/override")));
         }
@@ -356,7 +360,7 @@ class PolicyTest {
         @DisplayName("createPolicyOverride should require non-null parameters")
         void createPolicyOverrideShouldRequireParameters() {
             CreatePolicyOverrideRequest request = CreatePolicyOverrideRequest.builder()
-                .action(OverrideAction.WARN)
+                .actionOverride(OverrideAction.WARN)
                 .build();
 
             assertThatThrownBy(() -> axonflow.createPolicyOverride(null, request))

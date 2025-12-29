@@ -234,8 +234,10 @@ public final class PolicyTypes {
     public static class PolicyOverride {
         @JsonProperty("policy_id")
         private String policyId;
-        private OverrideAction action;
-        private String reason;
+        @JsonProperty("action_override")
+        private OverrideAction actionOverride;
+        @JsonProperty("override_reason")
+        private String overrideReason;
         @JsonProperty("created_by")
         private String createdBy;
         @JsonProperty("created_at")
@@ -247,10 +249,10 @@ public final class PolicyTypes {
         // Getters and setters
         public String getPolicyId() { return policyId; }
         public void setPolicyId(String policyId) { this.policyId = policyId; }
-        public OverrideAction getAction() { return action; }
-        public void setAction(OverrideAction action) { this.action = action; }
-        public String getReason() { return reason; }
-        public void setReason(String reason) { this.reason = reason; }
+        public OverrideAction getActionOverride() { return actionOverride; }
+        public void setActionOverride(OverrideAction actionOverride) { this.actionOverride = actionOverride; }
+        public String getOverrideReason() { return overrideReason; }
+        public void setOverrideReason(String overrideReason) { this.overrideReason = overrideReason; }
         public String getCreatedBy() { return createdBy; }
         public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
         public Instant getCreatedAt() { return createdAt; }
@@ -510,8 +512,10 @@ public final class PolicyTypes {
      * Request to create a policy override.
      */
     public static class CreatePolicyOverrideRequest {
-        private OverrideAction action;
-        private String reason;
+        @JsonProperty("action_override")
+        private OverrideAction actionOverride;
+        @JsonProperty("override_reason")
+        private String overrideReason;
         @JsonProperty("expires_at")
         private Instant expiresAt;
 
@@ -519,20 +523,20 @@ public final class PolicyTypes {
             return new Builder();
         }
 
-        public OverrideAction getAction() { return action; }
-        public String getReason() { return reason; }
+        public OverrideAction getActionOverride() { return actionOverride; }
+        public String getOverrideReason() { return overrideReason; }
         public Instant getExpiresAt() { return expiresAt; }
 
         public static class Builder {
             private final CreatePolicyOverrideRequest request = new CreatePolicyOverrideRequest();
 
-            public Builder action(OverrideAction action) {
-                request.action = action;
+            public Builder actionOverride(OverrideAction actionOverride) {
+                request.actionOverride = actionOverride;
                 return this;
             }
 
-            public Builder reason(String reason) {
-                request.reason = reason;
+            public Builder overrideReason(String overrideReason) {
+                request.overrideReason = overrideReason;
                 return this;
             }
 
