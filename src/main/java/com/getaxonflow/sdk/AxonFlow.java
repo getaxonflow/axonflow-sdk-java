@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -863,7 +864,18 @@ public final class AxonFlow implements Closeable {
         return retryExecutor.execute(() -> {
             Request httpRequest = buildRequest("GET", "/api/v1/static-policies/" + policyId + "/versions", null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, new TypeReference<List<PolicyVersion>>() {});
+                Map<String, Object> wrapper = parseResponse(response, new TypeReference<Map<String, Object>>() {});
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> versionsRaw = (List<Map<String, Object>>) wrapper.get("versions");
+                if (versionsRaw == null) {
+                    return new ArrayList<>();
+                }
+                List<PolicyVersion> versions = new ArrayList<>();
+                for (Map<String, Object> v : versionsRaw) {
+                    PolicyVersion version = objectMapper.convertValue(v, PolicyVersion.class);
+                    versions.add(version);
+                }
+                return versions;
             }
         }, "getStaticPolicyVersions");
     }
@@ -917,7 +929,7 @@ public final class AxonFlow implements Closeable {
      */
     public List<PolicyOverride> listPolicyOverrides() {
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("GET", "/api/v1/policies/overrides", null);
+            Request httpRequest = buildRequest("GET", "/api/v1/static-policies/overrides", null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 PolicyOverride[] overrides = parseResponse(response, PolicyOverride[].class);
                 return overrides != null ? java.util.Arrays.asList(overrides) : java.util.Collections.emptyList();
