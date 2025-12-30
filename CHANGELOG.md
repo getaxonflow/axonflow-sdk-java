@@ -7,17 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.7.0] - 2025-12-30
 
+### Changed
+
+- **Community Mode**: Credentials are now optional for self-hosted/community deployments
+  - SDK can be initialized without `licenseKey` or `clientId/clientSecret` for community features
+  - `executeQuery()` and `healthCheck()` work without credentials
+  - Auth headers are only sent when credentials are configured
+
+### Added
+
+- `hasCredentials()` method in `AxonFlowConfig` to check if credentials are configured
+- `requireCredentials()` helper for enterprise feature validation
+- Enterprise features (`getPolicyApprovedContext`, `auditLLMCall`) now validate credentials at call time
+
 ### Fixed
 
 - Fixed `PolicyOverride` JSON field mappings (`action_override`, `override_reason`)
 - Fixed `listPolicyOverrides()` endpoint path and response parsing
 - Fixed `getStaticPolicyVersions()` response parsing
-
-### Changed
-
-- `CreatePolicyOverrideRequest.Builder`: `action()` → `actionOverride()`, `reason()` → `overrideReason()`
-
-> **Note:** These changes affect Enterprise users only. Community users can skip this release.
+- Gateway Mode methods now throw `AuthenticationException` when called without credentials
 
 ---
 
