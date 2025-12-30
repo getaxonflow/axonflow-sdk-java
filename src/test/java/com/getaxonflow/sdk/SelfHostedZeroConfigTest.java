@@ -78,25 +78,25 @@ class SelfHostedZeroConfigTest {
         }
 
         @Test
-        @DisplayName("should require credentials for non-localhost endpoints")
-        void shouldRequireCredentialsForNonLocalhost() {
-            assertThatThrownBy(() -> AxonFlowConfig.builder()
-                .agentUrl("https://staging-eu.getaxonflow.com")
-                // No credentials
-                .build())
-                .isInstanceOf(ConfigurationException.class)
-                .hasMessageContaining("licenseKey")
-                .hasMessageContaining("clientId");
+        @DisplayName("should allow client creation without credentials for any endpoint (community mode)")
+        void shouldAllowClientCreationWithoutCredentialsForAnyEndpoint() {
+            // Community mode: credentials are optional for any endpoint
+            AxonFlowConfig config = AxonFlowConfig.builder()
+                .agentUrl("https://my-custom-domain.local")
+                // No credentials - community mode
+                .build();
 
-            System.out.println("✅ Non-localhost correctly requires credentials");
+            assertThat(config.hasCredentials()).isFalse();
+
+            System.out.println("✅ Community mode works without credentials for any endpoint");
         }
     }
 
     // ========================================================================
-    // 2. GATEWAY MODE WITHOUT AUTHENTICATION
+    // 2. GATEWAY MODE (Enterprise Feature - requires credentials)
     // ========================================================================
     @Nested
-    @DisplayName("2. Gateway Mode Without Authentication")
+    @DisplayName("2. Gateway Mode (Enterprise Feature)")
     @WireMockTest
     class GatewayModeTests {
 
@@ -104,9 +104,10 @@ class SelfHostedZeroConfigTest {
 
         @BeforeEach
         void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
+            // Gateway Mode is an enterprise feature that requires credentials
             axonflow = AxonFlow.create(AxonFlowConfig.builder()
                 .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
-                // No credentials - zero-config mode
+                .licenseKey("test-license-key")
                 .build());
         }
 
@@ -257,10 +258,10 @@ class SelfHostedZeroConfigTest {
     }
 
     // ========================================================================
-    // 4. POLICY ENFORCEMENT STILL WORKS
+    // 4. POLICY ENFORCEMENT (Enterprise Feature - requires credentials)
     // ========================================================================
     @Nested
-    @DisplayName("4. Policy Enforcement Still Works Without Auth")
+    @DisplayName("4. Policy Enforcement (Enterprise Feature)")
     @WireMockTest
     class PolicyEnforcementTests {
 
@@ -268,13 +269,15 @@ class SelfHostedZeroConfigTest {
 
         @BeforeEach
         void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
+            // Policy enforcement (Gateway Mode) is an enterprise feature
             axonflow = AxonFlow.create(AxonFlowConfig.builder()
                 .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
+                .licenseKey("test-license-key")
                 .build());
         }
 
         @Test
-        @DisplayName("should still block SQL injection without credentials")
+        @DisplayName("should block SQL injection with enterprise credentials")
         void shouldBlockSqlInjectionWithoutCredentials() {
             stubFor(post(urlEqualTo("/api/policy/pre-check"))
                 .willReturn(aResponse()
@@ -298,7 +301,7 @@ class SelfHostedZeroConfigTest {
         }
 
         @Test
-        @DisplayName("should still block PII without credentials")
+        @DisplayName("should block PII with enterprise credentials")
         void shouldBlockPiiWithoutCredentials() {
             stubFor(post(urlEqualTo("/api/policy/pre-check"))
                 .willReturn(aResponse()
@@ -356,15 +359,15 @@ class SelfHostedZeroConfigTest {
     }
 
     // ========================================================================
-    // 6. FIRST-TIME USER EXPERIENCE
+    // 6. FIRST-TIME USER EXPERIENCE (Community Mode)
     // ========================================================================
     @Nested
-    @DisplayName("6. First-Time User Experience")
+    @DisplayName("6. First-Time User Experience (Community Mode)")
     @WireMockTest
     class FirstTimeUserTests {
 
         @Test
-        @DisplayName("should support first-time user with minimal configuration")
+        @DisplayName("should support first-time user with minimal configuration for community features")
         void shouldSupportFirstTimeUser(WireMockRuntimeInfo wmRuntimeInfo) {
             // Stub health endpoint
             stubFor(get(urlEqualTo("/health"))
@@ -373,80 +376,113 @@ class SelfHostedZeroConfigTest {
                     .withHeader("Content-Type", "application/json")
                     .withBody("{\"status\": \"healthy\"}")));
 
-            // Stub pre-check endpoint
-            stubFor(post(urlEqualTo("/api/policy/pre-check"))
+            // Stub executeQuery endpoint (community feature)
+            stubFor(post(urlEqualTo("/api/request"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withBody("{"
-                        + "\"context_id\": \"ctx_firstuser_001\","
-                        + "\"approved\": true"
+                        + "\"success\": true,"
+                        + "\"data\": {\"answer\": \"Hello world!\"}"
                         + "}")));
 
-            // First-time user - minimal configuration
+            // First-time user - minimal configuration (community mode)
             AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
                 .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
-                // No credentials at all
+                // No credentials - community mode
                 .build());
 
             // Step 1: Health check should work
             HealthStatus health = client.healthCheck();
             assertThat(health.isHealthy()).isTrue();
 
-            // Step 2: Pre-check should work with empty token
-            PolicyApprovalResult result = client.getPolicyApprovedContext(
-                PolicyApprovalRequest.builder()
+            // Step 2: executeQuery should work (community feature)
+            ClientResponse response = client.executeQuery(
+                ClientRequest.builder()
                     .userToken("")
                     .query("Hello, this is my first query!")
                     .build()
             );
 
-            assertThat(result.getContextId()).isNotEmpty();
+            assertThat(response.isSuccess()).isTrue();
 
-            System.out.println("✅ First-time user experience validated");
+            System.out.println("✅ First-time user experience validated (community mode)");
             System.out.println("   - Client creation: OK");
             System.out.println("   - Health check: OK");
-            System.out.println("   - Pre-check: OK");
+            System.out.println("   - Execute query: OK");
         }
     }
 
     // ========================================================================
-    // 7. AUTH HEADERS NOT SENT FOR LOCALHOST
+    // 7. AUTH HEADERS BASED ON CREDENTIALS
     // ========================================================================
     @Nested
-    @DisplayName("7. Auth Headers Not Sent for Localhost")
+    @DisplayName("7. Auth Headers Based on Credentials")
     @WireMockTest
     class AuthHeaderTests {
 
         @Test
-        @DisplayName("should not send auth headers for localhost")
-        void shouldNotSendAuthHeadersForLocalhost(WireMockRuntimeInfo wmRuntimeInfo) {
-            stubFor(post(urlEqualTo("/api/policy/pre-check"))
+        @DisplayName("should not send auth headers when no credentials configured")
+        void shouldNotSendAuthHeadersWithoutCredentials(WireMockRuntimeInfo wmRuntimeInfo) {
+            stubFor(post(urlEqualTo("/api/request"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withBody("{"
-                        + "\"context_id\": \"ctx_noauth_001\","
-                        + "\"approved\": true"
+                        + "\"success\": true,"
+                        + "\"data\": {\"answer\": \"test\"}"
                         + "}")));
 
+            // No credentials - community mode
             AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
                 .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
                 .build());
 
-            client.getPolicyApprovedContext(
-                PolicyApprovalRequest.builder()
+            client.executeQuery(
+                ClientRequest.builder()
                     .userToken("")
                     .query("Test query")
                     .build()
             );
 
-            // Verify no auth headers were sent
-            verify(postRequestedFor(urlEqualTo("/api/policy/pre-check"))
+            // Verify no auth headers were sent when no credentials configured
+            verify(postRequestedFor(urlEqualTo("/api/request"))
                 .withoutHeader("X-License-Key")
                 .withoutHeader("X-Client-Secret"));
 
-            System.out.println("✅ Auth headers not sent for localhost");
+            System.out.println("✅ Auth headers not sent in community mode (no credentials)");
+        }
+
+        @Test
+        @DisplayName("should send auth headers when credentials are configured")
+        void shouldSendAuthHeadersWithCredentials(WireMockRuntimeInfo wmRuntimeInfo) {
+            stubFor(post(urlEqualTo("/api/request"))
+                .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{"
+                        + "\"success\": true,"
+                        + "\"data\": {\"answer\": \"test\"}"
+                        + "}")));
+
+            // With credentials - enterprise mode
+            AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+                .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
+                .licenseKey("test-license-key")
+                .build());
+
+            client.executeQuery(
+                ClientRequest.builder()
+                    .userToken("")
+                    .query("Test query")
+                    .build()
+            );
+
+            // Verify auth headers WERE sent when credentials are configured
+            verify(postRequestedFor(urlEqualTo("/api/request"))
+                .withHeader("X-License-Key", equalTo("test-license-key")));
+
+            System.out.println("✅ Auth headers sent when credentials are configured");
         }
     }
 }
