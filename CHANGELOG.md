@@ -5,7 +5,7 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.0] - 2025-12-30
+## [1.8.0] - 2025-12-30
 
 ### Changed
 
@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed `listPolicyOverrides()` endpoint path and response parsing
 - Fixed `getStaticPolicyVersions()` response parsing
 - Gateway Mode methods now throw `AuthenticationException` when called without credentials
+
+---
+
+## [1.7.0] - 2025-12-29
+
+_Note: v1.7.0 on Maven Central does not include community mode. Use v1.8.0 instead._
 
 ---
 
