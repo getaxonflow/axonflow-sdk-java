@@ -118,14 +118,15 @@ class AxonFlowConfigTest {
     }
 
     @Test
-    @DisplayName("should require auth for non-localhost without license key")
-    void shouldRequireAuthForNonLocalhost() {
-        assertThatThrownBy(() -> AxonFlowConfig.builder()
+    @DisplayName("should allow non-localhost without credentials (community mode)")
+    void shouldAllowNonLocalhostWithoutCredentials() {
+        // Community mode: credentials are optional for any endpoint
+        AxonFlowConfig config = AxonFlowConfig.builder()
             .agentUrl("https://api.example.com")
-            .build())
-            .isInstanceOf(ConfigurationException.class)
-            .hasMessageContaining("licenseKey")
-            .hasMessageContaining("clientId");
+            .build();
+
+        assertThat(config.hasCredentials()).isFalse();
+        assertThat(config.getAgentUrl()).isEqualTo("https://api.example.com");
     }
 
     @Test

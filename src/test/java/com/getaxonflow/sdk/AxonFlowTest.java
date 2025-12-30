@@ -41,8 +41,10 @@ class AxonFlowTest {
     @BeforeEach
     void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
         baseUrl = wmRuntimeInfo.getHttpBaseUrl();
+        // Add credentials for Gateway Mode tests (enterprise features)
         axonflow = AxonFlow.create(AxonFlowConfig.builder()
             .agentUrl(baseUrl)
+            .licenseKey("test-license-key")
             .build());
     }
 
@@ -568,9 +570,9 @@ class AxonFlowTest {
     // ========================================================================
 
     @Test
-    @DisplayName("should skip auth headers for localhost")
-    void shouldSkipAuthForLocalhost(WireMockRuntimeInfo wmRuntimeInfo) {
-        // Localhost URLs intentionally skip authentication
+    @DisplayName("should send auth headers when credentials are configured")
+    void shouldSendAuthHeadersWithCredentials(WireMockRuntimeInfo wmRuntimeInfo) {
+        // Auth headers are sent when credentials are configured
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license-key")
@@ -583,9 +585,9 @@ class AxonFlowTest {
 
         client.healthCheck();
 
-        // Verify auth headers are NOT sent for localhost
+        // Verify auth headers ARE sent when credentials are configured
         verify(getRequestedFor(urlEqualTo("/health"))
-            .withoutHeader("X-License-Key"));
+            .withHeader("X-License-Key", equalTo("test-license-key")));
     }
 
     @Test

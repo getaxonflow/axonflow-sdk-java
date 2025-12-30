@@ -80,16 +80,20 @@ public final class AxonFlowConfig {
         if (agentUrl == null || agentUrl.isEmpty()) {
             throw new ConfigurationException("agentUrl is required", "agentUrl");
         }
+        // Credentials are optional for community/self-hosted deployments
+        // Enterprise features require credentials (validated at method call time)
+    }
 
-        // For non-localhost, require either license key or client credentials
-        if (!isLocalhost()) {
-            if (licenseKey == null && (clientId == null || clientSecret == null)) {
-                throw new ConfigurationException(
-                    "Either licenseKey or both clientId and clientSecret are required for non-localhost connections",
-                    "authentication"
-                );
-            }
-        }
+    /**
+     * Checks if credentials are configured.
+     *
+     * <p>Returns true if either a license key or client credentials are set.
+     *
+     * @return true if credentials are available
+     */
+    public boolean hasCredentials() {
+        return (licenseKey != null && !licenseKey.isEmpty()) ||
+               (clientId != null && clientSecret != null && !clientSecret.isEmpty());
     }
 
     private String normalizeUrl(String url) {

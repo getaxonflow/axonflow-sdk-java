@@ -226,6 +226,9 @@ public final class AxonFlow implements Closeable {
     public PolicyApprovalResult getPolicyApprovedContext(PolicyApprovalRequest request) {
         Objects.requireNonNull(request, "request cannot be null");
 
+        // Gateway Mode requires credentials (enterprise feature)
+        requireCredentials("Gateway Mode (getPolicyApprovedContext)");
+
         return retryExecutor.execute(() -> {
             Request httpRequest = buildRequest("POST", "/api/policy/pre-check", request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
@@ -276,6 +279,9 @@ public final class AxonFlow implements Closeable {
      */
     public AuditResult auditLLMCall(AuditOptions options) {
         Objects.requireNonNull(options, "options cannot be null");
+
+        // Gateway Mode requires credentials (enterprise feature)
+        requireCredentials("Gateway Mode (auditLLMCall)");
 
         return retryExecutor.execute(() -> {
             Request httpRequest = buildRequest("POST", "/api/audit/llm-call", options);
@@ -1320,9 +1326,10 @@ public final class AxonFlow implements Closeable {
     }
 
     private void addAuthHeaders(Request.Builder builder) {
-        // Skip auth for localhost in self-hosted mode
-        if (config.isLocalhost()) {
-            logger.debug("Skipping authentication for localhost");
+        // Add auth headers only when credentials are provided
+        // Community/self-hosted mode works without credentials
+        if (!config.hasCredentials()) {
+            logger.debug("No credentials configured - community/self-hosted mode");
             return;
         }
 
@@ -1336,6 +1343,20 @@ public final class AxonFlow implements Closeable {
         if (config.getClientId() != null && config.getClientSecret() != null) {
             builder.header("X-Client-ID", config.getClientId());
             builder.header("X-Client-Secret", config.getClientSecret());
+        }
+    }
+
+    /**
+     * Requires credentials for enterprise features.
+     *
+     * @param feature the feature name for error message
+     * @throws AuthenticationException if no credentials are configured
+     */
+    private void requireCredentials(String feature) {
+        if (!config.hasCredentials()) {
+            throw new AuthenticationException(
+                feature + " requires credentials. Set licenseKey or clientId/clientSecret in config."
+            );
         }
     }
 
