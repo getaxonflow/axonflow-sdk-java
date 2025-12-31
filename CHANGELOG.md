@@ -5,6 +5,17 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2025-12-31
+
+### Fixed
+
+- **Gateway Mode Community Fix**: Removed client-side credential validation from Gateway Mode methods
+  - `getPolicyApprovedContext()` and `auditLLMCall()` now work without credentials in community/self-hosted deployments
+  - Server decides auth requirements based on `DEPLOYMENT_MODE`
+  - Matches TypeScript SDK v1.11.1 behavior
+
+---
+
 ## [1.8.0] - 2025-12-30
 
 ### Changed
@@ -18,14 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `hasCredentials()` method in `AxonFlowConfig` to check if credentials are configured
 - `requireCredentials()` helper for enterprise feature validation
-- Enterprise features (`getPolicyApprovedContext`, `auditLLMCall`) now validate credentials at call time
 
 ### Fixed
 
 - Fixed `PolicyOverride` JSON field mappings (`action_override`, `override_reason`)
 - Fixed `listPolicyOverrides()` endpoint path and response parsing
 - Fixed `getStaticPolicyVersions()` response parsing
-- Gateway Mode methods now throw `AuthenticationException` when called without credentials
 
 ---
 
