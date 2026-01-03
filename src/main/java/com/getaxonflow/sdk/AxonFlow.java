@@ -18,6 +18,7 @@ package com.getaxonflow.sdk;
 import com.getaxonflow.sdk.exceptions.*;
 import com.getaxonflow.sdk.types.*;
 import com.getaxonflow.sdk.types.codegovernance.*;
+import com.getaxonflow.sdk.types.executionreplay.ExecutionReplayTypes.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
 import com.getaxonflow.sdk.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -1779,6 +1781,297 @@ public final class AxonFlow implements Closeable {
             }
             return body.string();
         }
+    }
+
+    // ========================================================================
+    // Execution Replay API
+    // ========================================================================
+
+    /**
+     * Gets the orchestrator URL for Execution Replay API.
+     * Falls back to agent URL with port 8081 if not configured.
+     */
+    private String getOrchestratorUrl() {
+        String orchestratorUrl = config.getOrchestratorUrl();
+        if (orchestratorUrl != null && !orchestratorUrl.isEmpty()) {
+            return orchestratorUrl;
+        }
+        // Default: assume orchestrator is on same host as agent, port 8081
+        try {
+            URI uri = URI.create(config.getAgentUrl());
+            return uri.getScheme() + "://" + uri.getHost() + ":8081";
+        } catch (Exception e) {
+            return "http://localhost:8081";
+        }
+    }
+
+    /**
+     * Builds a request for the orchestrator API.
+     */
+    private Request buildOrchestratorRequest(String method, String path, Object body) {
+        HttpUrl url = HttpUrl.parse(getOrchestratorUrl() + path);
+        if (url == null) {
+            throw new ConfigurationException("Invalid URL: " + getOrchestratorUrl() + path);
+        }
+
+        Request.Builder builder = new Request.Builder()
+            .url(url)
+            .header("User-Agent", config.getUserAgent())
+            .header("Accept", "application/json");
+
+        addAuthHeaders(builder);
+
+        RequestBody requestBody = null;
+        if (body != null) {
+            try {
+                String json = objectMapper.writeValueAsString(body);
+                requestBody = RequestBody.create(json, JSON);
+            } catch (JsonProcessingException e) {
+                throw new AxonFlowException("Failed to serialize request body", e);
+            }
+        }
+
+        switch (method.toUpperCase()) {
+            case "GET":
+                builder.get();
+                break;
+            case "POST":
+                builder.post(requestBody != null ? requestBody : RequestBody.create("", JSON));
+                break;
+            case "DELETE":
+                builder.delete(requestBody);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported method: " + method);
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Lists workflow executions with optional filtering and pagination.
+     *
+     * @param options filtering and pagination options
+     * @return paginated list of execution summaries
+     *
+     * @example
+     * <pre>{@code
+     * ListExecutionsResponse response = axonflow.listExecutions(
+     *     ListExecutionsOptions.builder()
+     *         .setStatus("completed")
+     *         .setLimit(10)
+     * );
+     * for (ExecutionSummary exec : response.getExecutions()) {
+     *     System.out.println(exec.getRequestId() + ": " + exec.getStatus());
+     * }
+     * }</pre>
+     */
+    public ListExecutionsResponse listExecutions(ListExecutionsOptions options) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/executions");
+            StringBuilder query = new StringBuilder();
+
+            if (options != null) {
+                if (options.getLimit() != null) {
+                    appendQueryParam(query, "limit", options.getLimit().toString());
+                }
+                if (options.getOffset() != null) {
+                    appendQueryParam(query, "offset", options.getOffset().toString());
+                }
+                if (options.getStatus() != null) {
+                    appendQueryParam(query, "status", options.getStatus());
+                }
+                if (options.getWorkflowId() != null) {
+                    appendQueryParam(query, "workflow_id", options.getWorkflowId());
+                }
+                if (options.getStartTime() != null) {
+                    appendQueryParam(query, "start_time", options.getStartTime());
+                }
+                if (options.getEndTime() != null) {
+                    appendQueryParam(query, "end_time", options.getEndTime());
+                }
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, ListExecutionsResponse.class);
+            }
+        }, "listExecutions");
+    }
+
+    /**
+     * Lists workflow executions with default options.
+     *
+     * @return list of execution summaries
+     */
+    public ListExecutionsResponse listExecutions() {
+        return listExecutions(null);
+    }
+
+    /**
+     * Gets a complete execution record including summary and all steps.
+     *
+     * @param executionId the execution ID (request_id)
+     * @return full execution details with all step snapshots
+     *
+     * @example
+     * <pre>{@code
+     * ExecutionDetail detail = axonflow.getExecution("exec-abc123");
+     * System.out.println("Status: " + detail.getSummary().getStatus());
+     * for (ExecutionSnapshot step : detail.getSteps()) {
+     *     System.out.println("Step " + step.getStepIndex() + ": " + step.getStepName());
+     * }
+     * }</pre>
+     */
+    public ExecutionDetail getExecution(String executionId) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET",
+                "/api/v1/executions/" + executionId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, ExecutionDetail.class);
+            }
+        }, "getExecution");
+    }
+
+    /**
+     * Gets all step snapshots for an execution.
+     *
+     * @param executionId the execution ID (request_id)
+     * @return list of step snapshots
+     */
+    public List<ExecutionSnapshot> getExecutionSteps(String executionId) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET",
+                "/api/v1/executions/" + executionId + "/steps", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, new TypeReference<List<ExecutionSnapshot>>() {});
+            }
+        }, "getExecutionSteps");
+    }
+
+    /**
+     * Gets a timeline view of execution events for visualization.
+     *
+     * @param executionId the execution ID (request_id)
+     * @return list of timeline entries
+     */
+    public List<TimelineEntry> getExecutionTimeline(String executionId) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET",
+                "/api/v1/executions/" + executionId + "/timeline", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, new TypeReference<List<TimelineEntry>>() {});
+            }
+        }, "getExecutionTimeline");
+    }
+
+    /**
+     * Exports a complete execution record for compliance or archival.
+     *
+     * @param executionId the execution ID (request_id)
+     * @param options export options
+     * @return execution data as a map
+     *
+     * @example
+     * <pre>{@code
+     * Map<String, Object> export = axonflow.exportExecution("exec-abc123",
+     *     ExecutionExportOptions.builder()
+     *         .setIncludeInput(true)
+     *         .setIncludeOutput(true));
+     * // Save to file for audit
+     * }</pre>
+     */
+    public Map<String, Object> exportExecution(String executionId, ExecutionExportOptions options) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/executions/" + executionId + "/export");
+            StringBuilder query = new StringBuilder();
+
+            if (options != null) {
+                if (options.getFormat() != null) {
+                    appendQueryParam(query, "format", options.getFormat());
+                }
+                if (options.isIncludeInput()) {
+                    appendQueryParam(query, "include_input", "true");
+                }
+                if (options.isIncludeOutput()) {
+                    appendQueryParam(query, "include_output", "true");
+                }
+                if (options.isIncludePolicies()) {
+                    appendQueryParam(query, "include_policies", "true");
+                }
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, new TypeReference<Map<String, Object>>() {});
+            }
+        }, "exportExecution");
+    }
+
+    /**
+     * Exports a complete execution record with default options.
+     *
+     * @param executionId the execution ID (request_id)
+     * @return execution data as a map
+     */
+    public Map<String, Object> exportExecution(String executionId) {
+        return exportExecution(executionId, null);
+    }
+
+    /**
+     * Deletes an execution and all associated step snapshots.
+     *
+     * @param executionId the execution ID (request_id)
+     */
+    public void deleteExecution(String executionId) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("DELETE",
+                "/api/v1/executions/" + executionId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful() && response.code() != 204) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "deleteExecution");
+    }
+
+    /**
+     * Asynchronously lists workflow executions.
+     *
+     * @param options filtering and pagination options
+     * @return a future containing the list of executions
+     */
+    public CompletableFuture<ListExecutionsResponse> listExecutionsAsync(ListExecutionsOptions options) {
+        return CompletableFuture.supplyAsync(() -> listExecutions(options), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously gets execution details.
+     *
+     * @param executionId the execution ID
+     * @return a future containing the execution details
+     */
+    public CompletableFuture<ExecutionDetail> getExecutionAsync(String executionId) {
+        return CompletableFuture.supplyAsync(() -> getExecution(executionId), asyncExecutor);
     }
 
     @Override
