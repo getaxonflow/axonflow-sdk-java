@@ -624,4 +624,187 @@ class AxonFlowTest {
         assertThat(config.getClientSecret()).isEqualTo("test-secret");
         assertThat(config.isLocalhost()).isFalse();
     }
+
+    // ========================================================================
+    // Execution Replay - List Executions
+    // ========================================================================
+
+    @Test
+    @DisplayName("listExecutions should return empty list")
+    void listExecutionsShouldReturnEmptyList(WireMockRuntimeInfo wmRuntimeInfo) {
+        // Create client with orchestrator URL pointing to WireMock
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlEqualTo("/api/v1/executions"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"executions\":[],\"total\":0,\"limit\":50,\"offset\":0}")));
+
+        var response = client.listExecutions();
+
+        assertThat(response.getExecutions()).isEmpty();
+        assertThat(response.getTotal()).isEqualTo(0);
+        assertThat(response.getLimit()).isEqualTo(50);
+    }
+
+    @Test
+    @DisplayName("listExecutions should return executions with filter")
+    void listExecutionsShouldReturnExecutionsWithFilter(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlPathEqualTo("/api/v1/executions"))
+            .withQueryParam("status", equalTo("completed"))
+            .withQueryParam("limit", equalTo("10"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"executions\":[{\"request_id\":\"exec-123\",\"workflow_name\":\"test\",\"status\":\"completed\",\"total_steps\":1,\"completed_steps\":1,\"started_at\":\"2026-01-03T12:00:00Z\",\"total_tokens\":50,\"total_cost_usd\":0.001}],\"total\":1,\"limit\":10,\"offset\":0}")));
+
+        var options = com.getaxonflow.sdk.types.executionreplay.ExecutionReplayTypes.ListExecutionsOptions.builder()
+            .setStatus("completed")
+            .setLimit(10);
+        var response = client.listExecutions(options);
+
+        assertThat(response.getExecutions()).hasSize(1);
+        assertThat(response.getExecutions().get(0).getRequestId()).isEqualTo("exec-123");
+        assertThat(response.getExecutions().get(0).getStatus()).isEqualTo("completed");
+    }
+
+    // ========================================================================
+    // Execution Replay - Get Execution
+    // ========================================================================
+
+    @Test
+    @DisplayName("getExecution should return execution detail")
+    void getExecutionShouldReturnExecutionDetail(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec-123"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"summary\":{\"request_id\":\"exec-123\",\"workflow_name\":\"test\",\"status\":\"completed\",\"total_steps\":2,\"completed_steps\":2,\"started_at\":\"2026-01-03T12:00:00Z\",\"total_tokens\":100,\"total_cost_usd\":0.005},\"steps\":[{\"request_id\":\"exec-123\",\"step_index\":0,\"step_name\":\"greet\",\"status\":\"completed\",\"started_at\":\"2026-01-03T12:00:00Z\",\"tokens_in\":10,\"tokens_out\":20,\"cost_usd\":0.001}]}")));
+
+        var detail = client.getExecution("exec-123");
+
+        assertThat(detail.getSummary().getRequestId()).isEqualTo("exec-123");
+        assertThat(detail.getSummary().getStatus()).isEqualTo("completed");
+        assertThat(detail.getSteps()).hasSize(1);
+        assertThat(detail.getSteps().get(0).getStepName()).isEqualTo("greet");
+    }
+
+    // ========================================================================
+    // Execution Replay - Get Execution Steps
+    // ========================================================================
+
+    @Test
+    @DisplayName("getExecutionSteps should return step snapshots")
+    void getExecutionStepsShouldReturnSnapshots(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec-123/steps"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("[{\"request_id\":\"exec-123\",\"step_index\":0,\"step_name\":\"step1\",\"status\":\"completed\",\"started_at\":\"2026-01-03T12:00:00Z\",\"tokens_in\":10,\"tokens_out\":15,\"cost_usd\":0.001},{\"request_id\":\"exec-123\",\"step_index\":1,\"step_name\":\"step2\",\"status\":\"completed\",\"started_at\":\"2026-01-03T12:00:01Z\",\"tokens_in\":15,\"tokens_out\":20,\"cost_usd\":0.002}]")));
+
+        var steps = client.getExecutionSteps("exec-123");
+
+        assertThat(steps).hasSize(2);
+        assertThat(steps.get(0).getStepName()).isEqualTo("step1");
+        assertThat(steps.get(1).getStepName()).isEqualTo("step2");
+    }
+
+    // ========================================================================
+    // Execution Replay - Get Execution Timeline
+    // ========================================================================
+
+    @Test
+    @DisplayName("getExecutionTimeline should return timeline entries")
+    void getExecutionTimelineShouldReturnEntries(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec-123/timeline"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("[{\"step_index\":0,\"step_name\":\"start\",\"status\":\"completed\",\"started_at\":\"2026-01-03T12:00:00Z\",\"has_error\":false,\"has_approval\":false},{\"step_index\":1,\"step_name\":\"approve\",\"status\":\"completed\",\"started_at\":\"2026-01-03T12:00:01Z\",\"has_error\":false,\"has_approval\":true}]")));
+
+        var timeline = client.getExecutionTimeline("exec-123");
+
+        assertThat(timeline).hasSize(2);
+        assertThat(timeline.get(0).getStepName()).isEqualTo("start");
+        assertThat(timeline.get(0).hasApproval()).isFalse();
+        assertThat(timeline.get(1).getStepName()).isEqualTo("approve");
+        assertThat(timeline.get(1).hasApproval()).isTrue();
+    }
+
+    // ========================================================================
+    // Execution Replay - Export Execution
+    // ========================================================================
+
+    @Test
+    @DisplayName("exportExecution should return export data")
+    void exportExecutionShouldReturnExportData(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlPathEqualTo("/api/v1/executions/exec-123/export"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"execution_id\":\"exec-123\",\"workflow_name\":\"test\",\"exported_at\":\"2026-01-03T12:00:00Z\"}")));
+
+        var export = client.exportExecution("exec-123");
+
+        assertThat(export.get("execution_id")).isEqualTo("exec-123");
+        assertThat(export.get("workflow_name")).isEqualTo("test");
+    }
+
+    // ========================================================================
+    // Execution Replay - Delete Execution
+    // ========================================================================
+
+    @Test
+    @DisplayName("deleteExecution should succeed")
+    void deleteExecutionShouldSucceed(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(delete(urlEqualTo("/api/v1/executions/exec-123"))
+            .willReturn(aResponse()
+                .withStatus(204)));
+
+        // Should not throw
+        client.deleteExecution("exec-123");
+
+        verify(deleteRequestedFor(urlEqualTo("/api/v1/executions/exec-123")));
+    }
 }

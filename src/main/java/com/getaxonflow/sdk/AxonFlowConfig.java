@@ -49,6 +49,7 @@ public final class AxonFlowConfig {
     public static final String DEFAULT_AGENT_URL = "http://localhost:8080";
 
     private final String agentUrl;
+    private final String orchestratorUrl;
     private final String clientId;
     private final String clientSecret;
     private final String licenseKey;
@@ -62,6 +63,7 @@ public final class AxonFlowConfig {
 
     private AxonFlowConfig(Builder builder) {
         this.agentUrl = normalizeUrl(builder.agentUrl != null ? builder.agentUrl : DEFAULT_AGENT_URL);
+        this.orchestratorUrl = normalizeUrl(builder.orchestratorUrl);
         this.clientId = builder.clientId;
         this.clientSecret = builder.clientSecret;
         this.licenseKey = builder.licenseKey;
@@ -179,6 +181,10 @@ public final class AxonFlowConfig {
         return agentUrl;
     }
 
+    public String getOrchestratorUrl() {
+        return orchestratorUrl;
+    }
+
     public String getClientId() {
         return clientId;
     }
@@ -257,6 +263,7 @@ public final class AxonFlowConfig {
      */
     public static final class Builder {
         private String agentUrl;
+        private String orchestratorUrl;
         private String clientId;
         private String clientSecret;
         private String licenseKey;
@@ -278,6 +285,19 @@ public final class AxonFlowConfig {
          */
         public Builder agentUrl(String agentUrl) {
             this.agentUrl = agentUrl;
+            return this;
+        }
+
+        /**
+         * Sets the Orchestrator URL for Execution Replay API.
+         *
+         * <p>If not set, defaults to the Agent URL with port 8081.
+         *
+         * @param orchestratorUrl the Orchestrator URL
+         * @return this builder
+         */
+        public Builder orchestratorUrl(String orchestratorUrl) {
+            this.orchestratorUrl = orchestratorUrl;
             return this;
         }
 
