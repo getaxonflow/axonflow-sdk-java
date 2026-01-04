@@ -1196,7 +1196,7 @@ class AxonFlowTest {
         assertThatThrownBy(() ->
             com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("invalid"))
             .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Unknown on_exceed action");
+            .hasMessageContaining("Unknown budget on exceed action");
     }
 
     @Test
