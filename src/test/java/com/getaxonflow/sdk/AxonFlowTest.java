@@ -1117,4 +1117,145 @@ class AxonFlowTest {
 
         assertThat(summary.getTotalCostUsd()).isEqualTo(125.50);
     }
+
+    // ========================================
+    // COST CONTROLS - ENUM UNIT TESTS
+    // ========================================
+
+    @Test
+    @DisplayName("BudgetScope fromValue should return correct enum")
+    void budgetScopeFromValueShouldWork() {
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.fromValue("organization"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.ORGANIZATION);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.fromValue("team"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.TEAM);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.fromValue("agent"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.AGENT);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.fromValue("workflow"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.WORKFLOW);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.fromValue("user"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.USER);
+    }
+
+    @Test
+    @DisplayName("BudgetScope getValue should return correct string")
+    void budgetScopeGetValueShouldWork() {
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.ORGANIZATION.getValue())
+            .isEqualTo("organization");
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.TEAM.getValue())
+            .isEqualTo("team");
+    }
+
+    @Test
+    @DisplayName("BudgetPeriod fromValue should return correct enum")
+    void budgetPeriodFromValueShouldWork() {
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.fromValue("daily"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.DAILY);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.fromValue("weekly"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.WEEKLY);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.fromValue("monthly"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.MONTHLY);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.fromValue("quarterly"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.QUARTERLY);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.fromValue("yearly"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.YEARLY);
+    }
+
+    @Test
+    @DisplayName("BudgetOnExceed fromValue should return correct enum")
+    void budgetOnExceedFromValueShouldWork() {
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("warn"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.WARN);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("block"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.BLOCK);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("notify"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.NOTIFY);
+    }
+
+    @Test
+    @DisplayName("BudgetScope fromValue should throw for invalid value")
+    void budgetScopeFromValueShouldThrowForInvalid() {
+        assertThatThrownBy(() ->
+            com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.fromValue("invalid"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Unknown budget scope");
+    }
+
+    @Test
+    @DisplayName("BudgetPeriod fromValue should throw for invalid value")
+    void budgetPeriodFromValueShouldThrowForInvalid() {
+        assertThatThrownBy(() ->
+            com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.fromValue("invalid"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Unknown budget period");
+    }
+
+    @Test
+    @DisplayName("BudgetOnExceed fromValue should throw for invalid value")
+    void budgetOnExceedFromValueShouldThrowForInvalid() {
+        assertThatThrownBy(() ->
+            com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("invalid"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("Unknown on_exceed action");
+    }
+
+    @Test
+    @DisplayName("CreateBudgetRequest builder should set all fields")
+    void createBudgetRequestBuilderShouldSetAllFields() {
+        var request = com.getaxonflow.sdk.types.costcontrols.CostControlTypes.CreateBudgetRequest.builder()
+            .id("budget-1")
+            .name("My Budget")
+            .description("Test description")
+            .scope(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.TEAM)
+            .scopeId("team-123")
+            .limitUsd(500.0)
+            .period(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.WEEKLY)
+            .onExceed(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.BLOCK)
+            .alertThresholds(List.of(25, 50, 75))
+            .build();
+
+        assertThat(request.getId()).isEqualTo("budget-1");
+        assertThat(request.getName()).isEqualTo("My Budget");
+        assertThat(request.getDescription()).isEqualTo("Test description");
+        assertThat(request.getScope()).isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.TEAM);
+        assertThat(request.getScopeId()).isEqualTo("team-123");
+        assertThat(request.getLimitUsd()).isEqualTo(500.0);
+        assertThat(request.getPeriod()).isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetPeriod.WEEKLY);
+        assertThat(request.getOnExceed()).isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.BLOCK);
+        assertThat(request.getAlertThresholds()).containsExactly(25, 50, 75);
+    }
+
+    @Test
+    @DisplayName("UpdateBudgetRequest builder should set all fields")
+    void updateBudgetRequestBuilderShouldSetAllFields() {
+        var request = com.getaxonflow.sdk.types.costcontrols.CostControlTypes.UpdateBudgetRequest.builder()
+            .name("Updated Budget")
+            .limitUsd(1000.0)
+            .onExceed(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.NOTIFY)
+            .alertThresholds(List.of(80, 90, 100))
+            .build();
+
+        assertThat(request.getName()).isEqualTo("Updated Budget");
+        assertThat(request.getLimitUsd()).isEqualTo(1000.0);
+        assertThat(request.getOnExceed()).isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.NOTIFY);
+        assertThat(request.getAlertThresholds()).containsExactly(80, 90, 100);
+    }
+
+    @Test
+    @DisplayName("BudgetCheckRequest builder should set all fields")
+    void budgetCheckRequestBuilderShouldSetAllFields() {
+        var request = com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetCheckRequest.builder()
+            .orgId("org-1")
+            .teamId("team-1")
+            .agentId("agent-1")
+            .workflowId("workflow-1")
+            .userId("user-1")
+            .build();
+
+        assertThat(request.getOrgId()).isEqualTo("org-1");
+        assertThat(request.getTeamId()).isEqualTo("team-1");
+        assertThat(request.getAgentId()).isEqualTo("agent-1");
+        assertThat(request.getWorkflowId()).isEqualTo("workflow-1");
+        assertThat(request.getUserId()).isEqualTo("user-1");
+    }
 }
