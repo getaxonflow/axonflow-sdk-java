@@ -37,18 +37,27 @@ public final class PolicyTypes {
      * Policy categories for organization and filtering.
      */
     public enum PolicyCategory {
+        // Static policy categories - Security
         SECURITY_SQLI("security-sqli"),
         SECURITY_ADMIN("security-admin"),
+
+        // Static policy categories - PII Detection
         PII_GLOBAL("pii-global"),
         PII_US("pii-us"),
         PII_EU("pii-eu"),
         PII_INDIA("pii-india"),
+
+        // Static policy categories - Code Governance
+        CODE_SECRETS("code-secrets"),
+        CODE_UNSAFE("code-unsafe"),
+        CODE_COMPLIANCE("code-compliance"),
+
+        // Dynamic policy categories
         DYNAMIC_RISK("dynamic-risk"),
         DYNAMIC_COMPLIANCE("dynamic-compliance"),
         DYNAMIC_SECURITY("dynamic-security"),
         DYNAMIC_COST("dynamic-cost"),
-        DYNAMIC_ACCESS("dynamic-access"),
-        CUSTOM("custom");
+        DYNAMIC_ACCESS("dynamic-access");
 
         private final String value;
 
