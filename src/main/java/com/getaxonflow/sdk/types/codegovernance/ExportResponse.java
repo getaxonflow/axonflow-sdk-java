@@ -18,6 +18,7 @@ package com.getaxonflow.sdk.types.codegovernance;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -40,7 +41,7 @@ public final class ExportResponse {
             @JsonProperty("records") List<PRRecord> records,
             @JsonProperty("count") int count,
             @JsonProperty("exported_at") String exportedAt) {
-        this.records = records;
+        this.records = records != null ? Collections.unmodifiableList(records) : Collections.emptyList();
         this.count = count;
         this.exportedAt = exportedAt;
     }

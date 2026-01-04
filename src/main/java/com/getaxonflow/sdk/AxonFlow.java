@@ -117,6 +117,7 @@ public final class AxonFlow implements Closeable {
     private final RetryExecutor retryExecutor;
     private final ResponseCache cache;
     private final Executor asyncExecutor;
+    private volatile String sessionCookie; // Session cookie for Customer Portal authentication
 
     private AxonFlow(AxonFlowConfig config) {
         this.config = Objects.requireNonNull(config, "config cannot be null");
@@ -1594,27 +1595,125 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // Portal Authentication (Enterprise)
+    // ========================================================================
+
+    /**
+     * Login to Customer Portal and store session cookie.
+     * Required before using Code Governance methods.
+     *
+     * @param orgId the organization ID
+     * @param password the organization password
+     * @return login response with session info
+     * @throws IOException if the request fails
+     *
+     * @example
+     * <pre>{@code
+     * PortalLoginResponse login = axonflow.loginToPortal("test-org-001", "test123");
+     * System.out.println("Logged in as: " + login.getName());
+     *
+     * // Now you can use Code Governance methods
+     * ListGitProvidersResponse providers = axonflow.listGitProviders();
+     * }</pre>
+     */
+    public PortalLoginResponse loginToPortal(String orgId, String password) throws IOException {
+        logger.debug("Logging in to portal: {}", orgId);
+
+        String json = objectMapper.writeValueAsString(
+            java.util.Map.of("org_id", orgId, "password", password)
+        );
+        RequestBody body = RequestBody.create(json, JSON);
+
+        Request request = new Request.Builder()
+                .url(getPortalUrl() + "/api/v1/auth/login")
+                .post(body)
+                .header("Content-Type", "application/json")
+                .build();
+
+        try (Response response = httpClient.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new AuthenticationException("Login failed: " + response.body().string());
+            }
+
+            PortalLoginResponse loginResponse = parseResponse(response, PortalLoginResponse.class);
+
+            // Extract session cookie from response
+            String cookies = response.header("Set-Cookie");
+            if (cookies != null && cookies.contains("axonflow_session=")) {
+                int start = cookies.indexOf("axonflow_session=") + 17;
+                int end = cookies.indexOf(";", start);
+                if (end > start) {
+                    this.sessionCookie = cookies.substring(start, end);
+                }
+            }
+
+            // Fallback to session_id in response body
+            if (this.sessionCookie == null && loginResponse.getSessionId() != null) {
+                this.sessionCookie = loginResponse.getSessionId();
+            }
+
+            logger.info("Portal login successful for {}", orgId);
+            return loginResponse;
+        }
+    }
+
+    /**
+     * Logout from Customer Portal and clear session cookie.
+     */
+    public void logoutFromPortal() {
+        if (sessionCookie == null) {
+            return;
+        }
+
+        try {
+            Request request = new Request.Builder()
+                    .url(getPortalUrl() + "/api/v1/auth/logout")
+                    .post(RequestBody.create("", JSON))
+                    .header("Cookie", "axonflow_session=" + sessionCookie)
+                    .build();
+
+            httpClient.newCall(request).execute().close();
+        } catch (Exception e) {
+            // Ignore logout errors
+        }
+
+        sessionCookie = null;
+        logger.info("Portal logout successful");
+    }
+
+    /**
+     * Check if logged in to Customer Portal.
+     *
+     * @return true if logged in
+     */
+    public boolean isLoggedIn() {
+        return sessionCookie != null;
+    }
+
+    // ========================================================================
     // Code Governance - Git Provider APIs (Enterprise)
     // ========================================================================
 
     /**
      * Validates Git provider credentials without saving them.
+     * Requires prior authentication via loginToPortal().
      *
      * @param request the validation request with provider type and credentials
      * @return validation result
      * @throws IOException if the request fails
      */
     public ValidateGitProviderResponse validateGitProvider(ValidateGitProviderRequest request) throws IOException {
+        requirePortalLogin();
         logger.debug("Validating Git provider: {}", request.getType());
 
         String json = objectMapper.writeValueAsString(request);
         RequestBody body = RequestBody.create(json, JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers/validate")
+                .url(getPortalUrl() + "/api/v1/code-governance/git-providers/validate")
                 .post(body);
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, ValidateGitProviderResponse.class);
@@ -1629,16 +1728,17 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public ConfigureGitProviderResponse configureGitProvider(ConfigureGitProviderRequest request) throws IOException {
+        requirePortalLogin();
         logger.debug("Configuring Git provider: {}", request.getType());
 
         String json = objectMapper.writeValueAsString(request);
         RequestBody body = RequestBody.create(json, JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers")
+                .url(getPortalUrl() + "/api/v1/code-governance/git-providers")
                 .post(body);
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, ConfigureGitProviderResponse.class);
@@ -1652,13 +1752,14 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public ListGitProvidersResponse listGitProviders() throws IOException {
+        requirePortalLogin();
         logger.debug("Listing Git providers");
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers")
+                .url(getPortalUrl() + "/api/v1/code-governance/git-providers")
                 .get();
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, ListGitProvidersResponse.class);
@@ -1672,13 +1773,14 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public void deleteGitProvider(GitProviderType providerType) throws IOException {
+        requirePortalLogin();
         logger.debug("Deleting Git provider: {}", providerType);
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/git-providers/" + providerType.getValue())
+                .url(getPortalUrl() + "/api/v1/code-governance/git-providers/" + providerType.getValue())
                 .delete();
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             handleErrorResponse(response);
@@ -1693,16 +1795,17 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public CreatePRResponse createPR(CreatePRRequest request) throws IOException {
+        requirePortalLogin();
         logger.debug("Creating PR: {} in {}/{}", request.getTitle(), request.getOwner(), request.getRepo());
 
         String json = objectMapper.writeValueAsString(request);
         RequestBody body = RequestBody.create(json, JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/prs")
+                .url(getPortalUrl() + "/api/v1/code-governance/prs")
                 .post(body);
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, CreatePRResponse.class);
@@ -1717,9 +1820,10 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public ListPRsResponse listPRs(ListPRsOptions options) throws IOException {
+        requirePortalLogin();
         logger.debug("Listing PRs");
 
-        StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/prs");
+        StringBuilder url = new StringBuilder(getPortalUrl() + "/api/v1/code-governance/prs");
         StringBuilder query = new StringBuilder();
 
         if (options != null) {
@@ -1742,7 +1846,7 @@ public final class AxonFlow implements Closeable {
                 .url(url.toString())
                 .get();
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, ListPRsResponse.class);
@@ -1767,13 +1871,14 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public PRRecord getPR(String prId) throws IOException {
+        requirePortalLogin();
         logger.debug("Getting PR: {}", prId);
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/prs/" + prId)
+                .url(getPortalUrl() + "/api/v1/code-governance/prs/" + prId)
                 .get();
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, PRRecord.class);
@@ -1788,15 +1893,16 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public PRRecord syncPRStatus(String prId) throws IOException {
+        requirePortalLogin();
         logger.debug("Syncing PR status: {}", prId);
 
         RequestBody body = RequestBody.create("{}", JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/prs/" + prId + "/sync")
+                .url(getPortalUrl() + "/api/v1/code-governance/prs/" + prId + "/sync")
                 .post(body);
 
-        addAuthHeaders(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, PRRecord.class);
@@ -1810,14 +1916,14 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public CodeGovernanceMetrics getCodeGovernanceMetrics() throws IOException {
+        requirePortalLogin();
         logger.debug("Getting code governance metrics");
 
         Request.Builder builder = new Request.Builder()
-                .url(config.getAgentUrl() + "/api/v1/code-governance/metrics")
+                .url(getPortalUrl() + "/api/v1/code-governance/metrics")
                 .get();
 
-        addAuthHeaders(builder);
-        addTenantIdHeader(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, CodeGovernanceMetrics.class);
@@ -1832,9 +1938,10 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public ExportResponse exportCodeGovernanceData(ExportOptions options) throws IOException {
+        requirePortalLogin();
         logger.debug("Exporting code governance data");
 
-        StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/export");
+        StringBuilder url = new StringBuilder(getPortalUrl() + "/api/v1/code-governance/export");
         StringBuilder query = new StringBuilder();
 
         if (options != null) {
@@ -1860,8 +1967,7 @@ public final class AxonFlow implements Closeable {
                 .url(url.toString())
                 .get();
 
-        addAuthHeaders(builder);
-        addTenantIdHeader(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             return parseResponse(response, ExportResponse.class);
@@ -1876,9 +1982,10 @@ public final class AxonFlow implements Closeable {
      * @throws IOException if the request fails
      */
     public String exportCodeGovernanceDataCSV(ExportOptions options) throws IOException {
+        requirePortalLogin();
         logger.debug("Exporting code governance data as CSV");
 
-        StringBuilder url = new StringBuilder(config.getAgentUrl() + "/api/v1/code-governance/export");
+        StringBuilder url = new StringBuilder(getPortalUrl() + "/api/v1/code-governance/export");
         StringBuilder query = new StringBuilder();
 
         appendQueryParam(query, "format", "csv");
@@ -1900,8 +2007,7 @@ public final class AxonFlow implements Closeable {
                 .url(url.toString())
                 .get();
 
-        addAuthHeaders(builder);
-        addTenantIdHeader(builder);
+        addPortalSessionCookie(builder);
 
         try (Response response = httpClient.newCall(builder.build()).execute()) {
             handleErrorResponse(response);
@@ -1950,6 +2056,94 @@ public final class AxonFlow implements Closeable {
             .header("Accept", "application/json");
 
         addAuthHeaders(builder);
+
+        RequestBody requestBody = null;
+        if (body != null) {
+            try {
+                String json = objectMapper.writeValueAsString(body);
+                requestBody = RequestBody.create(json, JSON);
+            } catch (JsonProcessingException e) {
+                throw new AxonFlowException("Failed to serialize request body", e);
+            }
+        }
+
+        switch (method.toUpperCase()) {
+            case "GET":
+                builder.get();
+                break;
+            case "POST":
+                builder.post(requestBody != null ? requestBody : RequestBody.create("", JSON));
+                break;
+            case "PUT":
+                builder.put(requestBody != null ? requestBody : RequestBody.create("", JSON));
+                break;
+            case "PATCH":
+                builder.patch(requestBody != null ? requestBody : RequestBody.create("", JSON));
+                break;
+            case "DELETE":
+                builder.delete(requestBody);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported method: " + method);
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Gets the portal URL for enterprise PR workflow features.
+     * Falls back to agent URL with port 8082 if not configured.
+     */
+    private String getPortalUrl() {
+        String portalUrl = config.getPortalUrl();
+        if (portalUrl != null && !portalUrl.isEmpty()) {
+            return portalUrl;
+        }
+        // Default: assume portal is on same host as agent, port 8082
+        try {
+            URI uri = URI.create(config.getAgentUrl());
+            return uri.getScheme() + "://" + uri.getHost() + ":8082";
+        } catch (Exception e) {
+            return "http://localhost:8082";
+        }
+    }
+
+    /**
+     * Requires portal login before making code governance requests.
+     */
+    private void requirePortalLogin() {
+        if (sessionCookie == null) {
+            throw new AuthenticationException("Not logged in to Customer Portal. Call loginToPortal() first.");
+        }
+    }
+
+    /**
+     * Adds the session cookie header for portal authentication.
+     */
+    private void addPortalSessionCookie(Request.Builder builder) {
+        if (sessionCookie != null) {
+            builder.header("Cookie", "axonflow_session=" + sessionCookie);
+        }
+    }
+
+    /**
+     * Builds a request for the Customer Portal API (enterprise features).
+     * Requires prior authentication via loginToPortal().
+     */
+    private Request buildPortalRequest(String method, String path, Object body) {
+        requirePortalLogin();
+
+        HttpUrl url = HttpUrl.parse(getPortalUrl() + path);
+        if (url == null) {
+            throw new ConfigurationException("Invalid URL: " + getPortalUrl() + path);
+        }
+
+        Request.Builder builder = new Request.Builder()
+            .url(url)
+            .header("User-Agent", config.getUserAgent())
+            .header("Accept", "application/json");
+
+        addPortalSessionCookie(builder);
 
         RequestBody requestBody = null;
         if (body != null) {
