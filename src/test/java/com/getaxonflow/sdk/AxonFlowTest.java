@@ -1168,8 +1168,8 @@ class AxonFlowTest {
             .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.WARN);
         assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("block"))
             .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.BLOCK);
-        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("notify"))
-            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.NOTIFY);
+        assertThat(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.fromValue("downgrade"))
+            .isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.DOWNGRADE);
     }
 
     @Test
@@ -1205,7 +1205,6 @@ class AxonFlowTest {
         var request = com.getaxonflow.sdk.types.costcontrols.CostControlTypes.CreateBudgetRequest.builder()
             .id("budget-1")
             .name("My Budget")
-            .description("Test description")
             .scope(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.TEAM)
             .scopeId("team-123")
             .limitUsd(500.0)
@@ -1216,7 +1215,6 @@ class AxonFlowTest {
 
         assertThat(request.getId()).isEqualTo("budget-1");
         assertThat(request.getName()).isEqualTo("My Budget");
-        assertThat(request.getDescription()).isEqualTo("Test description");
         assertThat(request.getScope()).isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetScope.TEAM);
         assertThat(request.getScopeId()).isEqualTo("team-123");
         assertThat(request.getLimitUsd()).isEqualTo(500.0);
@@ -1231,13 +1229,13 @@ class AxonFlowTest {
         var request = com.getaxonflow.sdk.types.costcontrols.CostControlTypes.UpdateBudgetRequest.builder()
             .name("Updated Budget")
             .limitUsd(1000.0)
-            .onExceed(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.NOTIFY)
+            .onExceed(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.DOWNGRADE)
             .alertThresholds(List.of(80, 90, 100))
             .build();
 
         assertThat(request.getName()).isEqualTo("Updated Budget");
         assertThat(request.getLimitUsd()).isEqualTo(1000.0);
-        assertThat(request.getOnExceed()).isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.NOTIFY);
+        assertThat(request.getOnExceed()).isEqualTo(com.getaxonflow.sdk.types.costcontrols.CostControlTypes.BudgetOnExceed.DOWNGRADE);
         assertThat(request.getAlertThresholds()).containsExactly(80, 90, 100);
     }
 
