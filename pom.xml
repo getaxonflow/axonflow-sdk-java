@@ -73,7 +73,7 @@
         <nexus-staging-plugin.version>1.6.13</nexus-staging-plugin.version>
 
         <!-- Coverage Threshold -->
-        <jacoco.minimum.coverage>0.70</jacoco.minimum.coverage>
+        <jacoco.minimum.coverage>0.75</jacoco.minimum.coverage>
     </properties>
 
     <dependencies>
