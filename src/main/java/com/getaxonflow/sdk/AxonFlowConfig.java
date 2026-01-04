@@ -50,6 +50,7 @@ public final class AxonFlowConfig {
 
     private final String agentUrl;
     private final String orchestratorUrl;
+    private final String portalUrl;
     private final String clientId;
     private final String clientSecret;
     private final String licenseKey;
@@ -64,6 +65,7 @@ public final class AxonFlowConfig {
     private AxonFlowConfig(Builder builder) {
         this.agentUrl = normalizeUrl(builder.agentUrl != null ? builder.agentUrl : DEFAULT_AGENT_URL);
         this.orchestratorUrl = normalizeUrl(builder.orchestratorUrl);
+        this.portalUrl = normalizeUrl(builder.portalUrl);
         this.clientId = builder.clientId;
         this.clientSecret = builder.clientSecret;
         this.licenseKey = builder.licenseKey;
@@ -185,6 +187,10 @@ public final class AxonFlowConfig {
         return orchestratorUrl;
     }
 
+    public String getPortalUrl() {
+        return portalUrl;
+    }
+
     public String getClientId() {
         return clientId;
     }
@@ -264,6 +270,7 @@ public final class AxonFlowConfig {
     public static final class Builder {
         private String agentUrl;
         private String orchestratorUrl;
+        private String portalUrl;
         private String clientId;
         private String clientSecret;
         private String licenseKey;
@@ -298,6 +305,19 @@ public final class AxonFlowConfig {
          */
         public Builder orchestratorUrl(String orchestratorUrl) {
             this.orchestratorUrl = orchestratorUrl;
+            return this;
+        }
+
+        /**
+         * Sets the Customer Portal URL for enterprise PR workflow features.
+         *
+         * <p>If not set, defaults to the Agent URL with port 8082.
+         *
+         * @param portalUrl the Customer Portal URL
+         * @return this builder
+         */
+        public Builder portalUrl(String portalUrl) {
+            this.portalUrl = portalUrl;
             return this;
         }
 
