@@ -18,6 +18,7 @@ package com.getaxonflow.sdk;
 import com.getaxonflow.sdk.exceptions.*;
 import com.getaxonflow.sdk.types.*;
 import com.getaxonflow.sdk.types.codegovernance.*;
+import com.getaxonflow.sdk.types.costcontrols.CostControlTypes.*;
 import com.getaxonflow.sdk.types.executionreplay.ExecutionReplayTypes.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
 import com.getaxonflow.sdk.util.*;
@@ -2072,6 +2073,400 @@ public final class AxonFlow implements Closeable {
      */
     public CompletableFuture<ExecutionDetail> getExecutionAsync(String executionId) {
         return CompletableFuture.supplyAsync(() -> getExecution(executionId), asyncExecutor);
+    }
+
+    // ========================================
+    // COST CONTROLS - BUDGETS
+    // ========================================
+
+    /**
+     * Creates a new budget.
+     *
+     * @param request the budget creation request
+     * @return the created budget
+     */
+    public Budget createBudget(CreateBudgetRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/budgets", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, Budget.class);
+            }
+        }, "createBudget");
+    }
+
+    /**
+     * Gets a budget by ID.
+     *
+     * @param budgetId the budget ID
+     * @return the budget
+     */
+    public Budget getBudget(String budgetId) {
+        Objects.requireNonNull(budgetId, "budgetId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/budgets/" + budgetId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, Budget.class);
+            }
+        }, "getBudget");
+    }
+
+    /**
+     * Lists all budgets.
+     *
+     * @param options filtering and pagination options
+     * @return list of budgets
+     */
+    public BudgetsResponse listBudgets(ListBudgetsOptions options) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/budgets");
+            StringBuilder query = new StringBuilder();
+
+            if (options != null) {
+                if (options.getScope() != null) {
+                    appendQueryParam(query, "scope", options.getScope().getValue());
+                }
+                if (options.getLimit() != null) {
+                    appendQueryParam(query, "limit", options.getLimit().toString());
+                }
+                if (options.getOffset() != null) {
+                    appendQueryParam(query, "offset", options.getOffset().toString());
+                }
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, BudgetsResponse.class);
+            }
+        }, "listBudgets");
+    }
+
+    /**
+     * Lists all budgets with default options.
+     *
+     * @return list of budgets
+     */
+    public BudgetsResponse listBudgets() {
+        return listBudgets(null);
+    }
+
+    /**
+     * Updates an existing budget.
+     *
+     * @param budgetId the budget ID
+     * @param request the update request
+     * @return the updated budget
+     */
+    public Budget updateBudget(String budgetId, UpdateBudgetRequest request) {
+        Objects.requireNonNull(budgetId, "budgetId cannot be null");
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("PUT", "/api/v1/budgets/" + budgetId, request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, Budget.class);
+            }
+        }, "updateBudget");
+    }
+
+    /**
+     * Deletes a budget.
+     *
+     * @param budgetId the budget ID
+     */
+    public void deleteBudget(String budgetId) {
+        Objects.requireNonNull(budgetId, "budgetId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("DELETE", "/api/v1/budgets/" + budgetId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful() && response.code() != 204) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "deleteBudget");
+    }
+
+    // ========================================
+    // COST CONTROLS - BUDGET STATUS & ALERTS
+    // ========================================
+
+    /**
+     * Gets the current status of a budget.
+     *
+     * @param budgetId the budget ID
+     * @return the budget status
+     */
+    public BudgetStatus getBudgetStatus(String budgetId) {
+        Objects.requireNonNull(budgetId, "budgetId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/budgets/" + budgetId + "/status", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, BudgetStatus.class);
+            }
+        }, "getBudgetStatus");
+    }
+
+    /**
+     * Gets alerts for a budget.
+     *
+     * @param budgetId the budget ID
+     * @return the budget alerts
+     */
+    public BudgetAlertsResponse getBudgetAlerts(String budgetId) {
+        Objects.requireNonNull(budgetId, "budgetId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/budgets/" + budgetId + "/alerts", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, BudgetAlertsResponse.class);
+            }
+        }, "getBudgetAlerts");
+    }
+
+    /**
+     * Performs a pre-flight budget check.
+     *
+     * @param request the check request
+     * @return the budget decision
+     */
+    public BudgetDecision checkBudget(BudgetCheckRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/budgets/check", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, BudgetDecision.class);
+            }
+        }, "checkBudget");
+    }
+
+    // ========================================
+    // COST CONTROLS - USAGE
+    // ========================================
+
+    /**
+     * Gets usage summary for a period.
+     *
+     * @param period the period (daily, weekly, monthly, quarterly, yearly)
+     * @return the usage summary
+     */
+    public UsageSummary getUsageSummary(String period) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/usage");
+            if (period != null && !period.isEmpty()) {
+                path.append("?period=").append(period);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, UsageSummary.class);
+            }
+        }, "getUsageSummary");
+    }
+
+    /**
+     * Gets usage summary with default period.
+     *
+     * @return the usage summary
+     */
+    public UsageSummary getUsageSummary() {
+        return getUsageSummary(null);
+    }
+
+    /**
+     * Gets usage breakdown by a grouping dimension.
+     *
+     * @param groupBy the dimension to group by (provider, model, agent, team, workflow)
+     * @param period the period (daily, weekly, monthly, quarterly, yearly)
+     * @return the usage breakdown
+     */
+    public UsageBreakdown getUsageBreakdown(String groupBy, String period) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/usage/breakdown");
+            StringBuilder query = new StringBuilder();
+
+            if (groupBy != null && !groupBy.isEmpty()) {
+                appendQueryParam(query, "group_by", groupBy);
+            }
+            if (period != null && !period.isEmpty()) {
+                appendQueryParam(query, "period", period);
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, UsageBreakdown.class);
+            }
+        }, "getUsageBreakdown");
+    }
+
+    /**
+     * Lists usage records.
+     *
+     * @param options filtering and pagination options
+     * @return list of usage records
+     */
+    public UsageRecordsResponse listUsageRecords(ListUsageRecordsOptions options) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/usage/records");
+            StringBuilder query = new StringBuilder();
+
+            if (options != null) {
+                if (options.getLimit() != null) {
+                    appendQueryParam(query, "limit", options.getLimit().toString());
+                }
+                if (options.getOffset() != null) {
+                    appendQueryParam(query, "offset", options.getOffset().toString());
+                }
+                if (options.getProvider() != null) {
+                    appendQueryParam(query, "provider", options.getProvider());
+                }
+                if (options.getModel() != null) {
+                    appendQueryParam(query, "model", options.getModel());
+                }
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, UsageRecordsResponse.class);
+            }
+        }, "listUsageRecords");
+    }
+
+    /**
+     * Lists usage records with default options.
+     *
+     * @return list of usage records
+     */
+    public UsageRecordsResponse listUsageRecords() {
+        return listUsageRecords(null);
+    }
+
+    // ========================================
+    // COST CONTROLS - PRICING
+    // ========================================
+
+    /**
+     * Gets pricing information for models.
+     *
+     * @param provider filter by provider (optional)
+     * @param model filter by model (optional)
+     * @return pricing information
+     */
+    public PricingListResponse getPricing(String provider, String model) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/pricing");
+            StringBuilder query = new StringBuilder();
+
+            if (provider != null && !provider.isEmpty()) {
+                appendQueryParam(query, "provider", provider);
+            }
+            if (model != null && !model.isEmpty()) {
+                appendQueryParam(query, "model", model);
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                String body = response.body() != null ? response.body().string() : "";
+                if (!response.isSuccessful()) {
+                    throw new AxonFlowException("Failed to get pricing: " + body);
+                }
+
+                // Handle single object or array response
+                if (body.trim().startsWith("{") && body.contains("\"provider\"")) {
+                    // Single object response - wrap in list
+                    PricingInfo singlePricing = objectMapper.readValue(body, PricingInfo.class);
+                    PricingListResponse result = new PricingListResponse();
+                    result.setPricing(Collections.singletonList(singlePricing));
+                    return result;
+                } else {
+                    return objectMapper.readValue(body, PricingListResponse.class);
+                }
+            }
+        }, "getPricing");
+    }
+
+    /**
+     * Gets all pricing information.
+     *
+     * @return all pricing information
+     */
+    public PricingListResponse getPricing() {
+        return getPricing(null, null);
+    }
+
+    // ========================================
+    // COST CONTROLS - ASYNC METHODS
+    // ========================================
+
+    /**
+     * Asynchronously creates a budget.
+     *
+     * @param request the budget creation request
+     * @return a future containing the created budget
+     */
+    public CompletableFuture<Budget> createBudgetAsync(CreateBudgetRequest request) {
+        return CompletableFuture.supplyAsync(() -> createBudget(request), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously gets a budget.
+     *
+     * @param budgetId the budget ID
+     * @return a future containing the budget
+     */
+    public CompletableFuture<Budget> getBudgetAsync(String budgetId) {
+        return CompletableFuture.supplyAsync(() -> getBudget(budgetId), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously lists budgets.
+     *
+     * @param options filtering and pagination options
+     * @return a future containing the list of budgets
+     */
+    public CompletableFuture<BudgetsResponse> listBudgetsAsync(ListBudgetsOptions options) {
+        return CompletableFuture.supplyAsync(() -> listBudgets(options), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously gets budget status.
+     *
+     * @param budgetId the budget ID
+     * @return a future containing the budget status
+     */
+    public CompletableFuture<BudgetStatus> getBudgetStatusAsync(String budgetId) {
+        return CompletableFuture.supplyAsync(() -> getBudgetStatus(budgetId), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously gets usage summary.
+     *
+     * @param period the period
+     * @return a future containing the usage summary
+     */
+    public CompletableFuture<UsageSummary> getUsageSummaryAsync(String period) {
+        return CompletableFuture.supplyAsync(() -> getUsageSummary(period), asyncExecutor);
     }
 
     @Override
