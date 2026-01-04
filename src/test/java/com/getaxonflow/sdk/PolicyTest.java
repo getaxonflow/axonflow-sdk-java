@@ -627,7 +627,7 @@ class PolicyTest {
             assertThat(PolicyCategory.SECURITY_SQLI.getValue()).isEqualTo("security-sqli");
             assertThat(PolicyCategory.PII_GLOBAL.getValue()).isEqualTo("pii-global");
             assertThat(PolicyCategory.DYNAMIC_COST.getValue()).isEqualTo("dynamic-cost");
-            assertThat(PolicyCategory.CUSTOM.getValue()).isEqualTo("custom");
+            assertThat(PolicyCategory.CODE_SECRETS.getValue()).isEqualTo("code-secrets");
         }
 
         @Test
