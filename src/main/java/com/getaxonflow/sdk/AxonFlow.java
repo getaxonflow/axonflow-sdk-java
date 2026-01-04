@@ -212,6 +212,33 @@ public final class AxonFlow implements Closeable {
         return CompletableFuture.supplyAsync(this::healthCheck, asyncExecutor);
     }
 
+    /**
+     * Checks if the AxonFlow Orchestrator is healthy.
+     *
+     * @return the health status
+     * @throws ConnectionException if the Orchestrator cannot be reached
+     */
+    public HealthStatus orchestratorHealthCheck() {
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/health", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    return new HealthStatus("unhealthy", null, null, null);
+                }
+                return parseResponse(response, HealthStatus.class);
+            }
+        }, "orchestratorHealthCheck");
+    }
+
+    /**
+     * Asynchronously checks if the AxonFlow Orchestrator is healthy.
+     *
+     * @return a future containing the health status
+     */
+    public CompletableFuture<HealthStatus> orchestratorHealthCheckAsync() {
+        return CompletableFuture.supplyAsync(this::orchestratorHealthCheck, asyncExecutor);
+    }
+
     // ========================================================================
     // Gateway Mode - Policy Pre-check and Audit
     // ========================================================================
@@ -566,6 +593,26 @@ public final class AxonFlow implements Closeable {
                 return parseResponse(response, ConnectorInfo.class);
             }
         }, "installConnector");
+    }
+
+    /**
+     * Uninstalls an MCP connector.
+     *
+     * @param connectorName the name of the connector to uninstall
+     */
+    public void uninstallConnector(String connectorName) {
+        Objects.requireNonNull(connectorName, "connectorName cannot be null");
+
+        retryExecutor.execute(() -> {
+            String path = "/api/v1/connectors/" + connectorName;
+            Request httpRequest = buildOrchestratorRequest("DELETE", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful() && response.code() != 204) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "uninstallConnector");
     }
 
     /**
