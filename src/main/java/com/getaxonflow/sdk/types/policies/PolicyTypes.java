@@ -556,62 +556,20 @@ public final class PolicyTypes {
     // ========================================================================
 
     /**
-     * Dynamic policy configuration.
-     */
-    public static class DynamicPolicyConfig {
-        private String type;
-        private Map<String, Object> rules;
-        private List<DynamicPolicyCondition> conditions;
-        private PolicyAction action;
-        private Map<String, Object> parameters;
-
-        // Getters and setters
-        public String getType() { return type; }
-        public void setType(String type) { this.type = type; }
-        public Map<String, Object> getRules() { return rules; }
-        public void setRules(Map<String, Object> rules) { this.rules = rules; }
-        public List<DynamicPolicyCondition> getConditions() { return conditions; }
-        public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
-        public PolicyAction getAction() { return action; }
-        public void setAction(PolicyAction action) { this.action = action; }
-        public Map<String, Object> getParameters() { return parameters; }
-        public void setParameters(Map<String, Object> parameters) { this.parameters = parameters; }
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public static class Builder {
-            private final DynamicPolicyConfig config = new DynamicPolicyConfig();
-
-            public Builder type(String type) {
-                config.type = type;
-                return this;
-            }
-
-            public Builder rules(Map<String, Object> rules) {
-                config.rules = rules;
-                return this;
-            }
-
-            public Builder action(PolicyAction action) {
-                config.action = action;
-                return this;
-            }
-
-            public DynamicPolicyConfig build() {
-                return config;
-            }
-        }
-    }
-
-    /**
      * Condition for dynamic policy evaluation.
      */
     public static class DynamicPolicyCondition {
         private String field;
         private String operator;
         private Object value;
+
+        public DynamicPolicyCondition() {}
+
+        public DynamicPolicyCondition(String field, String operator, Object value) {
+            this.field = field;
+            this.operator = operator;
+            this.value = value;
+        }
 
         public String getField() { return field; }
         public void setField(String field) { this.field = field; }
@@ -622,25 +580,44 @@ public final class PolicyTypes {
     }
 
     /**
+     * Action to take when dynamic policy conditions are met.
+     */
+    public static class DynamicPolicyAction {
+        private String type;  // "block", "alert", "redact", "log", "route", "modify_risk"
+        private Map<String, Object> config;
+
+        public DynamicPolicyAction() {}
+
+        public DynamicPolicyAction(String type, Map<String, Object> config) {
+            this.type = type;
+            this.config = config;
+        }
+
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
+        public Map<String, Object> getConfig() { return config; }
+        public void setConfig(Map<String, Object> config) { this.config = config; }
+    }
+
+    /**
      * Dynamic policy definition.
+     *
+     * <p>Dynamic policies are LLM-powered policies that can evaluate complex,
+     * context-aware rules that can't be expressed with simple regex patterns.
      */
     public static class DynamicPolicy {
         private String id;
         private String name;
         private String description;
-        private PolicyCategory category;
-        private PolicyTier tier;
+        private String type;  // "risk", "content", "user", "cost"
+        private List<DynamicPolicyCondition> conditions;
+        private List<DynamicPolicyAction> actions;
+        private int priority;
         private boolean enabled;
-        @JsonProperty("organization_id")
-        private String organizationId;
-        @JsonProperty("tenant_id")
-        private String tenantId;
-        private DynamicPolicyConfig config;
         @JsonProperty("created_at")
         private Instant createdAt;
         @JsonProperty("updated_at")
         private Instant updatedAt;
-        private Integer version;
 
         // Getters and setters
         public String getId() { return id; }
@@ -649,32 +626,27 @@ public final class PolicyTypes {
         public void setName(String name) { this.name = name; }
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
-        public PolicyCategory getCategory() { return category; }
-        public void setCategory(PolicyCategory category) { this.category = category; }
-        public PolicyTier getTier() { return tier; }
-        public void setTier(PolicyTier tier) { this.tier = tier; }
+        public String getType() { return type; }
+        public void setType(String type) { this.type = type; }
+        public List<DynamicPolicyCondition> getConditions() { return conditions; }
+        public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
+        public List<DynamicPolicyAction> getActions() { return actions; }
+        public void setActions(List<DynamicPolicyAction> actions) { this.actions = actions; }
+        public int getPriority() { return priority; }
+        public void setPriority(int priority) { this.priority = priority; }
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
-        public String getOrganizationId() { return organizationId; }
-        public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
-        public String getTenantId() { return tenantId; }
-        public void setTenantId(String tenantId) { this.tenantId = tenantId; }
-        public DynamicPolicyConfig getConfig() { return config; }
-        public void setConfig(DynamicPolicyConfig config) { this.config = config; }
         public Instant getCreatedAt() { return createdAt; }
         public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
         public Instant getUpdatedAt() { return updatedAt; }
         public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-        public Integer getVersion() { return version; }
-        public void setVersion(Integer version) { this.version = version; }
     }
 
     /**
      * Options for listing dynamic policies.
      */
     public static class ListDynamicPoliciesOptions {
-        private PolicyCategory category;
-        private PolicyTier tier;
+        private String type;  // Filter by policy type: "risk", "content", "user", "cost"
         private Boolean enabled;
         private Integer limit;
         private Integer offset;
@@ -686,8 +658,7 @@ public final class PolicyTypes {
             return new Builder();
         }
 
-        public PolicyCategory getCategory() { return category; }
-        public PolicyTier getTier() { return tier; }
+        public String getType() { return type; }
         public Boolean getEnabled() { return enabled; }
         public Integer getLimit() { return limit; }
         public Integer getOffset() { return offset; }
@@ -698,13 +669,14 @@ public final class PolicyTypes {
         public static class Builder {
             private final ListDynamicPoliciesOptions options = new ListDynamicPoliciesOptions();
 
-            public Builder category(PolicyCategory category) {
-                options.category = category;
-                return this;
-            }
-
-            public Builder tier(PolicyTier tier) {
-                options.tier = tier;
+            /**
+             * Filter by policy type: "risk", "content", "user", "cost".
+             *
+             * @param type the policy type
+             * @return this builder
+             */
+            public Builder type(String type) {
+                options.type = type;
                 return this;
             }
 
@@ -750,8 +722,10 @@ public final class PolicyTypes {
     public static class CreateDynamicPolicyRequest {
         private String name;
         private String description;
-        private PolicyCategory category;
-        private DynamicPolicyConfig config;
+        private String type;  // "risk", "content", "user", "cost"
+        private List<DynamicPolicyCondition> conditions;
+        private List<DynamicPolicyAction> actions;
+        private int priority;
         private boolean enabled = true;
 
         public static Builder builder() {
@@ -760,8 +734,10 @@ public final class PolicyTypes {
 
         public String getName() { return name; }
         public String getDescription() { return description; }
-        public PolicyCategory getCategory() { return category; }
-        public DynamicPolicyConfig getConfig() { return config; }
+        public String getType() { return type; }
+        public List<DynamicPolicyCondition> getConditions() { return conditions; }
+        public List<DynamicPolicyAction> getActions() { return actions; }
+        public int getPriority() { return priority; }
         public boolean isEnabled() { return enabled; }
 
         public static class Builder {
@@ -777,13 +753,29 @@ public final class PolicyTypes {
                 return this;
             }
 
-            public Builder category(PolicyCategory category) {
-                request.category = category;
+            /**
+             * Sets the policy type: "risk", "content", "user", "cost".
+             *
+             * @param type the policy type
+             * @return this builder
+             */
+            public Builder type(String type) {
+                request.type = type;
                 return this;
             }
 
-            public Builder config(DynamicPolicyConfig config) {
-                request.config = config;
+            public Builder conditions(List<DynamicPolicyCondition> conditions) {
+                request.conditions = conditions;
+                return this;
+            }
+
+            public Builder actions(List<DynamicPolicyAction> actions) {
+                request.actions = actions;
+                return this;
+            }
+
+            public Builder priority(int priority) {
+                request.priority = priority;
                 return this;
             }
 
@@ -804,8 +796,10 @@ public final class PolicyTypes {
     public static class UpdateDynamicPolicyRequest {
         private String name;
         private String description;
-        private PolicyCategory category;
-        private DynamicPolicyConfig config;
+        private String type;
+        private List<DynamicPolicyCondition> conditions;
+        private List<DynamicPolicyAction> actions;
+        private Integer priority;
         private Boolean enabled;
 
         public static Builder builder() {
@@ -814,8 +808,10 @@ public final class PolicyTypes {
 
         public String getName() { return name; }
         public String getDescription() { return description; }
-        public PolicyCategory getCategory() { return category; }
-        public DynamicPolicyConfig getConfig() { return config; }
+        public String getType() { return type; }
+        public List<DynamicPolicyCondition> getConditions() { return conditions; }
+        public List<DynamicPolicyAction> getActions() { return actions; }
+        public Integer getPriority() { return priority; }
         public Boolean getEnabled() { return enabled; }
 
         public static class Builder {
@@ -831,13 +827,23 @@ public final class PolicyTypes {
                 return this;
             }
 
-            public Builder category(PolicyCategory category) {
-                request.category = category;
+            public Builder type(String type) {
+                request.type = type;
                 return this;
             }
 
-            public Builder config(DynamicPolicyConfig config) {
-                request.config = config;
+            public Builder conditions(List<DynamicPolicyCondition> conditions) {
+                request.conditions = conditions;
+                return this;
+            }
+
+            public Builder actions(List<DynamicPolicyAction> actions) {
+                request.actions = actions;
+                return this;
+            }
+
+            public Builder priority(Integer priority) {
+                request.priority = priority;
                 return this;
             }
 
