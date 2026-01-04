@@ -61,17 +61,13 @@ class PolicyTest {
         "\"id\": \"dpol_456\"," +
         "\"name\": \"Rate Limit API\"," +
         "\"description\": \"Rate limit API calls\"," +
-        "\"category\": \"dynamic-cost\"," +
-        "\"tier\": \"organization\"," +
+        "\"type\": \"cost\"," +
+        "\"conditions\": [{\"field\": \"requests_per_minute\", \"operator\": \"greater_than\", \"value\": 100}]," +
+        "\"actions\": [{\"type\": \"block\", \"config\": {\"reason\": \"Rate limit exceeded\"}}]," +
+        "\"priority\": 50," +
         "\"enabled\": true," +
-        "\"config\": {" +
-        "\"type\": \"rate-limit\"," +
-        "\"rules\": {\"maxRequestsPerMinute\": 100}," +
-        "\"action\": \"block\"" +
-        "}," +
         "\"created_at\": \"2025-01-01T00:00:00Z\"," +
-        "\"updated_at\": \"2025-01-01T00:00:00Z\"," +
-        "\"version\": 1" +
+        "\"updated_at\": \"2025-01-01T00:00:00Z\"" +
         "}";
 
     private static final String SAMPLE_OVERRIDE =
@@ -418,7 +414,7 @@ class PolicyTest {
         @DisplayName("listDynamicPolicies with filters should include query params")
         void listDynamicPoliciesWithFiltersShouldIncludeQueryParams() {
             stubFor(get(urlPathEqualTo("/api/v1/policies/dynamic"))
-                .withQueryParam("category", equalTo("dynamic-cost"))
+                .withQueryParam("type", equalTo("cost"))
                 .withQueryParam("enabled", equalTo("true"))
                 .willReturn(aResponse()
                     .withStatus(200)
@@ -426,14 +422,14 @@ class PolicyTest {
                     .withBody("[" + SAMPLE_DYNAMIC_POLICY + "]")));
 
             ListDynamicPoliciesOptions options = ListDynamicPoliciesOptions.builder()
-                .category(PolicyCategory.DYNAMIC_COST)
+                .type("cost")
                 .enabled(true)
                 .build();
 
             axonflow.listDynamicPolicies(options);
 
             verify(getRequestedFor(urlPathEqualTo("/api/v1/policies/dynamic"))
-                .withQueryParam("category", equalTo("dynamic-cost")));
+                .withQueryParam("type", equalTo("cost")));
         }
 
         @Test
@@ -448,7 +444,7 @@ class PolicyTest {
             DynamicPolicy policy = axonflow.getDynamicPolicy("dpol_456");
 
             assertThat(policy.getId()).isEqualTo("dpol_456");
-            assertThat(policy.getConfig().getType()).isEqualTo("rate-limit");
+            assertThat(policy.getType()).isEqualTo("cost");
         }
 
         @Test
@@ -469,12 +465,10 @@ class PolicyTest {
 
             CreateDynamicPolicyRequest request = CreateDynamicPolicyRequest.builder()
                 .name("Rate Limit API")
-                .category(PolicyCategory.DYNAMIC_COST)
-                .config(DynamicPolicyConfig.builder()
-                    .type("rate-limit")
-                    .rules(Map.of("maxRequestsPerMinute", 100))
-                    .action(PolicyAction.BLOCK)
-                    .build())
+                .type("cost")
+                .conditions(List.of(new DynamicPolicyCondition("requests_per_minute", "greater_than", 100)))
+                .actions(List.of(new DynamicPolicyAction("block", Map.of("reason", "Rate limit exceeded"))))
+                .priority(50)
                 .build();
 
             DynamicPolicy policy = axonflow.createDynamicPolicy(request);
@@ -501,11 +495,7 @@ class PolicyTest {
                     .withBody(SAMPLE_DYNAMIC_POLICY)));
 
             UpdateDynamicPolicyRequest request = UpdateDynamicPolicyRequest.builder()
-                .config(DynamicPolicyConfig.builder()
-                    .type("rate-limit")
-                    .rules(Map.of("maxRequestsPerMinute", 200))
-                    .action(PolicyAction.BLOCK)
-                    .build())
+                .conditions(List.of(new DynamicPolicyCondition("requests_per_minute", "greater_than", 200)))
                 .build();
 
             DynamicPolicy policy = axonflow.updateDynamicPolicy("dpol_456", request);
@@ -596,17 +586,15 @@ class PolicyTest {
         void createDynamicPolicyRequestShouldHaveDefaults() {
             CreateDynamicPolicyRequest request = CreateDynamicPolicyRequest.builder()
                 .name("Test Dynamic")
-                .category(PolicyCategory.DYNAMIC_RISK)
-                .config(DynamicPolicyConfig.builder()
-                    .type("custom")
-                    .rules(Map.of("threshold", 0.8))
-                    .action(PolicyAction.WARN)
-                    .build())
+                .type("risk")
+                .conditions(List.of(new DynamicPolicyCondition("risk_score", "greater_than", 0.8)))
+                .actions(List.of(new DynamicPolicyAction("warn", Map.of("threshold", 0.8))))
+                .priority(10)
                 .build();
 
             assertThat(request.getName()).isEqualTo("Test Dynamic");
             assertThat(request.isEnabled()).isTrue();
-            assertThat(request.getConfig().getAction()).isEqualTo(PolicyAction.WARN);
+            assertThat(request.getType()).isEqualTo("risk");
         }
 
         @Test

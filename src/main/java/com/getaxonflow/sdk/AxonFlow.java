@@ -616,6 +616,62 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
+     * Gets details for a specific connector by ID.
+     *
+     * @param connectorId the connector ID
+     * @return the connector info
+     */
+    public ConnectorInfo getConnector(String connectorId) {
+        Objects.requireNonNull(connectorId, "connectorId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            String path = "/api/v1/connectors/" + connectorId;
+            Request httpRequest = buildOrchestratorRequest("GET", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, ConnectorInfo.class);
+            }
+        }, "getConnector");
+    }
+
+    /**
+     * Asynchronously gets details for a specific connector by ID.
+     *
+     * @param connectorId the connector ID
+     * @return a future containing the connector info
+     */
+    public CompletableFuture<ConnectorInfo> getConnectorAsync(String connectorId) {
+        return CompletableFuture.supplyAsync(() -> getConnector(connectorId), asyncExecutor);
+    }
+
+    /**
+     * Gets the health status of an installed connector.
+     *
+     * @param connectorId the connector ID
+     * @return the health status
+     */
+    public ConnectorHealthStatus getConnectorHealth(String connectorId) {
+        Objects.requireNonNull(connectorId, "connectorId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            String path = "/api/v1/connectors/" + connectorId + "/health";
+            Request httpRequest = buildOrchestratorRequest("GET", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, ConnectorHealthStatus.class);
+            }
+        }, "getConnectorHealth");
+    }
+
+    /**
+     * Asynchronously gets the health status of an installed connector.
+     *
+     * @param connectorId the connector ID
+     * @return a future containing the health status
+     */
+    public CompletableFuture<ConnectorHealthStatus> getConnectorHealthAsync(String connectorId) {
+        return CompletableFuture.supplyAsync(() -> getConnectorHealth(connectorId), asyncExecutor);
+    }
+
+    /**
      * Queries an MCP connector.
      *
      * <p>This method sends the query to the AxonFlow Agent using the standard
@@ -1330,11 +1386,8 @@ public final class AxonFlow implements Closeable {
         StringBuilder path = new StringBuilder(basePath);
         StringBuilder query = new StringBuilder();
 
-        if (options.getCategory() != null) {
-            appendQueryParam(query, "category", options.getCategory().getValue());
-        }
-        if (options.getTier() != null) {
-            appendQueryParam(query, "tier", options.getTier().getValue());
+        if (options.getType() != null) {
+            appendQueryParam(query, "type", options.getType());
         }
         if (options.getEnabled() != null) {
             appendQueryParam(query, "enabled", options.getEnabled().toString());
