@@ -25,6 +25,7 @@ import com.getaxonflow.sdk.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -521,9 +522,17 @@ public final class AxonFlow implements Closeable {
      */
     public List<ConnectorInfo> listConnectors() {
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("GET", "/api/v1/connectors", null);
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/connectors", null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, new TypeReference<List<ConnectorInfo>>() {});
+                // Response is wrapped: {"connectors": [...], "total": N}
+                JsonNode node = parseResponseNode(response);
+                if (node.has("connectors")) {
+                    return objectMapper.convertValue(
+                        node.get("connectors"),
+                        new TypeReference<List<ConnectorInfo>>() {}
+                    );
+                }
+                return objectMapper.convertValue(node, new TypeReference<List<ConnectorInfo>>() {});
             }
         }, "listConnectors");
     }
@@ -549,10 +558,10 @@ public final class AxonFlow implements Closeable {
 
         return retryExecutor.execute(() -> {
             Map<String, Object> body = Map.of(
-                "connector_id", connectorId,
                 "config", config != null ? config : Map.of()
             );
-            Request httpRequest = buildRequest("POST", "/api/v1/connectors/install", body);
+            String path = "/api/v1/connectors/" + connectorId + "/install";
+            Request httpRequest = buildOrchestratorRequest("POST", path, body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, ConnectorInfo.class);
             }
@@ -975,8 +984,8 @@ public final class AxonFlow implements Closeable {
      */
     public List<DynamicPolicy> listDynamicPolicies(ListDynamicPoliciesOptions options) {
         return retryExecutor.execute(() -> {
-            String path = buildDynamicPolicyQueryString("/api/v1/policies", options);
-            Request httpRequest = buildRequest("GET", path, null);
+            String path = buildDynamicPolicyQueryString("/api/v1/policies/dynamic", options);
+            Request httpRequest = buildOrchestratorRequest("GET", path, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
             }
@@ -993,7 +1002,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(policyId, "policyId cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("GET", "/api/v1/policies/" + policyId, null);
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/policies/dynamic/" + policyId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1010,7 +1019,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/v1/policies", request);
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/policies/dynamic", request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1029,7 +1038,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("PUT", "/api/v1/policies/" + policyId, request);
+            Request httpRequest = buildOrchestratorRequest("PUT", "/api/v1/policies/dynamic/" + policyId, request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1045,7 +1054,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(policyId, "policyId cannot be null");
 
         retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("DELETE", "/api/v1/policies/" + policyId, null);
+            Request httpRequest = buildOrchestratorRequest("DELETE", "/api/v1/policies/dynamic/" + policyId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 if (!response.isSuccessful() && response.code() != 204) {
                     handleErrorResponse(response);
@@ -1067,7 +1076,7 @@ public final class AxonFlow implements Closeable {
 
         return retryExecutor.execute(() -> {
             Map<String, Object> body = Map.of("enabled", enabled);
-            Request httpRequest = buildPatchRequest("/api/v1/policies/" + policyId, body);
+            Request httpRequest = buildOrchestratorRequest("PATCH", "/api/v1/policies/dynamic/" + policyId, body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1091,14 +1100,14 @@ public final class AxonFlow implements Closeable {
      */
     public List<DynamicPolicy> getEffectiveDynamicPolicies(EffectivePoliciesOptions options) {
         return retryExecutor.execute(() -> {
-            StringBuilder path = new StringBuilder("/api/v1/policies/effective");
+            StringBuilder path = new StringBuilder("/api/v1/policies/dynamic/effective");
             if (options != null) {
                 String query = buildEffectivePoliciesQuery(options);
                 if (!query.isEmpty()) {
                     path.append("?").append(query);
                 }
             }
-            Request httpRequest = buildRequest("GET", path.toString(), null);
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
             }
@@ -1400,6 +1409,26 @@ public final class AxonFlow implements Closeable {
         String json = body.string();
         try {
             return objectMapper.readValue(json, typeRef);
+        } catch (JsonProcessingException e) {
+            throw new AxonFlowException("Failed to parse response: " + e.getMessage(), response.code(), null, e);
+        }
+    }
+
+    private JsonNode parseResponseNode(Response response) throws IOException {
+        handleErrorResponse(response);
+
+        ResponseBody body = response.body();
+        if (body == null) {
+            throw new AxonFlowException("Empty response body", response.code(), null);
+        }
+
+        String json = body.string();
+        if (json.isEmpty()) {
+            return objectMapper.createObjectNode();
+        }
+
+        try {
+            return objectMapper.readTree(json);
         } catch (JsonProcessingException e) {
             throw new AxonFlowException("Failed to parse response: " + e.getMessage(), response.code(), null, e);
         }
@@ -1838,6 +1867,12 @@ public final class AxonFlow implements Closeable {
                 break;
             case "POST":
                 builder.post(requestBody != null ? requestBody : RequestBody.create("", JSON));
+                break;
+            case "PUT":
+                builder.put(requestBody != null ? requestBody : RequestBody.create("", JSON));
+                break;
+            case "PATCH":
+                builder.patch(requestBody != null ? requestBody : RequestBody.create("", JSON));
                 break;
             case "DELETE":
                 builder.delete(requestBody);

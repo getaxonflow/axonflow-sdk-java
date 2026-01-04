@@ -44,6 +44,7 @@ class AxonFlowTest {
         // Add credentials for Gateway Mode tests (enterprise features)
         axonflow = AxonFlow.create(AxonFlowConfig.builder()
             .agentUrl(baseUrl)
+            .orchestratorUrl(baseUrl)
             .licenseKey("test-license-key")
             .build());
     }
@@ -320,7 +321,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("installConnector should install connector")
     void installConnectorShouldInstall() {
-        stubFor(post(urlEqualTo("/api/v1/connectors/install"))
+        stubFor(post(urlEqualTo("/api/v1/connectors/salesforce/install"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -335,7 +336,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("installConnector should handle null config")
     void installConnectorShouldHandleNullConfig() {
-        stubFor(post(urlEqualTo("/api/v1/connectors/install"))
+        stubFor(post(urlEqualTo("/api/v1/connectors/salesforce/install"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
