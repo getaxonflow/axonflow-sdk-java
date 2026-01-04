@@ -44,6 +44,7 @@ class AxonFlowTest {
         // Add credentials for Gateway Mode tests (enterprise features)
         axonflow = AxonFlow.create(AxonFlowConfig.builder()
             .agentUrl(baseUrl)
+            .orchestratorUrl(baseUrl)
             .licenseKey("test-license-key")
             .build());
     }
@@ -292,6 +293,71 @@ class AxonFlowTest {
     }
 
     // ========================================================================
+    // Orchestrator Health Check
+    // ========================================================================
+
+    @Test
+    @DisplayName("orchestratorHealthCheck should return healthy status")
+    void orchestratorHealthCheckShouldReturnHealthyStatus(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlEqualTo("/health"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"status\":\"healthy\",\"version\":\"2.5.0\"}")));
+
+        HealthStatus health = client.orchestratorHealthCheck();
+
+        assertThat(health.isHealthy()).isTrue();
+        assertThat(health.getVersion()).isEqualTo("2.5.0");
+    }
+
+    @Test
+    @DisplayName("orchestratorHealthCheck should return unhealthy on non-200")
+    void orchestratorHealthCheckShouldReturnUnhealthyOnError(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlEqualTo("/health"))
+            .willReturn(aResponse()
+                .withStatus(503)
+                .withBody("{\"status\":\"unhealthy\"}")));
+
+        HealthStatus health = client.orchestratorHealthCheck();
+
+        assertThat(health.isHealthy()).isFalse();
+    }
+
+    @Test
+    @DisplayName("orchestratorHealthCheckAsync should return future")
+    void orchestratorHealthCheckAsyncShouldReturnFuture(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(get(urlEqualTo("/health"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"status\":\"healthy\"}")));
+
+        CompletableFuture<HealthStatus> future = client.orchestratorHealthCheckAsync();
+        HealthStatus health = future.get();
+
+        assertThat(health.isHealthy()).isTrue();
+    }
+
+    // ========================================================================
     // MCP Connectors
     // ========================================================================
 
@@ -320,7 +386,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("installConnector should install connector")
     void installConnectorShouldInstall() {
-        stubFor(post(urlEqualTo("/api/v1/connectors/install"))
+        stubFor(post(urlEqualTo("/api/v1/connectors/salesforce/install"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -335,7 +401,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("installConnector should handle null config")
     void installConnectorShouldHandleNullConfig() {
-        stubFor(post(urlEqualTo("/api/v1/connectors/install"))
+        stubFor(post(urlEqualTo("/api/v1/connectors/salesforce/install"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -344,6 +410,52 @@ class AxonFlowTest {
         ConnectorInfo info = axonflow.installConnector("salesforce", null);
 
         assertThat(info.getId()).isEqualTo("salesforce");
+    }
+
+    @Test
+    @DisplayName("uninstallConnector should require non-null connectorName")
+    void uninstallConnectorShouldRequireConnectorName() {
+        assertThatThrownBy(() -> axonflow.uninstallConnector(null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("uninstallConnector should uninstall connector")
+    void uninstallConnectorShouldUninstall(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(delete(urlEqualTo("/api/v1/connectors/salesforce"))
+            .willReturn(aResponse()
+                .withStatus(204)));
+
+        // Should not throw
+        client.uninstallConnector("salesforce");
+
+        verify(deleteRequestedFor(urlEqualTo("/api/v1/connectors/salesforce")));
+    }
+
+    @Test
+    @DisplayName("uninstallConnector should handle 200 response")
+    void uninstallConnectorShouldHandle200(WireMockRuntimeInfo wmRuntimeInfo) {
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .agentUrl(baseUrl)
+            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .licenseKey("test-license")
+            .build());
+
+        stubFor(delete(urlEqualTo("/api/v1/connectors/postgres"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withBody("{\"success\":true}")));
+
+        // Should not throw
+        client.uninstallConnector("postgres");
+
+        verify(deleteRequestedFor(urlEqualTo("/api/v1/connectors/postgres")));
     }
 
     @Test
