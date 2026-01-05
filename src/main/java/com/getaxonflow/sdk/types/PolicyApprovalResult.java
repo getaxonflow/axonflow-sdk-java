@@ -56,6 +56,9 @@ public final class PolicyApprovalResult {
     @JsonProperty("approved")
     private final boolean approved;
 
+    @JsonProperty("requires_redaction")
+    private final boolean requiresRedaction;
+
     @JsonProperty("approved_data")
     private final Map<String, Object> approvedData;
 
@@ -77,6 +80,7 @@ public final class PolicyApprovalResult {
     public PolicyApprovalResult(
             @JsonProperty("context_id") String contextId,
             @JsonProperty("approved") boolean approved,
+            @JsonProperty("requires_redaction") boolean requiresRedaction,
             @JsonProperty("approved_data") Map<String, Object> approvedData,
             @JsonProperty("policies") List<String> policies,
             @JsonProperty("expires_at") Instant expiresAt,
@@ -85,6 +89,7 @@ public final class PolicyApprovalResult {
             @JsonProperty("processing_time") String processingTime) {
         this.contextId = contextId;
         this.approved = approved;
+        this.requiresRedaction = requiresRedaction;
         this.approvedData = approvedData != null ? Collections.unmodifiableMap(approvedData) : Collections.emptyMap();
         this.policies = policies != null ? Collections.unmodifiableList(policies) : Collections.emptyList();
         this.expiresAt = expiresAt;
@@ -111,6 +116,18 @@ public final class PolicyApprovalResult {
      */
     public boolean isApproved() {
         return approved;
+    }
+
+    /**
+     * Returns whether the response requires redaction.
+     *
+     * <p>When true, PII was detected with redact action and the response
+     * should be processed for redaction before being shown to users.
+     *
+     * @return true if redaction is required
+     */
+    public boolean isRequiresRedaction() {
+        return requiresRedaction;
     }
 
     /**
@@ -213,6 +230,7 @@ public final class PolicyApprovalResult {
         if (o == null || getClass() != o.getClass()) return false;
         PolicyApprovalResult that = (PolicyApprovalResult) o;
         return approved == that.approved &&
+               requiresRedaction == that.requiresRedaction &&
                Objects.equals(contextId, that.contextId) &&
                Objects.equals(approvedData, that.approvedData) &&
                Objects.equals(policies, that.policies) &&
@@ -224,7 +242,7 @@ public final class PolicyApprovalResult {
 
     @Override
     public int hashCode() {
-        return Objects.hash(contextId, approved, approvedData, policies, expiresAt,
+        return Objects.hash(contextId, approved, requiresRedaction, approvedData, policies, expiresAt,
                            blockReason, rateLimitInfo, processingTime);
     }
 
@@ -233,6 +251,7 @@ public final class PolicyApprovalResult {
         return "PolicyApprovalResult{" +
                "contextId='" + contextId + '\'' +
                ", approved=" + approved +
+               ", requiresRedaction=" + requiresRedaction +
                ", policies=" + policies +
                ", expiresAt=" + expiresAt +
                ", blockReason='" + blockReason + '\'' +
