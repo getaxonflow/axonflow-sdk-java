@@ -1070,4 +1070,26 @@ public final class PolicyTypes {
         public List<DynamicPolicy> getDynamicPolicies() { return dynamicPolicies; }
         public void setDynamicPolicies(List<DynamicPolicy> dynamicPolicies) { this.dynamicPolicies = dynamicPolicies; }
     }
+
+    /**
+     * Wrapper for list dynamic policies response.
+     * Agent proxy (Issue #886) returns {"policies": [...]} wrapper.
+     */
+    public static class DynamicPoliciesResponse {
+        private List<DynamicPolicy> policies;
+
+        public List<DynamicPolicy> getPolicies() { return policies; }
+        public void setPolicies(List<DynamicPolicy> policies) { this.policies = policies; }
+    }
+
+    /**
+     * Wrapper for single dynamic policy response.
+     * Agent proxy (Issue #886) returns {"policy": {...}} wrapper.
+     */
+    public static class DynamicPolicyResponse {
+        private DynamicPolicy policy;
+
+        public DynamicPolicy getPolicy() { return policy; }
+        public void setPolicy(DynamicPolicy policy) { this.policy = policy; }
+    }
 }

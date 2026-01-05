@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables GDPR, HIPAA, and RBI compliance by restricting LLM routing to specific providers
   - Example: `new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))`
 - **Category field**: Added `category` field to `CreateDynamicPolicyRequest` and `UpdateDynamicPolicyRequest`
+- **Dynamic Policy Response Wrappers**: Added `DynamicPoliciesResponse` and `DynamicPolicyResponse` wrapper types
+
+### Fixed
+
+- **Dynamic Policy Response Parsing**: Fixed all dynamic policy methods to correctly parse wrapped API responses (Issue #886)
+  - Agent proxy returns `{"policies": [...]}` and `{"policy": {...}}` wrappers
+  - Updated `listDynamicPolicies`, `getDynamicPolicy`, `createDynamicPolicy`, `updateDynamicPolicy`, `toggleDynamicPolicy`, `getEffectiveDynamicPolicies`
 
 ## [2.0.0] - 2026-01-05
 

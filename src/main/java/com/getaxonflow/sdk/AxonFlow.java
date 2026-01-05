@@ -1226,7 +1226,9 @@ public final class AxonFlow implements Closeable {
             String path = buildDynamicPolicyQueryString("/api/v1/dynamic-policies", options);
             Request httpRequest = buildOrchestratorRequest("GET", path, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
+                // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
+                DynamicPoliciesResponse wrapper = parseResponse(response, DynamicPoliciesResponse.class);
+                return wrapper != null ? wrapper.getPolicies() : java.util.Collections.emptyList();
             }
         }, "listDynamicPolicies");
     }
@@ -1243,7 +1245,9 @@ public final class AxonFlow implements Closeable {
         return retryExecutor.execute(() -> {
             Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/dynamic-policies/" + policyId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, DynamicPolicy.class);
+                // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
+                DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
+                return wrapper != null ? wrapper.getPolicy() : null;
             }
         }, "getDynamicPolicy");
     }
@@ -1260,7 +1264,9 @@ public final class AxonFlow implements Closeable {
         return retryExecutor.execute(() -> {
             Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/dynamic-policies", request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, DynamicPolicy.class);
+                // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
+                DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
+                return wrapper != null ? wrapper.getPolicy() : null;
             }
         }, "createDynamicPolicy");
     }
@@ -1279,7 +1285,9 @@ public final class AxonFlow implements Closeable {
         return retryExecutor.execute(() -> {
             Request httpRequest = buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, DynamicPolicy.class);
+                // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
+                DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
+                return wrapper != null ? wrapper.getPolicy() : null;
             }
         }, "updateDynamicPolicy");
     }
@@ -1317,7 +1325,9 @@ public final class AxonFlow implements Closeable {
             Map<String, Object> body = Map.of("enabled", enabled);
             Request httpRequest = buildOrchestratorRequest("PATCH", "/api/v1/dynamic-policies/" + policyId, body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, DynamicPolicy.class);
+                // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
+                DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
+                return wrapper != null ? wrapper.getPolicy() : null;
             }
         }, "toggleDynamicPolicy");
     }
@@ -1348,7 +1358,9 @@ public final class AxonFlow implements Closeable {
             }
             Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
+                // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
+                DynamicPoliciesResponse wrapper = parseResponse(response, DynamicPoliciesResponse.class);
+                return wrapper != null ? wrapper.getPolicies() : java.util.Collections.emptyList();
             }
         }, "getEffectiveDynamicPolicies");
     }
