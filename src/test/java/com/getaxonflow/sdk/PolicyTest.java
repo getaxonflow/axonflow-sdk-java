@@ -397,11 +397,12 @@ class PolicyTest {
         @Test
         @DisplayName("listDynamicPolicies should return policies")
         void listDynamicPoliciesShouldReturnPolicies() {
+            // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
             stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("[" + SAMPLE_DYNAMIC_POLICY + "]")));
+                    .withBody("{\"policies\": [" + SAMPLE_DYNAMIC_POLICY + "]}")));
 
             List<DynamicPolicy> policies = axonflow.listDynamicPolicies();
 
@@ -413,13 +414,14 @@ class PolicyTest {
         @Test
         @DisplayName("listDynamicPolicies with filters should include query params")
         void listDynamicPoliciesWithFiltersShouldIncludeQueryParams() {
+            // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
             stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies"))
                 .withQueryParam("type", equalTo("cost"))
                 .withQueryParam("enabled", equalTo("true"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("[" + SAMPLE_DYNAMIC_POLICY + "]")));
+                    .withBody("{\"policies\": [" + SAMPLE_DYNAMIC_POLICY + "]}")));
 
             ListDynamicPoliciesOptions options = ListDynamicPoliciesOptions.builder()
                 .type("cost")
@@ -435,11 +437,12 @@ class PolicyTest {
         @Test
         @DisplayName("getDynamicPolicy should return policy by ID")
         void getDynamicPolicyShouldReturnPolicyById() {
+            // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             stubFor(get(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody(SAMPLE_DYNAMIC_POLICY)));
+                    .withBody("{\"policy\": " + SAMPLE_DYNAMIC_POLICY + "}")));
 
             DynamicPolicy policy = axonflow.getDynamicPolicy("dpol_456");
 
@@ -457,11 +460,12 @@ class PolicyTest {
         @Test
         @DisplayName("createDynamicPolicy should create and return policy")
         void createDynamicPolicyShouldCreateAndReturnPolicy() {
+            // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             stubFor(post(urlEqualTo("/api/v1/dynamic-policies"))
                 .willReturn(aResponse()
                     .withStatus(201)
                     .withHeader("Content-Type", "application/json")
-                    .withBody(SAMPLE_DYNAMIC_POLICY)));
+                    .withBody("{\"policy\": " + SAMPLE_DYNAMIC_POLICY + "}")));
 
             CreateDynamicPolicyRequest request = CreateDynamicPolicyRequest.builder()
                 .name("Rate Limit API")
@@ -488,11 +492,12 @@ class PolicyTest {
         @Test
         @DisplayName("updateDynamicPolicy should update and return policy")
         void updateDynamicPolicyShouldUpdateAndReturnPolicy() {
+            // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             stubFor(put(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody(SAMPLE_DYNAMIC_POLICY)));
+                    .withBody("{\"policy\": " + SAMPLE_DYNAMIC_POLICY + "}")));
 
             UpdateDynamicPolicyRequest request = UpdateDynamicPolicyRequest.builder()
                 .conditions(List.of(new DynamicPolicyCondition("requests_per_minute", "greater_than", 200)))
@@ -527,29 +532,32 @@ class PolicyTest {
         @Test
         @DisplayName("toggleDynamicPolicy should toggle enabled status")
         void toggleDynamicPolicyShouldToggleEnabledStatus() {
+            // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
+            // Note: toggleDynamicPolicy uses PUT (not PATCH) to match API specification
             String toggledPolicy = SAMPLE_DYNAMIC_POLICY.replace("\"enabled\": true", "\"enabled\": false");
-            stubFor(patch(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
+            stubFor(put(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody(toggledPolicy)));
+                    .withBody("{\"policy\": " + toggledPolicy + "}")));
 
             DynamicPolicy policy = axonflow.toggleDynamicPolicy("dpol_456", false);
 
             assertThat(policy.isEnabled()).isFalse();
 
-            verify(patchRequestedFor(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
+            verify(putRequestedFor(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .withRequestBody(containing("\"enabled\":false")));
         }
 
         @Test
         @DisplayName("getEffectiveDynamicPolicies should return effective policies")
         void getEffectiveDynamicPoliciesShouldReturnEffectivePolicies() {
+            // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
             stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies/effective"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("[" + SAMPLE_DYNAMIC_POLICY + "]")));
+                    .withBody("{\"policies\": [" + SAMPLE_DYNAMIC_POLICY + "]}")));
 
             List<DynamicPolicy> policies = axonflow.getEffectiveDynamicPolicies();
 
