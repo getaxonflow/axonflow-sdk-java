@@ -43,8 +43,8 @@ class AxonFlowTest {
         baseUrl = wmRuntimeInfo.getHttpBaseUrl();
         // Add credentials for Gateway Mode tests (enterprise features)
         axonflow = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(baseUrl)
+            .endpoint(baseUrl)
+            .endpoint(baseUrl)
             .licenseKey("test-license-key")
             .build());
     }
@@ -300,8 +300,8 @@ class AxonFlowTest {
     @DisplayName("orchestratorHealthCheck should return healthy status")
     void orchestratorHealthCheckShouldReturnHealthyStatus(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -321,8 +321,8 @@ class AxonFlowTest {
     @DisplayName("orchestratorHealthCheck should return unhealthy on non-200")
     void orchestratorHealthCheckShouldReturnUnhealthyOnError(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -340,8 +340,8 @@ class AxonFlowTest {
     @DisplayName("orchestratorHealthCheckAsync should return future")
     void orchestratorHealthCheckAsyncShouldReturnFuture(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -423,8 +423,8 @@ class AxonFlowTest {
     @DisplayName("uninstallConnector should uninstall connector")
     void uninstallConnectorShouldUninstall(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -442,8 +442,8 @@ class AxonFlowTest {
     @DisplayName("uninstallConnector should handle 200 response")
     void uninstallConnectorShouldHandle200(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -660,7 +660,7 @@ class AxonFlowTest {
     @DisplayName("getConfig should return configuration")
     void getConfigShouldReturnConfig() {
         AxonFlowConfig config = axonflow.getConfig();
-        assertThat(config.getAgentUrl()).isEqualTo(baseUrl);
+        assertThat(config.getEndpoint()).isEqualTo(baseUrl);
     }
 
     // ========================================================================
@@ -671,7 +671,7 @@ class AxonFlowTest {
     @DisplayName("close should release resources")
     void closeShouldReleaseResources() {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
+            .endpoint(baseUrl)
             .build());
         client.close();
         // Should not throw
@@ -686,7 +686,7 @@ class AxonFlowTest {
     void shouldSendAuthHeadersWithCredentials(WireMockRuntimeInfo wmRuntimeInfo) {
         // Auth headers are sent when credentials are configured
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license-key")
             .build());
 
@@ -706,7 +706,7 @@ class AxonFlowTest {
     @DisplayName("should include mode header")
     void shouldIncludeModeHeader(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .mode(Mode.SANDBOX)
             .build());
 
@@ -725,7 +725,7 @@ class AxonFlowTest {
     @DisplayName("should store credentials in config for non-localhost")
     void shouldStoreCredentialsInConfig() {
         AxonFlowConfig config = AxonFlowConfig.builder()
-            .agentUrl("https://api.axonflow.com")
+            .endpoint("https://api.axonflow.com")
             .licenseKey("test-license")
             .clientId("test-client")
             .clientSecret("test-secret")
@@ -746,8 +746,8 @@ class AxonFlowTest {
     void listExecutionsShouldReturnEmptyList(WireMockRuntimeInfo wmRuntimeInfo) {
         // Create client with orchestrator URL pointing to WireMock
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -768,8 +768,8 @@ class AxonFlowTest {
     @DisplayName("listExecutions should return executions with filter")
     void listExecutionsShouldReturnExecutionsWithFilter(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -799,8 +799,8 @@ class AxonFlowTest {
     @DisplayName("getExecution should return execution detail")
     void getExecutionShouldReturnExecutionDetail(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -826,8 +826,8 @@ class AxonFlowTest {
     @DisplayName("getExecutionSteps should return step snapshots")
     void getExecutionStepsShouldReturnSnapshots(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -852,8 +852,8 @@ class AxonFlowTest {
     @DisplayName("getExecutionTimeline should return timeline entries")
     void getExecutionTimelineShouldReturnEntries(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -880,8 +880,8 @@ class AxonFlowTest {
     @DisplayName("exportExecution should return export data")
     void exportExecutionShouldReturnExportData(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -905,8 +905,8 @@ class AxonFlowTest {
     @DisplayName("deleteExecution should succeed")
     void deleteExecutionShouldSucceed(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -928,8 +928,8 @@ class AxonFlowTest {
     @DisplayName("createBudget should create a budget")
     void createBudgetShouldCreateBudget(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -960,8 +960,8 @@ class AxonFlowTest {
     @DisplayName("getBudget should return budget by ID")
     void getBudgetShouldReturnBudget(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -981,8 +981,8 @@ class AxonFlowTest {
     @DisplayName("listBudgets should return list of budgets")
     void listBudgetsShouldReturnList(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1002,8 +1002,8 @@ class AxonFlowTest {
     @DisplayName("deleteBudget should delete a budget")
     void deleteBudgetShouldDelete(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1020,8 +1020,8 @@ class AxonFlowTest {
     @DisplayName("getBudgetStatus should return budget status")
     void getBudgetStatusShouldReturnStatus(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1042,8 +1042,8 @@ class AxonFlowTest {
     @DisplayName("getBudgetAlerts should return budget alerts")
     void getBudgetAlertsShouldReturnAlerts(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1063,8 +1063,8 @@ class AxonFlowTest {
     @DisplayName("checkBudget should return budget decision")
     void checkBudgetShouldReturnDecision(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1092,8 +1092,8 @@ class AxonFlowTest {
     @DisplayName("getUsageSummary should return usage summary")
     void getUsageSummaryShouldReturnSummary(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1115,8 +1115,8 @@ class AxonFlowTest {
     @DisplayName("getUsageBreakdown should return usage breakdown")
     void getUsageBreakdownShouldReturnBreakdown(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1136,8 +1136,8 @@ class AxonFlowTest {
     @DisplayName("listUsageRecords should return usage records")
     void listUsageRecordsShouldReturnRecords(WireMockRuntimeInfo wmRuntimeInfo) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1161,8 +1161,8 @@ class AxonFlowTest {
     @DisplayName("createBudgetAsync should return future")
     void createBudgetAsyncShouldReturnFuture(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1192,8 +1192,8 @@ class AxonFlowTest {
     @DisplayName("getBudgetAsync should return future")
     void getBudgetAsyncShouldReturnFuture(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
@@ -1213,8 +1213,8 @@ class AxonFlowTest {
     @DisplayName("getUsageSummaryAsync should return future")
     void getUsageSummaryAsyncShouldReturnFuture(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(baseUrl)
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(baseUrl)
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .licenseKey("test-license")
             .build());
 
