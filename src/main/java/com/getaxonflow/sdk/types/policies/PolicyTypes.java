@@ -613,17 +613,22 @@ public final class PolicyTypes {
      *
      * <p>Dynamic policies are LLM-powered policies that can evaluate complex,
      * context-aware rules that can't be expressed with simple regex patterns.
+     *
+     * <p>For provider restrictions (GDPR, HIPAA, RBI compliance), use action config:
+     * <pre>{@code
+     * List<DynamicPolicyAction> actions = List.of(
+     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+     * );
+     * }</pre>
      */
     public static class DynamicPolicy {
         private String id;
         private String name;
         private String description;
         private String type;  // "risk", "content", "user", "cost"
+        private String category;  // "dynamic-risk", "dynamic-compliance", etc.
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
-        /** Restrict LLM routing to these providers (GDPR, HIPAA, RBI compliance) */
-        @JsonProperty("allowed_providers")
-        private List<String> allowedProviders;
         private int priority;
         private boolean enabled;
         @JsonProperty("created_at")
@@ -640,12 +645,12 @@ public final class PolicyTypes {
         public void setDescription(String description) { this.description = description; }
         public String getType() { return type; }
         public void setType(String type) { this.type = type; }
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
         public void setActions(List<DynamicPolicyAction> actions) { this.actions = actions; }
-        public List<String> getAllowedProviders() { return allowedProviders; }
-        public void setAllowedProviders(List<String> allowedProviders) { this.allowedProviders = allowedProviders; }
         public int getPriority() { return priority; }
         public void setPriority(int priority) { this.priority = priority; }
         public boolean isEnabled() { return enabled; }
@@ -732,16 +737,21 @@ public final class PolicyTypes {
 
     /**
      * Request to create a dynamic policy.
+     *
+     * <p>For provider restrictions, use action config with "allowed_providers" key:
+     * <pre>{@code
+     * List<DynamicPolicyAction> actions = List.of(
+     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+     * );
+     * }</pre>
      */
     public static class CreateDynamicPolicyRequest {
         private String name;
         private String description;
         private String type;  // "risk", "content", "user", "cost"
+        private String category;  // "dynamic-risk", "dynamic-compliance", etc.
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
-        /** Restrict LLM routing to these providers when policy matches */
-        @JsonProperty("allowed_providers")
-        private List<String> allowedProviders;
         private int priority;
         private boolean enabled = true;
 
@@ -752,9 +762,9 @@ public final class PolicyTypes {
         public String getName() { return name; }
         public String getDescription() { return description; }
         public String getType() { return type; }
+        public String getCategory() { return category; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
-        public List<String> getAllowedProviders() { return allowedProviders; }
         public int getPriority() { return priority; }
         public boolean isEnabled() { return enabled; }
 
@@ -782,6 +792,18 @@ public final class PolicyTypes {
                 return this;
             }
 
+            /**
+             * Sets the policy category. Must start with "dynamic-".
+             * Examples: "dynamic-risk", "dynamic-compliance", "dynamic-security", "dynamic-cost", "dynamic-access".
+             *
+             * @param category the policy category
+             * @return this builder
+             */
+            public Builder category(String category) {
+                request.category = category;
+                return this;
+            }
+
             public Builder conditions(List<DynamicPolicyCondition> conditions) {
                 request.conditions = conditions;
                 return this;
@@ -789,18 +811,6 @@ public final class PolicyTypes {
 
             public Builder actions(List<DynamicPolicyAction> actions) {
                 request.actions = actions;
-                return this;
-            }
-
-            /**
-             * Restricts LLM routing to these providers when policy matches.
-             * Use for GDPR, HIPAA, or RBI compliance requirements.
-             *
-             * @param allowedProviders list of allowed provider identifiers
-             * @return this builder
-             */
-            public Builder allowedProviders(List<String> allowedProviders) {
-                request.allowedProviders = allowedProviders;
                 return this;
             }
 
@@ -822,16 +832,21 @@ public final class PolicyTypes {
 
     /**
      * Request to update a dynamic policy.
+     *
+     * <p>For provider restrictions, use action config with "allowed_providers" key:
+     * <pre>{@code
+     * List<DynamicPolicyAction> actions = List.of(
+     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+     * );
+     * }</pre>
      */
     public static class UpdateDynamicPolicyRequest {
         private String name;
         private String description;
         private String type;
+        private String category;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
-        /** Restrict LLM routing to these providers when policy matches */
-        @JsonProperty("allowed_providers")
-        private List<String> allowedProviders;
         private Integer priority;
         private Boolean enabled;
 
@@ -842,9 +857,9 @@ public final class PolicyTypes {
         public String getName() { return name; }
         public String getDescription() { return description; }
         public String getType() { return type; }
+        public String getCategory() { return category; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
-        public List<String> getAllowedProviders() { return allowedProviders; }
         public Integer getPriority() { return priority; }
         public Boolean getEnabled() { return enabled; }
 
@@ -866,6 +881,17 @@ public final class PolicyTypes {
                 return this;
             }
 
+            /**
+             * Sets the policy category. Must start with "dynamic-" if specified.
+             *
+             * @param category the policy category
+             * @return this builder
+             */
+            public Builder category(String category) {
+                request.category = category;
+                return this;
+            }
+
             public Builder conditions(List<DynamicPolicyCondition> conditions) {
                 request.conditions = conditions;
                 return this;
@@ -873,18 +899,6 @@ public final class PolicyTypes {
 
             public Builder actions(List<DynamicPolicyAction> actions) {
                 request.actions = actions;
-                return this;
-            }
-
-            /**
-             * Restricts LLM routing to these providers when policy matches.
-             * Use for GDPR, HIPAA, or RBI compliance requirements.
-             *
-             * @param allowedProviders list of allowed provider identifiers
-             * @return this builder
-             */
-            public Builder allowedProviders(List<String> allowedProviders) {
-                request.allowedProviders = allowedProviders;
                 return this;
             }
 

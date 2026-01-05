@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Provider Restrictions for Compliance**: Added `allowedProviders` field to dynamic policy types
-  - `DynamicPolicy.getAllowedProviders()` - List of allowed LLM providers when policy matches
-  - `CreateDynamicPolicyRequest.Builder.allowedProviders()` - Specify allowed providers when creating policies
-  - `UpdateDynamicPolicyRequest.Builder.allowedProviders()` - Update allowed providers on existing policies
-  - Enables GDPR, HIPAA, and RBI compliance by restricting data to specific providers/regions
+- **Provider Restrictions for Compliance**: Support for `allowed_providers` in dynamic policy action config
+  - Specify allowed providers via `DynamicPolicyAction` with `config.put("allowed_providers", List.of(...))`
+  - Enables GDPR, HIPAA, and RBI compliance by restricting LLM routing to specific providers
+  - Example: `new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))`
+- **Category field**: Added `category` field to `CreateDynamicPolicyRequest` and `UpdateDynamicPolicyRequest`
 
 ## [2.0.0] - 2026-01-05
 
