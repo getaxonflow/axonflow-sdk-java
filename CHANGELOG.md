@@ -5,6 +5,28 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-01-05
+
+### Added
+
+- **Sensitive Data Category**: Added `SENSITIVE_DATA` to `PolicyCategory` enum for policies that return `sensitive-data` category
+- **Provider Restrictions for Compliance**: Support for `allowed_providers` in dynamic policy action config
+  - Specify allowed providers via `DynamicPolicyAction` with `config.put("allowed_providers", List.of(...))`
+  - Enables GDPR, HIPAA, and RBI compliance by restricting LLM routing to specific providers
+  - Example: `new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))`
+- **Category field**: Added `category` field to `CreateDynamicPolicyRequest` and `UpdateDynamicPolicyRequest`
+- **Dynamic Policy Response Wrappers**: Added `DynamicPoliciesResponse` and `DynamicPolicyResponse` wrapper types
+
+### Fixed
+
+- **toggleDynamicPolicy HTTP Method**: Changed from PATCH to PUT to match API specification
+- **Dynamic Policy Response Parsing**: Fixed all dynamic policy methods to correctly parse wrapped API responses (Issue #886)
+  - Agent proxy returns `{"policies": [...]}` and `{"policy": {...}}` wrappers
+  - Updated `listDynamicPolicies`, `getDynamicPolicy`, `createDynamicPolicy`, `updateDynamicPolicy`, `toggleDynamicPolicy`, `getEffectiveDynamicPolicies`
+- **X-Tenant-ID Header for Orchestrator Requests**: Fixed missing X-Tenant-ID header in orchestrator API calls
+  - Added `addTenantIdHeader()` call to `buildOrchestratorRequest()` method
+  - Ensures tenant identification works in community/self-hosted mode without full credentials
+
 ## [2.0.0] - 2026-01-05
 
 ### Breaking Changes

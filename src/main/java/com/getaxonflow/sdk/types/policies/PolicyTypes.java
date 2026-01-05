@@ -52,6 +52,9 @@ public final class PolicyTypes {
         CODE_UNSAFE("code-unsafe"),
         CODE_COMPLIANCE("code-compliance"),
 
+        // Sensitive data category
+        SENSITIVE_DATA("sensitive-data"),
+
         // Dynamic policy categories
         DYNAMIC_RISK("dynamic-risk"),
         DYNAMIC_COMPLIANCE("dynamic-compliance"),
@@ -613,12 +616,20 @@ public final class PolicyTypes {
      *
      * <p>Dynamic policies are LLM-powered policies that can evaluate complex,
      * context-aware rules that can't be expressed with simple regex patterns.
+     *
+     * <p>For provider restrictions (GDPR, HIPAA, RBI compliance), use action config:
+     * <pre>{@code
+     * List<DynamicPolicyAction> actions = List.of(
+     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+     * );
+     * }</pre>
      */
     public static class DynamicPolicy {
         private String id;
         private String name;
         private String description;
         private String type;  // "risk", "content", "user", "cost"
+        private String category;  // "dynamic-risk", "dynamic-compliance", etc.
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private int priority;
@@ -637,6 +648,8 @@ public final class PolicyTypes {
         public void setDescription(String description) { this.description = description; }
         public String getType() { return type; }
         public void setType(String type) { this.type = type; }
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
@@ -727,11 +740,19 @@ public final class PolicyTypes {
 
     /**
      * Request to create a dynamic policy.
+     *
+     * <p>For provider restrictions, use action config with "allowed_providers" key:
+     * <pre>{@code
+     * List<DynamicPolicyAction> actions = List.of(
+     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+     * );
+     * }</pre>
      */
     public static class CreateDynamicPolicyRequest {
         private String name;
         private String description;
         private String type;  // "risk", "content", "user", "cost"
+        private String category;  // "dynamic-risk", "dynamic-compliance", etc.
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private int priority;
@@ -744,6 +765,7 @@ public final class PolicyTypes {
         public String getName() { return name; }
         public String getDescription() { return description; }
         public String getType() { return type; }
+        public String getCategory() { return category; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
         public int getPriority() { return priority; }
@@ -770,6 +792,18 @@ public final class PolicyTypes {
              */
             public Builder type(String type) {
                 request.type = type;
+                return this;
+            }
+
+            /**
+             * Sets the policy category. Must start with "dynamic-".
+             * Examples: "dynamic-risk", "dynamic-compliance", "dynamic-security", "dynamic-cost", "dynamic-access".
+             *
+             * @param category the policy category
+             * @return this builder
+             */
+            public Builder category(String category) {
+                request.category = category;
                 return this;
             }
 
@@ -801,11 +835,19 @@ public final class PolicyTypes {
 
     /**
      * Request to update a dynamic policy.
+     *
+     * <p>For provider restrictions, use action config with "allowed_providers" key:
+     * <pre>{@code
+     * List<DynamicPolicyAction> actions = List.of(
+     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+     * );
+     * }</pre>
      */
     public static class UpdateDynamicPolicyRequest {
         private String name;
         private String description;
         private String type;
+        private String category;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private Integer priority;
@@ -818,6 +860,7 @@ public final class PolicyTypes {
         public String getName() { return name; }
         public String getDescription() { return description; }
         public String getType() { return type; }
+        public String getCategory() { return category; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
         public Integer getPriority() { return priority; }
@@ -838,6 +881,17 @@ public final class PolicyTypes {
 
             public Builder type(String type) {
                 request.type = type;
+                return this;
+            }
+
+            /**
+             * Sets the policy category. Must start with "dynamic-" if specified.
+             *
+             * @param category the policy category
+             * @return this builder
+             */
+            public Builder category(String category) {
+                request.category = category;
                 return this;
             }
 
@@ -1018,5 +1072,27 @@ public final class PolicyTypes {
         public void setStaticPolicies(List<StaticPolicy> staticPolicies) { this.staticPolicies = staticPolicies; }
         public List<DynamicPolicy> getDynamicPolicies() { return dynamicPolicies; }
         public void setDynamicPolicies(List<DynamicPolicy> dynamicPolicies) { this.dynamicPolicies = dynamicPolicies; }
+    }
+
+    /**
+     * Wrapper for list dynamic policies response.
+     * Agent proxy (Issue #886) returns {"policies": [...]} wrapper.
+     */
+    public static class DynamicPoliciesResponse {
+        private List<DynamicPolicy> policies;
+
+        public List<DynamicPolicy> getPolicies() { return policies; }
+        public void setPolicies(List<DynamicPolicy> policies) { this.policies = policies; }
+    }
+
+    /**
+     * Wrapper for single dynamic policy response.
+     * Agent proxy (Issue #886) returns {"policy": {...}} wrapper.
+     */
+    public static class DynamicPolicyResponse {
+        private DynamicPolicy policy;
+
+        public DynamicPolicy getPolicy() { return policy; }
+        public void setPolicy(DynamicPolicy policy) { this.policy = policy; }
     }
 }
