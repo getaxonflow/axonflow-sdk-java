@@ -52,6 +52,9 @@ public final class PolicyTypes {
         CODE_UNSAFE("code-unsafe"),
         CODE_COMPLIANCE("code-compliance"),
 
+        // Sensitive data category
+        SENSITIVE_DATA("sensitive-data"),
+
         // Dynamic policy categories
         DYNAMIC_RISK("dynamic-risk"),
         DYNAMIC_COMPLIANCE("dynamic-compliance"),
