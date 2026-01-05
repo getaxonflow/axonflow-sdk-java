@@ -334,6 +334,141 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // Audit Log Read Methods
+    // ========================================================================
+
+    /**
+     * Searches audit logs with flexible filtering options.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * AuditSearchResponse response = axonflow.searchAuditLogs(
+     *     AuditSearchRequest.builder()
+     *         .userEmail("analyst@company.com")
+     *         .startTime(Instant.now().minus(Duration.ofDays(7)))
+     *         .requestType("llm_chat")
+     *         .limit(100)
+     *         .build());
+     *
+     * for (AuditLogEntry entry : response.getEntries()) {
+     *     System.out.println(entry.getId() + ": " + entry.getQuerySummary());
+     * }
+     * }</pre>
+     *
+     * @param request the search request with optional filters
+     * @return the search response containing matching audit log entries
+     * @throws AxonFlowException if the search fails
+     */
+    public AuditSearchResponse searchAuditLogs(AuditSearchRequest request) {
+        return retryExecutor.execute(() -> {
+            AuditSearchRequest req = request != null ? request : AuditSearchRequest.builder().build();
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/audit/search", req);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+
+                // Handle both array and wrapped response formats
+                if (node.isArray()) {
+                    List<AuditLogEntry> entries = objectMapper.convertValue(
+                        node, new TypeReference<List<AuditLogEntry>>() {});
+                    return AuditSearchResponse.fromArray(entries,
+                        req.getLimit() != null ? req.getLimit() : 100,
+                        req.getOffset() != null ? req.getOffset() : 0);
+                }
+
+                return objectMapper.treeToValue(node, AuditSearchResponse.class);
+            }
+        }, "searchAuditLogs");
+    }
+
+    /**
+     * Searches audit logs with default options (last 100 entries).
+     *
+     * @return the search response
+     */
+    public AuditSearchResponse searchAuditLogs() {
+        return searchAuditLogs(null);
+    }
+
+    /**
+     * Asynchronously searches audit logs.
+     *
+     * @param request the search request
+     * @return a future containing the search response
+     */
+    public CompletableFuture<AuditSearchResponse> searchAuditLogsAsync(AuditSearchRequest request) {
+        return CompletableFuture.supplyAsync(() -> searchAuditLogs(request), asyncExecutor);
+    }
+
+    /**
+     * Gets audit logs for a specific tenant.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * AuditSearchResponse response = axonflow.getAuditLogsByTenant("tenant-abc",
+     *     AuditQueryOptions.builder()
+     *         .limit(100)
+     *         .offset(50)
+     *         .build());
+     *
+     * System.out.println("Total entries: " + response.getTotal());
+     * System.out.println("Has more: " + response.hasMore());
+     * }</pre>
+     *
+     * @param tenantId the tenant ID to query
+     * @param options optional pagination options
+     * @return the search response containing audit log entries for the tenant
+     * @throws IllegalArgumentException if tenantId is null or empty
+     * @throws AxonFlowException if the query fails
+     */
+    public AuditSearchResponse getAuditLogsByTenant(String tenantId, AuditQueryOptions options) {
+        if (tenantId == null || tenantId.isEmpty()) {
+            throw new IllegalArgumentException("tenantId is required");
+        }
+
+        return retryExecutor.execute(() -> {
+            AuditQueryOptions opts = options != null ? options : AuditQueryOptions.defaults();
+            String encodedTenantId = java.net.URLEncoder.encode(tenantId, "UTF-8");
+            String path = "/api/v1/audit/tenant/" + encodedTenantId +
+                "?limit=" + opts.getLimit() + "&offset=" + opts.getOffset();
+
+            Request httpRequest = buildOrchestratorRequest("GET", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+
+                // Handle both array and wrapped response formats
+                if (node.isArray()) {
+                    List<AuditLogEntry> entries = objectMapper.convertValue(
+                        node, new TypeReference<List<AuditLogEntry>>() {});
+                    return AuditSearchResponse.fromArray(entries, opts.getLimit(), opts.getOffset());
+                }
+
+                return objectMapper.treeToValue(node, AuditSearchResponse.class);
+            }
+        }, "getAuditLogsByTenant");
+    }
+
+    /**
+     * Gets audit logs for a specific tenant with default options.
+     *
+     * @param tenantId the tenant ID to query
+     * @return the search response
+     */
+    public AuditSearchResponse getAuditLogsByTenant(String tenantId) {
+        return getAuditLogsByTenant(tenantId, null);
+    }
+
+    /**
+     * Asynchronously gets audit logs for a specific tenant.
+     *
+     * @param tenantId the tenant ID to query
+     * @param options optional pagination options
+     * @return a future containing the search response
+     */
+    public CompletableFuture<AuditSearchResponse> getAuditLogsByTenantAsync(String tenantId, AuditQueryOptions options) {
+        return CompletableFuture.supplyAsync(() -> getAuditLogsByTenant(tenantId, options), asyncExecutor);
+    }
+
+    // ========================================================================
     // Proxy Mode - Query Execution
     // ========================================================================
 
