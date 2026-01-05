@@ -621,6 +621,9 @@ public final class PolicyTypes {
         private String type;  // "risk", "content", "user", "cost"
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
+        /** Restrict LLM routing to these providers (GDPR, HIPAA, RBI compliance) */
+        @JsonProperty("allowed_providers")
+        private List<String> allowedProviders;
         private int priority;
         private boolean enabled;
         @JsonProperty("created_at")
@@ -641,6 +644,8 @@ public final class PolicyTypes {
         public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
         public void setActions(List<DynamicPolicyAction> actions) { this.actions = actions; }
+        public List<String> getAllowedProviders() { return allowedProviders; }
+        public void setAllowedProviders(List<String> allowedProviders) { this.allowedProviders = allowedProviders; }
         public int getPriority() { return priority; }
         public void setPriority(int priority) { this.priority = priority; }
         public boolean isEnabled() { return enabled; }
@@ -734,6 +739,9 @@ public final class PolicyTypes {
         private String type;  // "risk", "content", "user", "cost"
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
+        /** Restrict LLM routing to these providers when policy matches */
+        @JsonProperty("allowed_providers")
+        private List<String> allowedProviders;
         private int priority;
         private boolean enabled = true;
 
@@ -746,6 +754,7 @@ public final class PolicyTypes {
         public String getType() { return type; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
+        public List<String> getAllowedProviders() { return allowedProviders; }
         public int getPriority() { return priority; }
         public boolean isEnabled() { return enabled; }
 
@@ -783,6 +792,18 @@ public final class PolicyTypes {
                 return this;
             }
 
+            /**
+             * Restricts LLM routing to these providers when policy matches.
+             * Use for GDPR, HIPAA, or RBI compliance requirements.
+             *
+             * @param allowedProviders list of allowed provider identifiers
+             * @return this builder
+             */
+            public Builder allowedProviders(List<String> allowedProviders) {
+                request.allowedProviders = allowedProviders;
+                return this;
+            }
+
             public Builder priority(int priority) {
                 request.priority = priority;
                 return this;
@@ -808,6 +829,9 @@ public final class PolicyTypes {
         private String type;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
+        /** Restrict LLM routing to these providers when policy matches */
+        @JsonProperty("allowed_providers")
+        private List<String> allowedProviders;
         private Integer priority;
         private Boolean enabled;
 
@@ -820,6 +844,7 @@ public final class PolicyTypes {
         public String getType() { return type; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
+        public List<String> getAllowedProviders() { return allowedProviders; }
         public Integer getPriority() { return priority; }
         public Boolean getEnabled() { return enabled; }
 
@@ -848,6 +873,18 @@ public final class PolicyTypes {
 
             public Builder actions(List<DynamicPolicyAction> actions) {
                 request.actions = actions;
+                return this;
+            }
+
+            /**
+             * Restricts LLM routing to these providers when policy matches.
+             * Use for GDPR, HIPAA, or RBI compliance requirements.
+             *
+             * @param allowedProviders list of allowed provider identifiers
+             * @return this builder
+             */
+            public Builder allowedProviders(List<String> allowedProviders) {
+                request.allowedProviders = allowedProviders;
                 return this;
             }
 
