@@ -1223,7 +1223,7 @@ public final class AxonFlow implements Closeable {
      */
     public List<DynamicPolicy> listDynamicPolicies(ListDynamicPoliciesOptions options) {
         return retryExecutor.execute(() -> {
-            String path = buildDynamicPolicyQueryString("/api/v1/policies/dynamic", options);
+            String path = buildDynamicPolicyQueryString("/api/v1/dynamic-policies", options);
             Request httpRequest = buildOrchestratorRequest("GET", path, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, new TypeReference<List<DynamicPolicy>>() {});
@@ -1241,7 +1241,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(policyId, "policyId cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/policies/dynamic/" + policyId, null);
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/dynamic-policies/" + policyId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1258,7 +1258,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/policies/dynamic", request);
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/dynamic-policies", request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1277,7 +1277,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(request, "request cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildOrchestratorRequest("PUT", "/api/v1/policies/dynamic/" + policyId, request);
+            Request httpRequest = buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, request);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1293,7 +1293,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(policyId, "policyId cannot be null");
 
         retryExecutor.execute(() -> {
-            Request httpRequest = buildOrchestratorRequest("DELETE", "/api/v1/policies/dynamic/" + policyId, null);
+            Request httpRequest = buildOrchestratorRequest("DELETE", "/api/v1/dynamic-policies/" + policyId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 if (!response.isSuccessful() && response.code() != 204) {
                     handleErrorResponse(response);
@@ -1315,7 +1315,7 @@ public final class AxonFlow implements Closeable {
 
         return retryExecutor.execute(() -> {
             Map<String, Object> body = Map.of("enabled", enabled);
-            Request httpRequest = buildOrchestratorRequest("PATCH", "/api/v1/policies/dynamic/" + policyId, body);
+            Request httpRequest = buildOrchestratorRequest("PATCH", "/api/v1/dynamic-policies/" + policyId, body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, DynamicPolicy.class);
             }
@@ -1339,7 +1339,7 @@ public final class AxonFlow implements Closeable {
      */
     public List<DynamicPolicy> getEffectiveDynamicPolicies(EffectivePoliciesOptions options) {
         return retryExecutor.execute(() -> {
-            StringBuilder path = new StringBuilder("/api/v1/policies/dynamic/effective");
+            StringBuilder path = new StringBuilder("/api/v1/dynamic-policies/effective");
             if (options != null) {
                 String query = buildEffectivePoliciesQuery(options);
                 if (!query.isEmpty()) {

@@ -397,7 +397,7 @@ class PolicyTest {
         @Test
         @DisplayName("listDynamicPolicies should return policies")
         void listDynamicPoliciesShouldReturnPolicies() {
-            stubFor(get(urlPathEqualTo("/api/v1/policies/dynamic"))
+            stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
@@ -413,7 +413,7 @@ class PolicyTest {
         @Test
         @DisplayName("listDynamicPolicies with filters should include query params")
         void listDynamicPoliciesWithFiltersShouldIncludeQueryParams() {
-            stubFor(get(urlPathEqualTo("/api/v1/policies/dynamic"))
+            stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies"))
                 .withQueryParam("type", equalTo("cost"))
                 .withQueryParam("enabled", equalTo("true"))
                 .willReturn(aResponse()
@@ -428,14 +428,14 @@ class PolicyTest {
 
             axonflow.listDynamicPolicies(options);
 
-            verify(getRequestedFor(urlPathEqualTo("/api/v1/policies/dynamic"))
+            verify(getRequestedFor(urlPathEqualTo("/api/v1/dynamic-policies"))
                 .withQueryParam("type", equalTo("cost")));
         }
 
         @Test
         @DisplayName("getDynamicPolicy should return policy by ID")
         void getDynamicPolicyShouldReturnPolicyById() {
-            stubFor(get(urlEqualTo("/api/v1/policies/dynamic/dpol_456"))
+            stubFor(get(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
@@ -457,7 +457,7 @@ class PolicyTest {
         @Test
         @DisplayName("createDynamicPolicy should create and return policy")
         void createDynamicPolicyShouldCreateAndReturnPolicy() {
-            stubFor(post(urlEqualTo("/api/v1/policies/dynamic"))
+            stubFor(post(urlEqualTo("/api/v1/dynamic-policies"))
                 .willReturn(aResponse()
                     .withStatus(201)
                     .withHeader("Content-Type", "application/json")
@@ -475,7 +475,7 @@ class PolicyTest {
 
             assertThat(policy.getId()).isEqualTo("dpol_456");
 
-            verify(postRequestedFor(urlEqualTo("/api/v1/policies/dynamic")));
+            verify(postRequestedFor(urlEqualTo("/api/v1/dynamic-policies")));
         }
 
         @Test
@@ -488,7 +488,7 @@ class PolicyTest {
         @Test
         @DisplayName("updateDynamicPolicy should update and return policy")
         void updateDynamicPolicyShouldUpdateAndReturnPolicy() {
-            stubFor(put(urlEqualTo("/api/v1/policies/dynamic/dpol_456"))
+            stubFor(put(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
@@ -502,19 +502,19 @@ class PolicyTest {
 
             assertThat(policy).isNotNull();
 
-            verify(putRequestedFor(urlEqualTo("/api/v1/policies/dynamic/dpol_456")));
+            verify(putRequestedFor(urlEqualTo("/api/v1/dynamic-policies/dpol_456")));
         }
 
         @Test
         @DisplayName("deleteDynamicPolicy should delete policy")
         void deleteDynamicPolicyShouldDeletePolicy() {
-            stubFor(delete(urlEqualTo("/api/v1/policies/dynamic/dpol_456"))
+            stubFor(delete(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(204)));
 
             axonflow.deleteDynamicPolicy("dpol_456");
 
-            verify(deleteRequestedFor(urlEqualTo("/api/v1/policies/dynamic/dpol_456")));
+            verify(deleteRequestedFor(urlEqualTo("/api/v1/dynamic-policies/dpol_456")));
         }
 
         @Test
@@ -528,7 +528,7 @@ class PolicyTest {
         @DisplayName("toggleDynamicPolicy should toggle enabled status")
         void toggleDynamicPolicyShouldToggleEnabledStatus() {
             String toggledPolicy = SAMPLE_DYNAMIC_POLICY.replace("\"enabled\": true", "\"enabled\": false");
-            stubFor(patch(urlEqualTo("/api/v1/policies/dynamic/dpol_456"))
+            stubFor(patch(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
@@ -538,14 +538,14 @@ class PolicyTest {
 
             assertThat(policy.isEnabled()).isFalse();
 
-            verify(patchRequestedFor(urlEqualTo("/api/v1/policies/dynamic/dpol_456"))
+            verify(patchRequestedFor(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .withRequestBody(containing("\"enabled\":false")));
         }
 
         @Test
         @DisplayName("getEffectiveDynamicPolicies should return effective policies")
         void getEffectiveDynamicPoliciesShouldReturnEffectivePolicies() {
-            stubFor(get(urlPathEqualTo("/api/v1/policies/dynamic/effective"))
+            stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies/effective"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
