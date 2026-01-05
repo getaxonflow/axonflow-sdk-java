@@ -44,7 +44,7 @@ public class GatewayExample {
     public static void main(String[] args) {
         // Initialize client
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl("https://agent.getaxonflow.com")
+            .endpoint("https://agent.getaxonflow.com")
             .licenseKey("your-license-key")
             .build());
 
@@ -98,7 +98,7 @@ import com.getaxonflow.sdk.types.*;
 public class ProxyExample {
     public static void main(String[] args) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl("https://agent.getaxonflow.com")
+            .endpoint("https://agent.getaxonflow.com")
             .licenseKey("your-license-key")
             .build());
 
@@ -125,7 +125,7 @@ public class ProxyExample {
 
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
-    .agentUrl("https://agent.getaxonflow.com")  // Required
+    .endpoint("https://agent.getaxonflow.com")  // Required
     .licenseKey("your-license-key")             // Required for cloud
     .timeout(Duration.ofSeconds(30))            // Default: 60s
     .debug(true)                                // Enable request logging
@@ -239,7 +239,7 @@ The SDK includes automatic retry with exponential backoff:
 
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
-    .agentUrl("https://agent.getaxonflow.com")
+    .endpoint("https://agent.getaxonflow.com")
     .licenseKey("your-license-key")
     .retryConfig(RetryConfig.builder()
         .maxAttempts(3)
@@ -257,7 +257,7 @@ Enable caching for repeated policy checks:
 
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
-    .agentUrl("https://agent.getaxonflow.com")
+    .endpoint("https://agent.getaxonflow.com")
     .licenseKey("your-license-key")
     .cacheEnabled(true)
     .cacheTtl(Duration.ofMinutes(5))
@@ -278,7 +278,7 @@ import com.getaxonflow.sdk.interceptors.*;
 
 // Initialize AxonFlow client
 AxonFlow axonflow = AxonFlow.create(AxonFlowConfig.builder()
-    .agentUrl("https://agent.getaxonflow.com")
+    .endpoint("https://agent.getaxonflow.com")
     .licenseKey("your-license-key")
     .build());
 
@@ -391,7 +391,7 @@ Enable debug logging for request/response details:
 
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
-    .agentUrl("https://agent.getaxonflow.com")
+    .endpoint("https://agent.getaxonflow.com")
     .debug(true)
     .build();
 ```
