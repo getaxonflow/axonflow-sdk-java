@@ -1054,7 +1054,7 @@ class MoreTypesTest {
             Instant expiresAt = Instant.now().plusSeconds(300);
 
             PolicyApprovalResult result = new PolicyApprovalResult(
-                "ctx-123", true, data, policies, expiresAt, null, null, "5.2ms"
+                "ctx-123", true, false, data, policies, expiresAt, null, null, "5.2ms"
             );
 
             assertThat(result.getContextId()).isEqualTo("ctx-123");
@@ -1070,7 +1070,7 @@ class MoreTypesTest {
         @DisplayName("should create blocked result")
         void shouldCreateBlockedResult() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                null, false, null, null, null,
+                null, false, false, null, null, null,
                 "Request blocked by policy: pii-detection", null, "3.1ms"
             );
 
@@ -1085,13 +1085,13 @@ class MoreTypesTest {
             Instant past = Instant.now().minusSeconds(3600);
 
             PolicyApprovalResult notExpired = new PolicyApprovalResult(
-                "ctx", true, null, null, future, null, null, null
+                "ctx", true, false, null, null, future, null, null, null
             );
             PolicyApprovalResult expired = new PolicyApprovalResult(
-                "ctx", true, null, null, past, null, null, null
+                "ctx", true, false, null, null, past, null, null, null
             );
             PolicyApprovalResult noExpiry = new PolicyApprovalResult(
-                "ctx", true, null, null, null, null, null, null
+                "ctx", true, false, null, null, null, null, null, null
             );
 
             assertThat(notExpired.isExpired()).isFalse();
@@ -1103,7 +1103,7 @@ class MoreTypesTest {
         @DisplayName("should extract blocking policy name - format 1")
         void shouldExtractBlockingPolicyNameFormat1() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                null, false, null, null, null,
+                null, false, false, null, null, null,
                 "Request blocked by policy: my-policy", null, null
             );
 
@@ -1114,7 +1114,7 @@ class MoreTypesTest {
         @DisplayName("should extract blocking policy name - format 2")
         void shouldExtractBlockingPolicyNameFormat2() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                null, false, null, null, null,
+                null, false, false, null, null, null,
                 "Blocked by policy: another-policy", null, null
             );
 
@@ -1125,7 +1125,7 @@ class MoreTypesTest {
         @DisplayName("should extract blocking policy name - bracket format")
         void shouldExtractBlockingPolicyNameBracket() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                null, false, null, null, null,
+                null, false, false, null, null, null,
                 "[policy-name] Description of violation", null, null
             );
 
@@ -1136,7 +1136,7 @@ class MoreTypesTest {
         @DisplayName("should return full reason when no pattern matches")
         void shouldReturnFullReasonWhenNoPattern() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                null, false, null, null, null,
+                null, false, false, null, null, null,
                 "Generic block reason", null, null
             );
 
@@ -1147,7 +1147,7 @@ class MoreTypesTest {
         @DisplayName("should return null for null block reason")
         void shouldReturnNullForNullBlockReason() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                "ctx", true, null, null, null, null, null, null
+                "ctx", true, false, null, null, null, null, null, null
             );
 
             assertThat(result.getBlockingPolicyName()).isNull();
@@ -1157,7 +1157,7 @@ class MoreTypesTest {
         @DisplayName("should handle null collections")
         void shouldHandleNullCollections() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                "ctx", true, null, null, null, null, null, null
+                "ctx", true, false, null, null, null, null, null, null
             );
 
             assertThat(result.getApprovedData()).isEmpty();
@@ -1167,9 +1167,9 @@ class MoreTypesTest {
         @Test
         @DisplayName("should implement equals and hashCode")
         void shouldImplementEqualsAndHashCode() {
-            PolicyApprovalResult r1 = new PolicyApprovalResult("c1", true, null, null, null, null, null, null);
-            PolicyApprovalResult r2 = new PolicyApprovalResult("c1", true, null, null, null, null, null, null);
-            PolicyApprovalResult r3 = new PolicyApprovalResult("c2", true, null, null, null, null, null, null);
+            PolicyApprovalResult r1 = new PolicyApprovalResult("c1", true, false, null, null, null, null, null, null);
+            PolicyApprovalResult r2 = new PolicyApprovalResult("c1", true, false, null, null, null, null, null, null);
+            PolicyApprovalResult r3 = new PolicyApprovalResult("c2", true, false, null, null, null, null, null, null);
 
             assertThat(r1).isEqualTo(r2);
             assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
@@ -1180,7 +1180,7 @@ class MoreTypesTest {
         @DisplayName("should have toString")
         void shouldHaveToString() {
             PolicyApprovalResult result = new PolicyApprovalResult(
-                "ctx-abc", true, null, Arrays.asList("p1"), null, null, null, "1ms"
+                "ctx-abc", true, false, null, Arrays.asList("p1"), null, null, null, "1ms"
             );
             assertThat(result.toString()).contains("PolicyApprovalResult").contains("ctx-abc");
         }
