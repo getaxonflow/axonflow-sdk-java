@@ -1323,7 +1323,7 @@ public final class AxonFlow implements Closeable {
 
         return retryExecutor.execute(() -> {
             Map<String, Object> body = Map.of("enabled", enabled);
-            Request httpRequest = buildOrchestratorRequest("PATCH", "/api/v1/dynamic-policies/" + policyId, body);
+            Request httpRequest = buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
                 DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
