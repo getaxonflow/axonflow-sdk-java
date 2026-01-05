@@ -533,8 +533,9 @@ class PolicyTest {
         @DisplayName("toggleDynamicPolicy should toggle enabled status")
         void toggleDynamicPolicyShouldToggleEnabledStatus() {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
+            // Note: toggleDynamicPolicy uses PUT (not PATCH) to match API specification
             String toggledPolicy = SAMPLE_DYNAMIC_POLICY.replace("\"enabled\": true", "\"enabled\": false");
-            stubFor(patch(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
+            stubFor(put(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .willReturn(aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
@@ -544,7 +545,7 @@ class PolicyTest {
 
             assertThat(policy.isEnabled()).isFalse();
 
-            verify(patchRequestedFor(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
+            verify(putRequestedFor(urlEqualTo("/api/v1/dynamic-policies/dpol_456"))
                 .withRequestBody(containing("\"enabled\":false")));
         }
 
