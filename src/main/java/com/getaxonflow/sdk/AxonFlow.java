@@ -2193,6 +2193,7 @@ public final class AxonFlow implements Closeable {
             .header("Accept", "application/json");
 
         addAuthHeaders(builder);
+        addTenantIdHeader(builder);
 
         RequestBody requestBody = null;
         if (body != null) {

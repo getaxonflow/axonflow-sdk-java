@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic Policy Response Parsing**: Fixed all dynamic policy methods to correctly parse wrapped API responses (Issue #886)
   - Agent proxy returns `{"policies": [...]}` and `{"policy": {...}}` wrappers
   - Updated `listDynamicPolicies`, `getDynamicPolicy`, `createDynamicPolicy`, `updateDynamicPolicy`, `toggleDynamicPolicy`, `getEffectiveDynamicPolicies`
+- **X-Tenant-ID Header for Orchestrator Requests**: Fixed missing X-Tenant-ID header in orchestrator API calls
+  - Added `addTenantIdHeader()` call to `buildOrchestratorRequest()` method
+  - Ensures tenant identification works in community/self-hosted mode without full credentials
 
 ## [2.0.0] - 2026-01-05
 
