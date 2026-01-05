@@ -82,8 +82,8 @@ class PolicyTest {
     @BeforeEach
     void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
         axonflow = AxonFlow.create(AxonFlowConfig.builder()
-            .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
-            .orchestratorUrl(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .build());
     }
 

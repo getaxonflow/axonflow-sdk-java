@@ -5,6 +5,45 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-01-05
+
+### Breaking Changes
+
+- **BREAKING**: Renamed `agentUrl` to `endpoint` in `AxonFlowConfig.Builder`
+- **BREAKING**: Removed `orchestratorUrl` and `portalUrl` config options (Agent now proxies all routes per ADR-026)
+- **BREAKING**: Dynamic policy API path changed from `/api/v1/policies/dynamic` to `/api/v1/dynamic-policies`
+
+### Changed
+
+- All SDK methods now route through single Agent endpoint
+- Simplified configuration - only `endpoint()` builder method needed
+- Removed `getOrchestratorUrl()` and `getPortalUrl()` config methods (now return endpoint directly)
+- Added `@Deprecated` annotation on `agentUrl()` builder method for backwards compatibility
+
+### Migration Guide
+
+**Before (v1.x):**
+```java
+AxonFlowConfig config = AxonFlowConfig.builder()
+    .agentUrl("http://localhost:8080")
+    .orchestratorUrl("http://localhost:8081")
+    .portalUrl("http://localhost:8082")
+    .clientId("my-client")
+    .clientSecret("my-secret")
+    .build();
+```
+
+**After (v2.x):**
+```java
+AxonFlowConfig config = AxonFlowConfig.builder()
+    .endpoint("http://localhost:8080")
+    .clientId("my-client")
+    .clientSecret("my-secret")
+    .build();
+```
+
+---
+
 ## [1.13.0] - 2026-01-05
 
 ### Added

@@ -127,7 +127,7 @@ public final class AxonFlow implements Closeable {
         this.cache = new ResponseCache(config.getCacheConfig());
         this.asyncExecutor = ForkJoinPool.commonPool();
 
-        logger.info("AxonFlow client initialized for {}", config.getAgentUrl());
+        logger.info("AxonFlow client initialized for {}", config.getEndpoint());
     }
 
     private static ObjectMapper createObjectMapper() {
@@ -1387,9 +1387,9 @@ public final class AxonFlow implements Closeable {
     // ========================================================================
 
     private Request buildRequest(String method, String path, Object body) {
-        HttpUrl url = HttpUrl.parse(config.getAgentUrl() + path);
+        HttpUrl url = HttpUrl.parse(config.getEndpoint() + path);
         if (url == null) {
-            throw new ConfigurationException("Invalid URL: " + config.getAgentUrl() + path);
+            throw new ConfigurationException("Invalid URL: " + config.getEndpoint() + path);
         }
 
         Request.Builder builder = new Request.Builder()
@@ -1442,9 +1442,9 @@ public final class AxonFlow implements Closeable {
     }
 
     private Request buildPatchRequest(String path, Object body) {
-        HttpUrl url = HttpUrl.parse(config.getAgentUrl() + path);
+        HttpUrl url = HttpUrl.parse(config.getEndpoint() + path);
         if (url == null) {
-            throw new ConfigurationException("Invalid URL: " + config.getAgentUrl() + path);
+            throw new ConfigurationException("Invalid URL: " + config.getEndpoint() + path);
         }
 
         Request.Builder builder = new Request.Builder()
@@ -2159,21 +2159,11 @@ public final class AxonFlow implements Closeable {
     // ========================================================================
 
     /**
-     * Gets the orchestrator URL for Execution Replay API.
-     * Falls back to agent URL with port 8081 if not configured.
+     * Gets the endpoint URL for API requests.
+     * All routes now go through a single endpoint (ADR-026 Single Entry Point).
      */
     private String getOrchestratorUrl() {
-        String orchestratorUrl = config.getOrchestratorUrl();
-        if (orchestratorUrl != null && !orchestratorUrl.isEmpty()) {
-            return orchestratorUrl;
-        }
-        // Default: assume orchestrator is on same host as agent, port 8081
-        try {
-            URI uri = URI.create(config.getAgentUrl());
-            return uri.getScheme() + "://" + uri.getHost() + ":8081";
-        } catch (Exception e) {
-            return "http://localhost:8081";
-        }
+        return config.getEndpoint();
     }
 
     /**
@@ -2226,21 +2216,11 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
-     * Gets the portal URL for enterprise PR workflow features.
-     * Falls back to agent URL with port 8082 if not configured.
+     * Gets the endpoint URL for portal API requests.
+     * All routes now go through a single endpoint (ADR-026 Single Entry Point).
      */
     private String getPortalUrl() {
-        String portalUrl = config.getPortalUrl();
-        if (portalUrl != null && !portalUrl.isEmpty()) {
-            return portalUrl;
-        }
-        // Default: assume portal is on same host as agent, port 8082
-        try {
-            URI uri = URI.create(config.getAgentUrl());
-            return uri.getScheme() + "://" + uri.getHost() + ":8082";
-        } catch (Exception e) {
-            return "http://localhost:8082";
-        }
+        return config.getEndpoint();
     }
 
     /**
