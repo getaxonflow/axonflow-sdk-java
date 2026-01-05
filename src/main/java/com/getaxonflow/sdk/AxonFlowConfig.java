@@ -29,7 +29,7 @@ import java.util.Objects;
  * <p>Use the builder to create a configuration:
  * <pre>{@code
  * AxonFlowConfig config = AxonFlowConfig.builder()
- *     .agentUrl("http://localhost:8080")
+ *     .endpoint("http://localhost:8080")
  *     .clientId("my-client")
  *     .clientSecret("my-secret")
  *     .build();
@@ -45,12 +45,10 @@ public final class AxonFlowConfig {
     /** Default timeout for HTTP requests. */
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
 
-    /** Default Agent URL. */
-    public static final String DEFAULT_AGENT_URL = "http://localhost:8080";
+    /** Default endpoint URL. */
+    public static final String DEFAULT_ENDPOINT = "http://localhost:8080";
 
-    private final String agentUrl;
-    private final String orchestratorUrl;
-    private final String portalUrl;
+    private final String endpoint;
     private final String clientId;
     private final String clientSecret;
     private final String licenseKey;
@@ -63,9 +61,7 @@ public final class AxonFlowConfig {
     private final String userAgent;
 
     private AxonFlowConfig(Builder builder) {
-        this.agentUrl = normalizeUrl(builder.agentUrl != null ? builder.agentUrl : DEFAULT_AGENT_URL);
-        this.orchestratorUrl = normalizeUrl(builder.orchestratorUrl);
-        this.portalUrl = normalizeUrl(builder.portalUrl);
+        this.endpoint = normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
         this.clientId = builder.clientId;
         this.clientSecret = builder.clientSecret;
         this.licenseKey = builder.licenseKey;
@@ -81,8 +77,8 @@ public final class AxonFlowConfig {
     }
 
     private void validate() {
-        if (agentUrl == null || agentUrl.isEmpty()) {
-            throw new ConfigurationException("agentUrl is required", "agentUrl");
+        if (endpoint == null || endpoint.isEmpty()) {
+            throw new ConfigurationException("endpoint is required", "endpoint");
         }
         // Credentials are optional for community/self-hosted deployments
         // Enterprise features require credentials (validated at method call time)
@@ -106,15 +102,15 @@ public final class AxonFlowConfig {
     }
 
     /**
-     * Checks if the configured agent URL is localhost.
+     * Checks if the configured endpoint is localhost.
      *
      * @return true if connecting to localhost
      */
     public boolean isLocalhost() {
-        return agentUrl != null && (
-            agentUrl.contains("localhost") ||
-            agentUrl.contains("127.0.0.1") ||
-            agentUrl.contains("[::1]")
+        return endpoint != null && (
+            endpoint.contains("localhost") ||
+            endpoint.contains("127.0.0.1") ||
+            endpoint.contains("[::1]")
         );
     }
 
@@ -123,7 +119,7 @@ public final class AxonFlowConfig {
      *
      * <p>Supported environment variables:
      * <ul>
-     *   <li>AXONFLOW_AGENT_URL - The Agent URL</li>
+     *   <li>AXONFLOW_AGENT_URL - The endpoint URL (kept for backwards compatibility)</li>
      *   <li>AXONFLOW_CLIENT_ID - The client ID</li>
      *   <li>AXONFLOW_CLIENT_SECRET - The client secret</li>
      *   <li>AXONFLOW_LICENSE_KEY - The license key</li>
@@ -137,9 +133,10 @@ public final class AxonFlowConfig {
     public static AxonFlowConfig fromEnvironment() {
         Builder builder = builder();
 
-        String agentUrl = System.getenv("AXONFLOW_AGENT_URL");
-        if (agentUrl != null && !agentUrl.isEmpty()) {
-            builder.agentUrl(agentUrl);
+        // Keep AXONFLOW_AGENT_URL for backwards compatibility, map to endpoint
+        String endpoint = System.getenv("AXONFLOW_AGENT_URL");
+        if (endpoint != null && !endpoint.isEmpty()) {
+            builder.endpoint(endpoint);
         }
 
         String clientId = System.getenv("AXONFLOW_CLIENT_ID");
@@ -179,16 +176,8 @@ public final class AxonFlowConfig {
         return builder.build();
     }
 
-    public String getAgentUrl() {
-        return agentUrl;
-    }
-
-    public String getOrchestratorUrl() {
-        return orchestratorUrl;
-    }
-
-    public String getPortalUrl() {
-        return portalUrl;
+    public String getEndpoint() {
+        return endpoint;
     }
 
     public String getClientId() {
@@ -242,7 +231,7 @@ public final class AxonFlowConfig {
         AxonFlowConfig that = (AxonFlowConfig) o;
         return debug == that.debug &&
                insecureSkipVerify == that.insecureSkipVerify &&
-               Objects.equals(agentUrl, that.agentUrl) &&
+               Objects.equals(endpoint, that.endpoint) &&
                Objects.equals(clientId, that.clientId) &&
                Objects.equals(licenseKey, that.licenseKey) &&
                mode == that.mode;
@@ -250,13 +239,13 @@ public final class AxonFlowConfig {
 
     @Override
     public int hashCode() {
-        return Objects.hash(agentUrl, clientId, licenseKey, mode, debug, insecureSkipVerify);
+        return Objects.hash(endpoint, clientId, licenseKey, mode, debug, insecureSkipVerify);
     }
 
     @Override
     public String toString() {
         return "AxonFlowConfig{" +
-               "agentUrl='" + agentUrl + '\'' +
+               "endpoint='" + endpoint + '\'' +
                ", clientId='" + clientId + '\'' +
                ", mode=" + mode +
                ", timeout=" + timeout +
@@ -268,9 +257,7 @@ public final class AxonFlowConfig {
      * Builder for AxonFlowConfig.
      */
     public static final class Builder {
-        private String agentUrl;
-        private String orchestratorUrl;
-        private String portalUrl;
+        private String endpoint;
         private String clientId;
         private String clientSecret;
         private String licenseKey;
@@ -285,41 +272,32 @@ public final class AxonFlowConfig {
         private Builder() {}
 
         /**
+         * Sets the AxonFlow endpoint URL.
+         * All routes now go through a single endpoint (ADR-026 Single Entry Point).
+         *
+         * @param endpoint the endpoint URL
+         * @return this builder
+         */
+        public Builder endpoint(String endpoint) {
+            this.endpoint = endpoint;
+            return this;
+        }
+
+        /**
          * Sets the AxonFlow Agent URL.
+         * @deprecated Use {@link #endpoint(String)} instead. This method is kept for backwards compatibility.
          *
          * @param agentUrl the Agent URL
          * @return this builder
          */
+        @Deprecated
         public Builder agentUrl(String agentUrl) {
-            this.agentUrl = agentUrl;
+            this.endpoint = agentUrl;
             return this;
         }
 
-        /**
-         * Sets the Orchestrator URL for Execution Replay API.
-         *
-         * <p>If not set, defaults to the Agent URL with port 8081.
-         *
-         * @param orchestratorUrl the Orchestrator URL
-         * @return this builder
-         */
-        public Builder orchestratorUrl(String orchestratorUrl) {
-            this.orchestratorUrl = orchestratorUrl;
-            return this;
-        }
-
-        /**
-         * Sets the Customer Portal URL for enterprise PR workflow features.
-         *
-         * <p>If not set, defaults to the Agent URL with port 8082.
-         *
-         * @param portalUrl the Customer Portal URL
-         * @return this builder
-         */
-        public Builder portalUrl(String portalUrl) {
-            this.portalUrl = portalUrl;
-            return this;
-        }
+        // Note: portalUrl() and orchestratorUrl() methods were removed in v2.0.0
+        // All routes now go through a single endpoint (ADR-026 Single Entry Point)
 
         /**
          * Sets the client ID for authentication.
