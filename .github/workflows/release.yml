@@ -27,6 +27,12 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
+      - name: Configure GPG for headless operation
+        run: |
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          gpg-connect-agent reloadagent /bye || true
+
       - name: Configure Maven settings with mirror
         run: |
           mkdir -p ~/.m2
@@ -92,7 +98,7 @@ jobs:
         run: |
           for i in 1 2 3; do
             echo "Attempt $i: Deploying to Maven Central..."
-            if mvn clean deploy -Prelease -DskipTests -B -U; then
+            if mvn clean deploy -Prelease -DskipTests -B -U -Dgpg.passphrase="${GPG_PASSPHRASE}"; then
               echo "Deploy successful"
               break
             fi
