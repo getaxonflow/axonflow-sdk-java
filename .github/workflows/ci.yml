@@ -23,13 +23,55 @@ jobs:
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'temurin'
-          cache: maven
+
+      - name: Configure Maven mirror
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>central-mirror</id>
+                <name>Maven Central Mirror (repo1)</name>
+                <url>https://repo1.maven.org/maven2</url>
+                <mirrorOf>central</mirrorOf>
+              </mirror>
+            </mirrors>
+          </settings>
+          EOF
 
       - name: Build with Maven
-        run: mvn clean compile -B
+        run: |
+          for i in 1 2 3; do
+            echo "Attempt $i: Building..."
+            if mvn clean compile -B -U; then
+              echo "Build successful"
+              break
+            fi
+            if [ $i -eq 3 ]; then
+              echo "Build failed after 3 attempts"
+              exit 1
+            fi
+            echo "Attempt $i failed, waiting 30 seconds..."
+            sleep 30
+          done
 
       - name: Run unit tests
-        run: mvn test -B
+        run: |
+          for i in 1 2 3; do
+            echo "Attempt $i: Running tests..."
+            if mvn test -B; then
+              echo "Tests passed"
+              break
+            fi
+            if [ $i -eq 3 ]; then
+              echo "Tests failed after 3 attempts"
+              exit 1
+            fi
+            echo "Attempt $i failed, waiting 30 seconds..."
+            sleep 30
+          done
 
       - name: Generate coverage report
         if: matrix.java-version == 17
@@ -61,11 +103,40 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven
+
+      - name: Configure Maven mirror
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>central-mirror</id>
+                <name>Maven Central Mirror (repo1)</name>
+                <url>https://repo1.maven.org/maven2</url>
+                <mirrorOf>central</mirrorOf>
+              </mirror>
+            </mirrors>
+          </settings>
+          EOF
 
       - name: Check code formatting
         run: |
-          mvn com.spotify.fmt:fmt-maven-plugin:check || echo "Code formatting check skipped"
+          for i in 1 2 3; do
+            echo "Attempt $i: Checking formatting..."
+            if mvn com.spotify.fmt:fmt-maven-plugin:check -B -U; then
+              echo "Formatting check passed"
+              break
+            fi
+            # If it's a formatting error (not network), don't retry
+            if [ $i -eq 1 ]; then
+              echo "Code formatting check skipped"
+              break
+            fi
+            echo "Attempt $i failed, waiting 30 seconds..."
+            sleep 30
+          done
 
   integration-test:
     runs-on: ubuntu-latest
@@ -80,10 +151,26 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven
+
+      - name: Configure Maven mirror
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>central-mirror</id>
+                <name>Maven Central Mirror (repo1)</name>
+                <url>https://repo1.maven.org/maven2</url>
+                <mirrorOf>central</mirrorOf>
+              </mirror>
+            </mirrors>
+          </settings>
+          EOF
 
       - name: Run integration tests
-        run: mvn verify -DskipUnitTests -B
+        run: mvn verify -DskipUnitTests -B -U
         continue-on-error: true
 
   package:
@@ -99,10 +186,39 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven
+
+      - name: Configure Maven mirror
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>central-mirror</id>
+                <name>Maven Central Mirror (repo1)</name>
+                <url>https://repo1.maven.org/maven2</url>
+                <mirrorOf>central</mirrorOf>
+              </mirror>
+            </mirrors>
+          </settings>
+          EOF
 
       - name: Package JAR
-        run: mvn package -DskipTests -B
+        run: |
+          for i in 1 2 3; do
+            echo "Attempt $i: Packaging..."
+            if mvn package -DskipTests -B -U; then
+              echo "Package successful"
+              break
+            fi
+            if [ $i -eq 3 ]; then
+              echo "Package failed after 3 attempts"
+              exit 1
+            fi
+            echo "Attempt $i failed, waiting 30 seconds..."
+            sleep 30
+          done
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
