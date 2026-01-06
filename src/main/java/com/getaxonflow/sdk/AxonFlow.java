@@ -1228,7 +1228,11 @@ public final class AxonFlow implements Closeable {
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
                 DynamicPoliciesResponse wrapper = parseResponse(response, DynamicPoliciesResponse.class);
-                return wrapper != null ? wrapper.getPolicies() : java.util.Collections.emptyList();
+                // Handle null wrapper or null policies list (Issue #40)
+                if (wrapper == null || wrapper.getPolicies() == null) {
+                    return java.util.Collections.emptyList();
+                }
+                return wrapper.getPolicies();
             }
         }, "listDynamicPolicies");
     }
