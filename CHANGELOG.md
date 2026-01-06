@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Null Policies List Handling**: Fixed `NullPointerException` in `listDynamicPolicies()` when API returns `{"policies": null}` instead of empty array
-  - Added explicit null check for `wrapper.getPolicies()` before returning
-  - Returns empty list when policies field is null
+- **Null Policies List Handling**: Fixed `NullPointerException` in list-returning policy methods when API returns null instead of empty array
+  - Affected methods: `listDynamicPolicies()`, `getEffectiveDynamicPolicies()`, `listStaticPolicies()`, `getEffectiveStaticPolicies()`
+  - Added explicit null check for wrapper and list fields before returning
+  - Returns empty list when wrapper or list field is null
 
 ## [2.1.0] - 2026-01-05
 

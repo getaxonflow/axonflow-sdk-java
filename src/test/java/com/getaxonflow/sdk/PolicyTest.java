@@ -112,6 +112,20 @@ class PolicyTest {
         }
 
         @Test
+        @DisplayName("listStaticPolicies should return empty list when policies is null")
+        void listStaticPoliciesShouldReturnEmptyListWhenNull() {
+            stubFor(get(urlPathEqualTo("/api/v1/static-policies"))
+                .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"policies\": null}")));
+
+            List<StaticPolicy> policies = axonflow.listStaticPolicies();
+
+            assertThat(policies).isEmpty();
+        }
+
+        @Test
         @DisplayName("listStaticPolicies with filters should include query params")
         void listStaticPoliciesWithFiltersShouldIncludeQueryParams() {
             stubFor(get(urlPathEqualTo("/api/v1/static-policies"))
@@ -257,6 +271,21 @@ class PolicyTest {
             List<StaticPolicy> policies = axonflow.getEffectiveStaticPolicies();
 
             assertThat(policies).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("getEffectiveStaticPolicies should return empty list when static is null")
+        void getEffectiveStaticPoliciesShouldReturnEmptyListWhenNull() {
+            // Issue #40: Handle null policies list
+            stubFor(get(urlPathEqualTo("/api/v1/static-policies/effective"))
+                .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"static\": null, \"dynamic\": []}")));
+
+            List<StaticPolicy> policies = axonflow.getEffectiveStaticPolicies();
+
+            assertThat(policies).isEmpty();
         }
 
         @Test
@@ -412,6 +441,21 @@ class PolicyTest {
         }
 
         @Test
+        @DisplayName("listDynamicPolicies should return empty list when policies is null")
+        void listDynamicPoliciesShouldReturnEmptyListWhenNull() {
+            // Issue #40: Handle null policies list
+            stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies"))
+                .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"policies\": null}")));
+
+            List<DynamicPolicy> policies = axonflow.listDynamicPolicies();
+
+            assertThat(policies).isEmpty();
+        }
+
+        @Test
         @DisplayName("listDynamicPolicies with filters should include query params")
         void listDynamicPoliciesWithFiltersShouldIncludeQueryParams() {
             // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
@@ -562,6 +606,21 @@ class PolicyTest {
             List<DynamicPolicy> policies = axonflow.getEffectiveDynamicPolicies();
 
             assertThat(policies).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("getEffectiveDynamicPolicies should return empty list when policies is null")
+        void getEffectiveDynamicPoliciesShouldReturnEmptyListWhenNull() {
+            // Issue #40: Handle null policies list
+            stubFor(get(urlPathEqualTo("/api/v1/dynamic-policies/effective"))
+                .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"policies\": null}")));
+
+            List<DynamicPolicy> policies = axonflow.getEffectiveDynamicPolicies();
+
+            assertThat(policies).isEmpty();
         }
     }
 
