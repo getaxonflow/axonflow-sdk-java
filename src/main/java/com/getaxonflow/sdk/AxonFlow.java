@@ -2129,6 +2129,36 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
+     * Closes a PR without merging and optionally deletes the branch.
+     * This is an enterprise feature for cleaning up test/demo PRs.
+     * Supports all Git providers: GitHub, GitLab, Bitbucket.
+     *
+     * @param prId the PR record ID to close
+     * @param deleteBranch whether to also delete the source branch
+     * @return the closed PR record
+     * @throws IOException if the request fails
+     */
+    public PRRecord closePR(String prId, boolean deleteBranch) throws IOException {
+        requirePortalLogin();
+        logger.debug("Closing PR: {} (deleteBranch={})", prId, deleteBranch);
+
+        String url = getPortalUrl() + "/api/v1/code-governance/prs/" + prId;
+        if (deleteBranch) {
+            url += "?delete_branch=true";
+        }
+
+        Request.Builder builder = new Request.Builder()
+                .url(url)
+                .delete();
+
+        addPortalSessionCookie(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, PRRecord.class);
+        }
+    }
+
+    /**
      * Gets aggregated code governance metrics for the tenant.
      *
      * @return aggregated metrics including PR counts, file counts, and security findings

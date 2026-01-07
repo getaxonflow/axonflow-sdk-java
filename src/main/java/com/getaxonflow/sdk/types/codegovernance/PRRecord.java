@@ -66,6 +66,9 @@ public final class PRRecord {
     @JsonProperty("created_at")
     private final Instant createdAt;
 
+    @JsonProperty("closed_at")
+    private final Instant closedAt;
+
     @JsonProperty("created_by")
     private final String createdBy;
 
@@ -86,6 +89,7 @@ public final class PRRecord {
             @JsonProperty("secrets_detected") int secretsDetected,
             @JsonProperty("unsafe_patterns") int unsafePatterns,
             @JsonProperty("created_at") Instant createdAt,
+            @JsonProperty("closed_at") Instant closedAt,
             @JsonProperty("created_by") String createdBy,
             @JsonProperty("provider_type") String providerType) {
         this.id = id;
@@ -101,6 +105,7 @@ public final class PRRecord {
         this.secretsDetected = secretsDetected;
         this.unsafePatterns = unsafePatterns;
         this.createdAt = createdAt;
+        this.closedAt = closedAt;
         this.createdBy = createdBy;
         this.providerType = providerType;
     }
@@ -118,6 +123,7 @@ public final class PRRecord {
     public int getSecretsDetected() { return secretsDetected; }
     public int getUnsafePatterns() { return unsafePatterns; }
     public Instant getCreatedAt() { return createdAt; }
+    public Instant getClosedAt() { return closedAt; }
     public String getCreatedBy() { return createdBy; }
     public String getProviderType() { return providerType; }
 
