@@ -723,7 +723,7 @@ public final class AxonFlow implements Closeable {
 
         return retryExecutor.execute(() -> {
             Request httpRequest = buildRequest("GET",
-                "/api/v1/orchestrator/plan/" + planId, null);
+                "/api/v1/plan/" + planId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, PlanResponse.class);
             }

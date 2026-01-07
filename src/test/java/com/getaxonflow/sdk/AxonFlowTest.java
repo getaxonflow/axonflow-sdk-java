@@ -351,7 +351,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("getPlanStatus should return plan status")
     void getPlanStatusShouldReturnStatus() {
-        stubFor(get(urlEqualTo("/api/v1/orchestrator/plan/plan_123"))
+        stubFor(get(urlEqualTo("/api/v1/plan/plan_123"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
