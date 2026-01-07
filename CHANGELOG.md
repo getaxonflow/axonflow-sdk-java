@@ -5,6 +5,21 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-01-07
+
+### Fixed
+
+- **Gateway Mode clientId not sent in request body**: Fixed `getPolicyApprovedContext()` to auto-populate `client_id` in request body from config when not explicitly provided
+  - Server requires `client_id` in JSON body for `/api/policy/pre-check` endpoint
+  - Previously only sent as header (X-Client-ID), causing "client_id field is required" errors
+  - Now matches Go SDK behavior which auto-populates from `config.ClientID`
+  - Affects all Gateway Mode pre-check calls
+
+- **executePlan() using non-existent endpoint**: Fixed `executePlan()` to use correct Agent API endpoint
+  - Changed from `/api/v1/orchestrator/plan/{planId}/execute` (404) to `/api/request` with `request_type: "execute-plan"`
+  - Now matches Go SDK pattern for plan execution
+  - Fixes MAP (Multi-Agent Planning) two-step execution flow
+
 ## [2.1.1] - 2026-01-06
 
 ### Fixed

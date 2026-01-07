@@ -261,8 +261,23 @@ public final class AxonFlow implements Closeable {
         // Gateway Mode: Let server decide if credentials are required based on DEPLOYMENT_MODE
         // Community/self-hosted deployments work without credentials
 
+        // Auto-populate clientId from config if not set in request (matches Go SDK behavior)
+        PolicyApprovalRequest effectiveRequest = request;
+        if ((request.getClientId() == null || request.getClientId().isEmpty())
+                && config.getClientId() != null && !config.getClientId().isEmpty()) {
+            Map<String, Object> ctx = request.getContext();
+            effectiveRequest = PolicyApprovalRequest.builder()
+                .userToken(request.getUserToken())
+                .query(request.getQuery())
+                .dataSources(request.getDataSources())
+                .context(ctx == null || ctx.isEmpty() ? null : ctx)
+                .clientId(config.getClientId())
+                .build();
+        }
+
+        final PolicyApprovalRequest finalRequest = effectiveRequest;
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/policy/pre-check", request);
+            Request httpRequest = buildRequest("POST", "/api/policy/pre-check", finalRequest);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 PolicyApprovalResult result = parseResponse(response, PolicyApprovalResult.class);
 
@@ -648,12 +663,53 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(planId, "planId cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST",
-                "/api/v1/orchestrator/plan/" + planId + "/execute", null);
+            // Build agent request format - like generatePlan but with request_type "execute-plan"
+            String userToken = config.getClientId() != null ? config.getClientId() : "default";
+            String clientId = config.getClientId() != null ? config.getClientId() : "default";
+
+            Map<String, Object> agentRequest = new java.util.HashMap<>();
+            agentRequest.put("query", "");
+            agentRequest.put("user_token", userToken);
+            agentRequest.put("client_id", clientId);
+            agentRequest.put("request_type", "execute-plan");
+            agentRequest.put("context", Map.of("plan_id", planId));
+
+            Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
-                return parseResponse(response, PlanResponse.class);
+                return parseExecutePlanResponse(response, planId);
             }
         }, "executePlan");
+    }
+
+    /**
+     * Parses the execute plan response.
+     */
+    @SuppressWarnings("unchecked")
+    private PlanResponse parseExecutePlanResponse(Response response, String planId) throws IOException {
+        handleErrorResponse(response);
+
+        ResponseBody body = response.body();
+        if (body == null) {
+            throw new AxonFlowException("Empty response body", response.code(), null);
+        }
+
+        String json = body.string();
+        Map<String, Object> agentResponse = objectMapper.readValue(json,
+            new TypeReference<Map<String, Object>>() {});
+
+        // Check for errors
+        Boolean success = (Boolean) agentResponse.get("success");
+        if (success == null || !success) {
+            String error = (String) agentResponse.get("error");
+            throw new PlanExecutionException(error != null ? error : "Plan execution failed");
+        }
+
+        // Extract result - this is the completed plan output
+        String result = (String) agentResponse.get("result");
+
+        // Build response with execution status
+        return new PlanResponse(planId, Collections.emptyList(), null, null, null,
+            null, null, "completed", result);
     }
 
     /**
