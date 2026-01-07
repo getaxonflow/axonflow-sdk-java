@@ -158,6 +158,69 @@ class AxonFlowTest {
         assertThat(result.isApproved()).isTrue();
     }
 
+    @Test
+    @DisplayName("getPolicyApprovedContext should auto-populate clientId from config")
+    void getPolicyApprovedContextShouldAutoPopulateClientId(WireMockRuntimeInfo wmRuntimeInfo) {
+        // Create client with clientId configured
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
+            .clientId("my-client-id")
+            .clientSecret("my-secret")
+            .build());
+
+        stubFor(post(urlEqualTo("/api/policy/pre-check"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"context_id\":\"ctx_123\",\"approved\":true}")));
+
+        // Request WITHOUT explicit clientId - SDK should auto-populate from config
+        PolicyApprovalRequest request = PolicyApprovalRequest.builder()
+            .userToken("user-123")
+            .query("What is the capital of France?")
+            .build();
+
+        PolicyApprovalResult result = client.getPolicyApprovedContext(request);
+
+        assertThat(result.isApproved()).isTrue();
+
+        // Verify clientId was sent in request body (server requires this)
+        verify(postRequestedFor(urlEqualTo("/api/policy/pre-check"))
+            .withRequestBody(matchingJsonPath("$.client_id", equalTo("my-client-id"))));
+    }
+
+    @Test
+    @DisplayName("getPolicyApprovedContext should use explicit clientId if provided")
+    void getPolicyApprovedContextShouldUseExplicitClientId(WireMockRuntimeInfo wmRuntimeInfo) {
+        // Create client with clientId configured
+        AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
+            .clientId("config-client-id")
+            .clientSecret("my-secret")
+            .build());
+
+        stubFor(post(urlEqualTo("/api/policy/pre-check"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"context_id\":\"ctx_123\",\"approved\":true}")));
+
+        // Request WITH explicit clientId - should use this one, not config
+        PolicyApprovalRequest request = PolicyApprovalRequest.builder()
+            .userToken("user-123")
+            .query("What is the capital of France?")
+            .clientId("explicit-client-id")
+            .build();
+
+        PolicyApprovalResult result = client.getPolicyApprovedContext(request);
+
+        assertThat(result.isApproved()).isTrue();
+
+        // Verify explicit clientId was sent (not the config one)
+        verify(postRequestedFor(urlEqualTo("/api/policy/pre-check"))
+            .withRequestBody(matchingJsonPath("$.client_id", equalTo("explicit-client-id"))));
+    }
+
     // ========================================================================
     // Gateway Mode - Audit
     // ========================================================================
@@ -257,18 +320,25 @@ class AxonFlowTest {
     }
 
     @Test
-    @DisplayName("executePlan should execute plan")
+    @DisplayName("executePlan should execute plan via Agent API")
     void executePlanShouldExecutePlan() {
-        stubFor(post(urlEqualTo("/api/v1/orchestrator/plan/plan_123/execute"))
+        // executePlan now uses /api/request with request_type: "execute-plan" (matches Go SDK)
+        stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"plan_id\":\"plan_123\",\"status\":\"completed\"}")));
+                .withBody("{\"success\":true,\"result\":\"Plan executed successfully\"}")));
 
         PlanResponse response = axonflow.executePlan("plan_123");
 
         assertThat(response.getPlanId()).isEqualTo("plan_123");
         assertThat(response.getStatus()).isEqualTo("completed");
+        assertThat(response.getResult()).isEqualTo("Plan executed successfully");
+
+        // Verify correct request format
+        verify(postRequestedFor(urlEqualTo("/api/request"))
+            .withRequestBody(matchingJsonPath("$.request_type", equalTo("execute-plan")))
+            .withRequestBody(matchingJsonPath("$.context.plan_id", equalTo("plan_123"))));
     }
 
     @Test
