@@ -36,7 +36,9 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -1665,16 +1667,20 @@ public final class AxonFlow implements Closeable {
             return;
         }
 
-        // Prefer license key
-        if (config.getLicenseKey() != null && !config.getLicenseKey().isEmpty()) {
-            builder.header("X-License-Key", config.getLicenseKey());
+        // OAuth2-style: Authorization: Basic base64(clientId:clientSecret)
+        if (config.getClientId() != null && !config.getClientId().isEmpty() &&
+            config.getClientSecret() != null && !config.getClientSecret().isEmpty()) {
+            String credentials = config.getClientId() + ":" + config.getClientSecret();
+            String encoded = Base64.getEncoder().encodeToString(
+                credentials.getBytes(StandardCharsets.UTF_8)
+            );
+            builder.header("Authorization", "Basic " + encoded);
             return;
         }
 
-        // Fall back to client credentials
-        if (config.getClientId() != null && config.getClientSecret() != null) {
-            builder.header("X-Client-ID", config.getClientId());
-            builder.header("X-Client-Secret", config.getClientSecret());
+        // Fallback: X-License-Key header (backward compatibility)
+        if (config.getLicenseKey() != null && !config.getLicenseKey().isEmpty()) {
+            builder.header("X-License-Key", config.getLicenseKey());
         }
     }
 

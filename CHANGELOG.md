@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Requires enterprise portal authentication
 - **PRRecord.closedAt**: Added optional `closedAt` field to track when a PR was closed
 
+### Changed
+
+- **OAuth2 Basic Authentication**: Standardized authentication to use industry-standard OAuth2 Basic auth
+  - Uses `Authorization: Basic base64(clientId:clientSecret)` header
+  - Removed non-standard `X-Client-ID` and `X-Client-Secret` headers
+  - `X-License-Key` retained for backward compatibility (fallback when OAuth2 credentials not provided)
+  - Matches TypeScript SDK authentication pattern for consistency across all SDKs
+
 ### Fixed
 
 - **getPlanStatus endpoint**: Fixed endpoint path from `/api/v1/orchestrator/plan/{id}` to `/api/v1/plan/{id}` to match agent proxy routes

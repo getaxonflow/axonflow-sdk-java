@@ -448,7 +448,7 @@ class SelfHostedZeroConfigTest {
             // Verify no auth headers were sent when no credentials configured
             verify(postRequestedFor(urlEqualTo("/api/request"))
                 .withoutHeader("X-License-Key")
-                .withoutHeader("X-Client-Secret"));
+                .withoutHeader("Authorization"));
 
             System.out.println("✅ Auth headers not sent in community mode (no credentials)");
         }
@@ -483,6 +483,80 @@ class SelfHostedZeroConfigTest {
                 .withHeader("X-License-Key", equalTo("test-license-key")));
 
             System.out.println("✅ Auth headers sent when credentials are configured");
+        }
+
+        @Test
+        @DisplayName("should send OAuth2 Basic auth with clientId and clientSecret")
+        void shouldSendOAuth2BasicAuth(WireMockRuntimeInfo wmRuntimeInfo) {
+            stubFor(post(urlEqualTo("/api/request"))
+                .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{"
+                        + "\"success\": true,"
+                        + "\"data\": {\"answer\": \"test\"}"
+                        + "}")));
+
+            // With OAuth2 credentials
+            AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+                .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
+                .clientId("my-client")
+                .clientSecret("my-secret")
+                .build());
+
+            client.executeQuery(
+                ClientRequest.builder()
+                    .userToken("")
+                    .query("Test query")
+                    .build()
+            );
+
+            // Verify OAuth2 Basic auth header is sent
+            String expectedBasic = "Basic " + java.util.Base64.getEncoder().encodeToString(
+                "my-client:my-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            );
+            verify(postRequestedFor(urlEqualTo("/api/request"))
+                .withHeader("Authorization", equalTo(expectedBasic)));
+
+            System.out.println("✅ OAuth2 Basic auth header sent correctly");
+        }
+
+        @Test
+        @DisplayName("OAuth2 should take priority over license key")
+        void shouldPrioritizeOAuth2OverLicenseKey(WireMockRuntimeInfo wmRuntimeInfo) {
+            stubFor(post(urlEqualTo("/api/request"))
+                .willReturn(aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{"
+                        + "\"success\": true,"
+                        + "\"data\": {\"answer\": \"test\"}"
+                        + "}")));
+
+            // With BOTH OAuth2 credentials AND license key
+            AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
+                .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
+                .clientId("my-client")
+                .clientSecret("my-secret")
+                .licenseKey("should-be-ignored")
+                .build());
+
+            client.executeQuery(
+                ClientRequest.builder()
+                    .userToken("")
+                    .query("Test query")
+                    .build()
+            );
+
+            // OAuth2 should take priority
+            String expectedBasic = "Basic " + java.util.Base64.getEncoder().encodeToString(
+                "my-client:my-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            );
+            verify(postRequestedFor(urlEqualTo("/api/request"))
+                .withHeader("Authorization", equalTo(expectedBasic))
+                .withoutHeader("X-License-Key"));
+
+            System.out.println("✅ OAuth2 correctly takes priority over license key");
         }
     }
 }
