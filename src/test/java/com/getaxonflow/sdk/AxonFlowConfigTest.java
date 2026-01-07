@@ -61,7 +61,6 @@ class AxonFlowConfigTest {
             .endpoint("https://api.example.com")
             .clientId("test-client")
             .clientSecret("test-secret")
-            .licenseKey("test-license")
             .mode(Mode.SANDBOX)
             .timeout(Duration.ofSeconds(30))
             .debug(true)
@@ -74,7 +73,6 @@ class AxonFlowConfigTest {
         assertThat(config.getEndpoint()).isEqualTo("https://api.example.com");
         assertThat(config.getClientId()).isEqualTo("test-client");
         assertThat(config.getClientSecret()).isEqualTo("test-secret");
-        assertThat(config.getLicenseKey()).isEqualTo("test-license");
         assertThat(config.getMode()).isEqualTo(Mode.SANDBOX);
         assertThat(config.getTimeout()).isEqualTo(Duration.ofSeconds(30));
         assertThat(config.isDebug()).isTrue();
@@ -111,7 +109,7 @@ class AxonFlowConfigTest {
     void shouldDetectNonLocalhost(String url) {
         AxonFlowConfig config = AxonFlowConfig.builder()
             .endpoint(url)
-            .licenseKey("test-key")
+            .clientId("test-client").clientSecret("test-secret")
             .build();
 
         assertThat(config.isLocalhost()).isFalse();
@@ -127,17 +125,6 @@ class AxonFlowConfigTest {
 
         assertThat(config.hasCredentials()).isFalse();
         assertThat(config.getEndpoint()).isEqualTo("https://api.example.com");
-    }
-
-    @Test
-    @DisplayName("should accept license key for non-localhost")
-    void shouldAcceptLicenseKeyForNonLocalhost() {
-        AxonFlowConfig config = AxonFlowConfig.builder()
-            .endpoint("https://api.example.com")
-            .licenseKey("test-license")
-            .build();
-
-        assertThat(config.getLicenseKey()).isEqualTo("test-license");
     }
 
     @Test

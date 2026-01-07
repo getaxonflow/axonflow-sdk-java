@@ -5,7 +5,13 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.2.0] - 2026-01-07
+## [3.0.0] - 2026-01-08
+
+### Breaking Changes
+
+- **BREAKING**: Removed `licenseKey` config option - use `clientId` and `clientSecret` instead
+- **BREAKING**: Removed `X-License-Key` header support - SDK now uses only OAuth2 Basic auth
+- **BREAKING**: `clientId` and `clientSecret` are now required for all enterprise features
 
 ### Added
 
@@ -17,15 +23,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **OAuth2 Basic Authentication**: Standardized authentication to use industry-standard OAuth2 Basic auth
+- **OAuth2-Only Authentication**: Simplified authentication to use only OAuth2 Basic auth
   - Uses `Authorization: Basic base64(clientId:clientSecret)` header
-  - Removed non-standard `X-Client-ID` and `X-Client-Secret` headers
-  - `X-License-Key` retained for backward compatibility (fallback when OAuth2 credentials not provided)
-  - Matches TypeScript SDK authentication pattern for consistency across all SDKs
+  - Removed `X-License-Key` and non-standard `X-Client-ID`/`X-Client-Secret` headers
+  - Aligns with industry-standard OAuth2 client credentials pattern
 
 ### Fixed
 
 - **getPlanStatus endpoint**: Fixed endpoint path from `/api/v1/orchestrator/plan/{id}` to `/api/v1/plan/{id}` to match agent proxy routes
+
+### Migration Guide
+
+**Before (v2.x):**
+```java
+AxonFlowConfig config = AxonFlowConfig.builder()
+    .endpoint("http://localhost:8080")
+    .licenseKey("AXON-V2-...")
+    .build();
+```
+
+**After (v3.0.0):**
+```java
+AxonFlowConfig config = AxonFlowConfig.builder()
+    .endpoint("http://localhost:8080")
+    .clientId("my-client-id")
+    .clientSecret("my-client-secret")
+    .build();
+```
 
 ## [2.1.2] - 2026-01-07
 

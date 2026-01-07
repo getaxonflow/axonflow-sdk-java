@@ -29,7 +29,7 @@ import java.util.function.Function;
  * // Create AxonFlow client
  * AxonFlow axonflow = AxonFlow.builder()
  *     .agentUrl("http://localhost:8080")
- *     .licenseKey("your-license-key")
+ *     .clientId("your-client-id").clientSecret("your-client-secret")
  *     .build();
  *
  * // Create interceptor

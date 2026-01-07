@@ -45,7 +45,8 @@ public class GatewayExample {
         // Initialize client
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint("https://agent.getaxonflow.com")
-            .licenseKey("your-license-key")
+            .clientId("your-client-id")
+            .clientSecret("your-client-secret")
             .build());
 
         // Step 1: Pre-check the request
@@ -99,7 +100,8 @@ public class ProxyExample {
     public static void main(String[] args) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint("https://agent.getaxonflow.com")
-            .licenseKey("your-license-key")
+            .clientId("your-client-id")
+            .clientSecret("your-client-secret")
             .build());
 
         ClientResponse response = client.executeQuery(
@@ -126,7 +128,8 @@ public class ProxyExample {
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")  // Required
-    .licenseKey("your-license-key")             // Required for cloud
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")             // Required for cloud
     .timeout(Duration.ofSeconds(30))            // Default: 60s
     .debug(true)                                // Enable request logging
     .insecureSkipVerify(false)                  // SSL verification (default: false)
@@ -240,7 +243,8 @@ The SDK includes automatic retry with exponential backoff:
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")
-    .licenseKey("your-license-key")
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")
     .retryConfig(RetryConfig.builder()
         .maxAttempts(3)
         .initialDelayMs(100)
@@ -258,7 +262,8 @@ Enable caching for repeated policy checks:
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")
-    .licenseKey("your-license-key")
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")
     .cacheEnabled(true)
     .cacheTtl(Duration.ofMinutes(5))
     .cacheMaxSize(1000)
@@ -279,7 +284,8 @@ import com.getaxonflow.sdk.interceptors.*;
 // Initialize AxonFlow client
 AxonFlow axonflow = AxonFlow.create(AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")
-    .licenseKey("your-license-key")
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")
     .build());
 
 // Create interceptor

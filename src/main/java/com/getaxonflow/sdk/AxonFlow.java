@@ -888,11 +888,7 @@ public final class AxonFlow implements Closeable {
                 context.put("params", query.getParameters());
             }
 
-            // Determine clientId: prefer config.getClientId(), fallback to license key
             String clientId = config.getClientId();
-            if (clientId == null || clientId.isEmpty()) {
-                clientId = config.getLicenseKey();
-            }
 
             ClientRequest clientRequest = ClientRequest.builder()
                 .query(query.getOperation())
@@ -1668,20 +1664,11 @@ public final class AxonFlow implements Closeable {
         }
 
         // OAuth2-style: Authorization: Basic base64(clientId:clientSecret)
-        if (config.getClientId() != null && !config.getClientId().isEmpty() &&
-            config.getClientSecret() != null && !config.getClientSecret().isEmpty()) {
-            String credentials = config.getClientId() + ":" + config.getClientSecret();
-            String encoded = Base64.getEncoder().encodeToString(
-                credentials.getBytes(StandardCharsets.UTF_8)
-            );
-            builder.header("Authorization", "Basic " + encoded);
-            return;
-        }
-
-        // Fallback: X-License-Key header (backward compatibility)
-        if (config.getLicenseKey() != null && !config.getLicenseKey().isEmpty()) {
-            builder.header("X-License-Key", config.getLicenseKey());
-        }
+        String credentials = config.getClientId() + ":" + config.getClientSecret();
+        String encoded = Base64.getEncoder().encodeToString(
+            credentials.getBytes(StandardCharsets.UTF_8)
+        );
+        builder.header("Authorization", "Basic " + encoded);
     }
 
     /**
@@ -1693,7 +1680,7 @@ public final class AxonFlow implements Closeable {
     private void requireCredentials(String feature) {
         if (!config.hasCredentials()) {
             throw new AuthenticationException(
-                feature + " requires credentials. Set licenseKey or clientId/clientSecret in config."
+                feature + " requires credentials. Set clientId and clientSecret in config."
             );
         }
     }

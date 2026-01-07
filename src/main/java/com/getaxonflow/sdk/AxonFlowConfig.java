@@ -51,7 +51,6 @@ public final class AxonFlowConfig {
     private final String endpoint;
     private final String clientId;
     private final String clientSecret;
-    private final String licenseKey;
     private final Mode mode;
     private final Duration timeout;
     private final boolean debug;
@@ -64,7 +63,6 @@ public final class AxonFlowConfig {
         this.endpoint = normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
         this.clientId = builder.clientId;
         this.clientSecret = builder.clientSecret;
-        this.licenseKey = builder.licenseKey;
         this.mode = builder.mode != null ? builder.mode : Mode.PRODUCTION;
         this.timeout = builder.timeout != null ? builder.timeout : DEFAULT_TIMEOUT;
         this.debug = builder.debug;
@@ -87,13 +85,13 @@ public final class AxonFlowConfig {
     /**
      * Checks if credentials are configured.
      *
-     * <p>Returns true if either a license key or client credentials are set.
+     * <p>Returns true if client credentials (clientId and clientSecret) are set.
      *
      * @return true if credentials are available
      */
     public boolean hasCredentials() {
-        return (licenseKey != null && !licenseKey.isEmpty()) ||
-               (clientId != null && clientSecret != null && !clientSecret.isEmpty());
+        return clientId != null && !clientId.isEmpty() &&
+               clientSecret != null && !clientSecret.isEmpty();
     }
 
     private String normalizeUrl(String url) {
@@ -122,7 +120,6 @@ public final class AxonFlowConfig {
      *   <li>AXONFLOW_AGENT_URL - The endpoint URL (kept for backwards compatibility)</li>
      *   <li>AXONFLOW_CLIENT_ID - The client ID</li>
      *   <li>AXONFLOW_CLIENT_SECRET - The client secret</li>
-     *   <li>AXONFLOW_LICENSE_KEY - The license key</li>
      *   <li>AXONFLOW_MODE - Operating mode (production/sandbox)</li>
      *   <li>AXONFLOW_TIMEOUT_SECONDS - Request timeout in seconds</li>
      *   <li>AXONFLOW_DEBUG - Enable debug mode (true/false)</li>
@@ -147,11 +144,6 @@ public final class AxonFlowConfig {
         String clientSecret = System.getenv("AXONFLOW_CLIENT_SECRET");
         if (clientSecret != null && !clientSecret.isEmpty()) {
             builder.clientSecret(clientSecret);
-        }
-
-        String licenseKey = System.getenv("AXONFLOW_LICENSE_KEY");
-        if (licenseKey != null && !licenseKey.isEmpty()) {
-            builder.licenseKey(licenseKey);
         }
 
         String modeStr = System.getenv("AXONFLOW_MODE");
@@ -186,10 +178,6 @@ public final class AxonFlowConfig {
 
     public String getClientSecret() {
         return clientSecret;
-    }
-
-    public String getLicenseKey() {
-        return licenseKey;
     }
 
     public Mode getMode() {
@@ -233,13 +221,12 @@ public final class AxonFlowConfig {
                insecureSkipVerify == that.insecureSkipVerify &&
                Objects.equals(endpoint, that.endpoint) &&
                Objects.equals(clientId, that.clientId) &&
-               Objects.equals(licenseKey, that.licenseKey) &&
                mode == that.mode;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(endpoint, clientId, licenseKey, mode, debug, insecureSkipVerify);
+        return Objects.hash(endpoint, clientId, mode, debug, insecureSkipVerify);
     }
 
     @Override
@@ -260,7 +247,6 @@ public final class AxonFlowConfig {
         private String endpoint;
         private String clientId;
         private String clientSecret;
-        private String licenseKey;
         private Mode mode;
         private Duration timeout;
         private boolean debug;
@@ -318,17 +304,6 @@ public final class AxonFlowConfig {
          */
         public Builder clientSecret(String clientSecret) {
             this.clientSecret = clientSecret;
-            return this;
-        }
-
-        /**
-         * Sets the license key for SaaS authentication.
-         *
-         * @param licenseKey the license key
-         * @return this builder
-         */
-        public Builder licenseKey(String licenseKey) {
-            this.licenseKey = licenseKey;
             return this;
         }
 
