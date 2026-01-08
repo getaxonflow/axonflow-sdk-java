@@ -1675,12 +1675,12 @@ public final class AxonFlow implements Closeable {
      * Requires credentials for enterprise features.
      *
      * @param feature the feature name for error message
-     * @throws AuthenticationException if no credentials are configured
+     * @throws AuthenticationException if clientId is not configured
      */
     private void requireCredentials(String feature) {
         if (!config.hasCredentials()) {
             throw new AuthenticationException(
-                feature + " requires credentials. Set clientId and clientSecret in config."
+                feature + " requires clientId. Set clientId in config (clientSecret is optional for community mode)."
             );
         }
     }

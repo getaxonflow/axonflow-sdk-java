@@ -85,13 +85,13 @@ public final class AxonFlowConfig {
     /**
      * Checks if credentials are configured.
      *
-     * <p>Returns true if client credentials (clientId and clientSecret) are set.
+     * <p>Returns true if clientId is set.
+     * clientSecret is optional for community mode but required for enterprise.
      *
-     * @return true if credentials are available
+     * @return true if clientId is available
      */
     public boolean hasCredentials() {
-        return clientId != null && !clientId.isEmpty() &&
-               clientSecret != null && !clientSecret.isEmpty();
+        return clientId != null && !clientId.isEmpty();
     }
 
     private String normalizeUrl(String url) {
