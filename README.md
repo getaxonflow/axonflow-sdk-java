@@ -19,14 +19,14 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>1.0.0</version>
+    <version>3.0.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'com.getaxonflow:axonflow-sdk:1.0.0'
+implementation 'com.getaxonflow:axonflow-sdk:3.0.0'
 ```
 
 ## Quick Start
@@ -145,7 +145,8 @@ The SDK supports configuration via environment variables:
 | Variable | Description |
 |----------|-------------|
 | `AXONFLOW_AGENT_URL` | AxonFlow agent URL |
-| `AXONFLOW_LICENSE_KEY` | License key for authentication |
+| `AXONFLOW_CLIENT_ID` | OAuth2 client ID for authentication |
+| `AXONFLOW_CLIENT_SECRET` | OAuth2 client secret for authentication |
 | `AXONFLOW_DEBUG` | Enable debug logging (`true`/`false`) |
 
 ## API Reference
@@ -219,7 +220,7 @@ The SDK provides typed exceptions for different error scenarios:
 try {
     PolicyApproval approval = client.getPolicyApprovedContext(request);
 } catch (AxonFlowAuthenticationException e) {
-    // Invalid or missing license key
+    // Invalid or missing credentials
     System.err.println("Authentication failed: " + e.getMessage());
 } catch (AxonFlowRateLimitException e) {
     // Rate limit exceeded
