@@ -36,7 +36,9 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -723,7 +725,7 @@ public final class AxonFlow implements Closeable {
 
         return retryExecutor.execute(() -> {
             Request httpRequest = buildRequest("GET",
-                "/api/v1/orchestrator/plan/" + planId, null);
+                "/api/v1/plan/" + planId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, PlanResponse.class);
             }
@@ -886,11 +888,7 @@ public final class AxonFlow implements Closeable {
                 context.put("params", query.getParameters());
             }
 
-            // Determine clientId: prefer config.getClientId(), fallback to license key
             String clientId = config.getClientId();
-            if (clientId == null || clientId.isEmpty()) {
-                clientId = config.getLicenseKey();
-            }
 
             ClientRequest clientRequest = ClientRequest.builder()
                 .query(query.getOperation())
@@ -1665,29 +1663,24 @@ public final class AxonFlow implements Closeable {
             return;
         }
 
-        // Prefer license key
-        if (config.getLicenseKey() != null && !config.getLicenseKey().isEmpty()) {
-            builder.header("X-License-Key", config.getLicenseKey());
-            return;
-        }
-
-        // Fall back to client credentials
-        if (config.getClientId() != null && config.getClientSecret() != null) {
-            builder.header("X-Client-ID", config.getClientId());
-            builder.header("X-Client-Secret", config.getClientSecret());
-        }
+        // OAuth2-style: Authorization: Basic base64(clientId:clientSecret)
+        String credentials = config.getClientId() + ":" + config.getClientSecret();
+        String encoded = Base64.getEncoder().encodeToString(
+            credentials.getBytes(StandardCharsets.UTF_8)
+        );
+        builder.header("Authorization", "Basic " + encoded);
     }
 
     /**
      * Requires credentials for enterprise features.
      *
      * @param feature the feature name for error message
-     * @throws AuthenticationException if no credentials are configured
+     * @throws AuthenticationException if clientId is not configured
      */
     private void requireCredentials(String feature) {
         if (!config.hasCredentials()) {
             throw new AuthenticationException(
-                feature + " requires credentials. Set licenseKey or clientId/clientSecret in config."
+                feature + " requires clientId. Set clientId in config (clientSecret is optional for community mode)."
             );
         }
     }
@@ -2120,6 +2113,36 @@ public final class AxonFlow implements Closeable {
         Request.Builder builder = new Request.Builder()
                 .url(getPortalUrl() + "/api/v1/code-governance/prs/" + prId + "/sync")
                 .post(body);
+
+        addPortalSessionCookie(builder);
+
+        try (Response response = httpClient.newCall(builder.build()).execute()) {
+            return parseResponse(response, PRRecord.class);
+        }
+    }
+
+    /**
+     * Closes a PR without merging and optionally deletes the branch.
+     * This is an enterprise feature for cleaning up test/demo PRs.
+     * Supports all Git providers: GitHub, GitLab, Bitbucket.
+     *
+     * @param prId the PR record ID to close
+     * @param deleteBranch whether to also delete the source branch
+     * @return the closed PR record
+     * @throws IOException if the request fails
+     */
+    public PRRecord closePR(String prId, boolean deleteBranch) throws IOException {
+        requirePortalLogin();
+        logger.debug("Closing PR: {} (deleteBranch={})", prId, deleteBranch);
+
+        String url = getPortalUrl() + "/api/v1/code-governance/prs/" + prId;
+        if (deleteBranch) {
+            url += "?delete_branch=true";
+        }
+
+        Request.Builder builder = new Request.Builder()
+                .url(url)
+                .delete();
 
         addPortalSessionCookie(builder);
 

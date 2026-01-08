@@ -5,6 +5,40 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-01-08
+
+### Added
+
+- **OAuth2-style client credentials**: New `clientId()` and `clientSecret()` builder methods following OAuth2 client credentials pattern.
+  - `clientId` is used for request identification (required for most API calls)
+  - `clientSecret` is optional - community/self-hosted deployments work without it
+
+- **Enterprise: Close PR** (`closePR`): Close a PR without merging and optionally delete the branch
+  - Useful for cleaning up test/demo PRs created by code governance examples
+  - Supports all Git providers: GitHub, GitLab, Bitbucket
+  - Requires enterprise portal authentication
+
+### Changed
+
+- **Simplified authentication**: For community mode, simply provide `clientId` for request identification. No `clientSecret` needed.
+
+```java
+// Community mode - no secret needed
+AxonFlowClient client = AxonFlowClient.builder()
+    .endpoint("http://localhost:8080")
+    .clientId("my-app")  // Used for request identification
+    .build();
+```
+
+### Fixed
+
+- **getPlanStatus endpoint**: Fixed endpoint path from `/api/v1/orchestrator/plan/{id}` to `/api/v1/plan/{id}` to match agent proxy routes
+
+### Enterprise
+
+- OAuth2 Basic auth: `Authorization: Basic base64(clientId:clientSecret)` replaces `X-License-Key` header
+- Removed `licenseKey()` builder method (use `clientId()`/`clientSecret()`)
+
 ## [2.1.2] - 2026-01-07
 
 ### Fixed

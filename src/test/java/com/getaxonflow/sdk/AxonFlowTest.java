@@ -45,7 +45,7 @@ class AxonFlowTest {
         axonflow = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(baseUrl)
-            .licenseKey("test-license-key")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
     }
 
@@ -351,7 +351,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("getPlanStatus should return plan status")
     void getPlanStatusShouldReturnStatus() {
-        stubFor(get(urlEqualTo("/api/v1/orchestrator/plan/plan_123"))
+        stubFor(get(urlEqualTo("/api/v1/plan/plan_123"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
@@ -372,7 +372,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/health"))
@@ -393,7 +393,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/health"))
@@ -412,7 +412,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/health"))
@@ -495,7 +495,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(delete(urlEqualTo("/api/v1/connectors/salesforce"))
@@ -514,7 +514,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(delete(urlEqualTo("/api/v1/connectors/postgres"))
@@ -757,7 +757,7 @@ class AxonFlowTest {
         // Auth headers are sent when credentials are configured
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license-key")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/health"))
@@ -767,9 +767,12 @@ class AxonFlowTest {
 
         client.healthCheck();
 
-        // Verify auth headers ARE sent when credentials are configured
+        // Verify OAuth2 Basic auth header is sent when credentials are configured
+        String expectedBasic = "Basic " + java.util.Base64.getEncoder().encodeToString(
+            "test-client:test-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
         verify(getRequestedFor(urlEqualTo("/health"))
-            .withHeader("X-License-Key", equalTo("test-license-key")));
+            .withHeader("Authorization", equalTo(expectedBasic)));
     }
 
     @Test
@@ -796,12 +799,10 @@ class AxonFlowTest {
     void shouldStoreCredentialsInConfig() {
         AxonFlowConfig config = AxonFlowConfig.builder()
             .endpoint("https://api.axonflow.com")
-            .licenseKey("test-license")
             .clientId("test-client")
             .clientSecret("test-secret")
             .build();
 
-        assertThat(config.getLicenseKey()).isEqualTo("test-license");
         assertThat(config.getClientId()).isEqualTo("test-client");
         assertThat(config.getClientSecret()).isEqualTo("test-secret");
         assertThat(config.isLocalhost()).isFalse();
@@ -818,7 +819,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/executions"))
@@ -840,7 +841,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlPathEqualTo("/api/v1/executions"))
@@ -871,7 +872,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/executions/exec-123"))
@@ -898,7 +899,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/executions/exec-123/steps"))
@@ -924,7 +925,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/executions/exec-123/timeline"))
@@ -952,7 +953,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlPathEqualTo("/api/v1/executions/exec-123/export"))
@@ -977,7 +978,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(delete(urlEqualTo("/api/v1/executions/exec-123"))
@@ -1000,7 +1001,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(post(urlEqualTo("/api/v1/budgets"))
@@ -1032,7 +1033,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/budgets/budget-123"))
@@ -1053,7 +1054,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlPathEqualTo("/api/v1/budgets"))
@@ -1074,7 +1075,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(delete(urlEqualTo("/api/v1/budgets/budget-123"))
@@ -1092,7 +1093,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/budgets/budget-123/status"))
@@ -1114,7 +1115,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/budgets/budget-123/alerts"))
@@ -1135,7 +1136,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(post(urlEqualTo("/api/v1/budgets/check"))
@@ -1164,7 +1165,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlPathEqualTo("/api/v1/usage"))
@@ -1187,7 +1188,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlPathEqualTo("/api/v1/usage/breakdown"))
@@ -1208,7 +1209,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlPathEqualTo("/api/v1/usage/records"))
@@ -1233,7 +1234,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(post(urlEqualTo("/api/v1/budgets"))
@@ -1264,7 +1265,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlEqualTo("/api/v1/budgets/budget-123"))
@@ -1285,7 +1286,7 @@ class AxonFlowTest {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(baseUrl)
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .licenseKey("test-license")
+            .clientId("test-client").clientSecret("test-secret")
             .build());
 
         stubFor(get(urlPathEqualTo("/api/v1/usage"))

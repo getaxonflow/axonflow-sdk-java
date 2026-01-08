@@ -313,7 +313,7 @@ class CodeGovernanceTypesTest {
                 "pr-123", 42, "https://github.com/owner/repo/pull/42",
                 "Add feature", "open", "owner", "repo",
                 "feature-branch", "main", 5, 0, 1,
-                now, "user@test.com", "github"
+                now, null, "user@test.com", "github"
             );
 
             assertThat(record.getId()).isEqualTo("pr-123");
@@ -329,6 +329,7 @@ class CodeGovernanceTypesTest {
             assertThat(record.getSecretsDetected()).isEqualTo(0);
             assertThat(record.getUnsafePatterns()).isEqualTo(1);
             assertThat(record.getCreatedAt()).isEqualTo(now);
+            assertThat(record.getClosedAt()).isNull();
             assertThat(record.getCreatedBy()).isEqualTo("user@test.com");
             assertThat(record.getProviderType()).isEqualTo("github");
         }
@@ -364,9 +365,9 @@ class CodeGovernanceTypesTest {
         @Test
         @DisplayName("should implement equals and hashCode")
         void shouldImplementEqualsAndHashCode() {
-            PRRecord r1 = new PRRecord("id1", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, "u", "g");
-            PRRecord r2 = new PRRecord("id1", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, "u", "g");
-            PRRecord r3 = new PRRecord("id2", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, "u", "g");
+            PRRecord r1 = new PRRecord("id1", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, null, "u", "g");
+            PRRecord r2 = new PRRecord("id1", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, null, "u", "g");
+            PRRecord r3 = new PRRecord("id2", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, null, "u", "g");
 
             assertThat(r1).isEqualTo(r2);
             assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
@@ -376,7 +377,7 @@ class CodeGovernanceTypesTest {
         @Test
         @DisplayName("should have toString")
         void shouldHaveToString() {
-            PRRecord record = new PRRecord("id", 99, "url", "My PR", "open", "owner", "repo", "h", "b", 2, 0, 0, null, "u", "g");
+            PRRecord record = new PRRecord("id", 99, "url", "My PR", "open", "owner", "repo", "h", "b", 2, 0, 0, null, null, "u", "g");
             String str = record.toString();
             assertThat(str).contains("PRRecord");
             assertThat(str).contains("My PR");
@@ -785,7 +786,7 @@ class CodeGovernanceTypesTest {
         @Test
         @DisplayName("should create with prs and count")
         void shouldCreateWithPrsAndCount() {
-            PRRecord pr = new PRRecord("id", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, "u", "g");
+            PRRecord pr = new PRRecord("id", 1, "url", "t", "s", "o", "r", "h", "b", 1, 0, 0, null, null, "u", "g");
             List<PRRecord> prs = Arrays.asList(pr);
 
             ListPRsResponse response = new ListPRsResponse(prs, 1);

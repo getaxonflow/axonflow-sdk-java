@@ -19,14 +19,14 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>1.0.0</version>
+    <version>2.2.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'com.getaxonflow:axonflow-sdk:1.0.0'
+implementation 'com.getaxonflow:axonflow-sdk:3.0.0'
 ```
 
 ## Quick Start
@@ -45,7 +45,8 @@ public class GatewayExample {
         // Initialize client
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint("https://agent.getaxonflow.com")
-            .licenseKey("your-license-key")
+            .clientId("your-client-id")
+            .clientSecret("your-client-secret")
             .build());
 
         // Step 1: Pre-check the request
@@ -99,7 +100,8 @@ public class ProxyExample {
     public static void main(String[] args) {
         AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint("https://agent.getaxonflow.com")
-            .licenseKey("your-license-key")
+            .clientId("your-client-id")
+            .clientSecret("your-client-secret")
             .build());
 
         ClientResponse response = client.executeQuery(
@@ -126,7 +128,8 @@ public class ProxyExample {
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")  // Required
-    .licenseKey("your-license-key")             // Required for cloud
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")             // Required for cloud
     .timeout(Duration.ofSeconds(30))            // Default: 60s
     .debug(true)                                // Enable request logging
     .insecureSkipVerify(false)                  // SSL verification (default: false)
@@ -142,7 +145,8 @@ The SDK supports configuration via environment variables:
 | Variable | Description |
 |----------|-------------|
 | `AXONFLOW_AGENT_URL` | AxonFlow agent URL |
-| `AXONFLOW_LICENSE_KEY` | License key for authentication |
+| `AXONFLOW_CLIENT_ID` | OAuth2 client ID for authentication |
+| `AXONFLOW_CLIENT_SECRET` | OAuth2 client secret for authentication |
 | `AXONFLOW_DEBUG` | Enable debug logging (`true`/`false`) |
 
 ## API Reference
@@ -216,7 +220,7 @@ The SDK provides typed exceptions for different error scenarios:
 try {
     PolicyApproval approval = client.getPolicyApprovedContext(request);
 } catch (AxonFlowAuthenticationException e) {
-    // Invalid or missing license key
+    // Invalid or missing credentials
     System.err.println("Authentication failed: " + e.getMessage());
 } catch (AxonFlowRateLimitException e) {
     // Rate limit exceeded
@@ -240,7 +244,8 @@ The SDK includes automatic retry with exponential backoff:
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")
-    .licenseKey("your-license-key")
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")
     .retryConfig(RetryConfig.builder()
         .maxAttempts(3)
         .initialDelayMs(100)
@@ -258,7 +263,8 @@ Enable caching for repeated policy checks:
 ```java
 AxonFlowConfig config = AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")
-    .licenseKey("your-license-key")
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")
     .cacheEnabled(true)
     .cacheTtl(Duration.ofMinutes(5))
     .cacheMaxSize(1000)
@@ -279,7 +285,8 @@ import com.getaxonflow.sdk.interceptors.*;
 // Initialize AxonFlow client
 AxonFlow axonflow = AxonFlow.create(AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")
-    .licenseKey("your-license-key")
+    .clientId("your-client-id")
+            .clientSecret("your-client-secret")
     .build());
 
 // Create interceptor

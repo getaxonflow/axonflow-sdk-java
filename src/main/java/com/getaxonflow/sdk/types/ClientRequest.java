@@ -64,7 +64,8 @@ public final class ClientRequest {
 
     private ClientRequest(Builder builder) {
         this.query = Objects.requireNonNull(builder.query, "query cannot be null");
-        this.userToken = builder.userToken;
+        // Default to "anonymous" if userToken is null or empty (community mode)
+        this.userToken = (builder.userToken == null || builder.userToken.isEmpty()) ? "anonymous" : builder.userToken;
         this.clientId = builder.clientId;
         this.requestType = builder.requestType != null ? builder.requestType.getValue() : RequestType.CHAT.getValue();
         this.context = builder.context != null ? Collections.unmodifiableMap(new HashMap<>(builder.context)) : null;
@@ -162,6 +163,7 @@ public final class ClientRequest {
 
         /**
          * Sets the user token for identifying the requesting user.
+         * If null or empty, defaults to "anonymous" for audit purposes.
          *
          * @param userToken the user identifier token
          * @return this builder
