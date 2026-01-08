@@ -19,7 +19,7 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>3.0.0</version>
+    <version>2.2.0</version>
 </dependency>
 ```
 
