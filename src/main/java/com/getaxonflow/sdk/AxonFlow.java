@@ -909,7 +909,10 @@ public final class AxonFlow implements Closeable {
                     clientResponse.getError(),
                     query.getConnectorId(),
                     query.getOperation(),
-                    null  // processingTime not available from ClientResponse
+                    null,  // processingTime not available from ClientResponse
+                    false, // redacted - not available from this endpoint
+                    null,  // redactedFields - not available from this endpoint
+                    null   // policyInfo - not available from this endpoint
                 );
 
                 if (!result.isSuccess()) {
@@ -933,6 +936,117 @@ public final class AxonFlow implements Closeable {
      */
     public CompletableFuture<ConnectorResponse> queryConnectorAsync(ConnectorQuery query) {
         return CompletableFuture.supplyAsync(() -> queryConnector(query), asyncExecutor);
+    }
+
+    /**
+     * Executes a query directly against the MCP connector endpoint.
+     *
+     * <p>This method calls the agent's /mcp/resources/query endpoint which provides:
+     * <ul>
+     *   <li>Request-phase policy evaluation (SQLi blocking, PII blocking)</li>
+     *   <li>Response-phase policy evaluation (PII redaction)</li>
+     *   <li>PolicyInfo metadata in responses</li>
+     * </ul>
+     *
+     * <p>Example usage:
+     * <pre>
+     * ConnectorResponse response = axonflow.mcpQuery("postgres", "SELECT * FROM customers LIMIT 10");
+     * if (response.isRedacted()) {
+     *     System.out.println("Fields redacted: " + response.getRedactedFields());
+     * }
+     * System.out.println("Policies evaluated: " + response.getPolicyInfo().getPoliciesEvaluated());
+     * </pre>
+     *
+     * @param connector name of the MCP connector (e.g., "postgres")
+     * @param statement SQL statement or query to execute
+     * @return ConnectorResponse with data, redaction info, and policy_info
+     * @throws ConnectorException if the request is blocked by policy or fails
+     */
+    public ConnectorResponse mcpQuery(String connector, String statement) {
+        return mcpQuery(connector, statement, null);
+    }
+
+    /**
+     * Executes a query directly against the MCP connector endpoint with options.
+     *
+     * @param connector name of the MCP connector (e.g., "postgres")
+     * @param statement SQL statement or query to execute
+     * @param options optional additional options for the query
+     * @return ConnectorResponse with data, redaction info, and policy_info
+     * @throws ConnectorException if the request is blocked by policy or fails
+     */
+    public ConnectorResponse mcpQuery(String connector, String statement, Map<String, Object> options) {
+        Objects.requireNonNull(connector, "connector cannot be null");
+        Objects.requireNonNull(statement, "statement cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Map<String, Object> body = new HashMap<>();
+            body.put("connector", connector);
+            body.put("statement", statement);
+            if (options != null && !options.isEmpty()) {
+                body.put("options", options);
+            }
+
+            Request httpRequest = buildRequest("POST", "/mcp/resources/query", body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                // Parse the response body
+                ResponseBody responseBody = response.body();
+                if (responseBody == null) {
+                    throw new ConnectorException("Empty response from MCP query", connector, "mcpQuery");
+                }
+                String responseJson = responseBody.string();
+
+                // Handle policy blocks (403 responses)
+                if (!response.isSuccessful()) {
+                    try {
+                        Map<String, Object> errorData = objectMapper.readValue(responseJson,
+                            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                        String errorMsg = errorData.get("error") != null ?
+                            errorData.get("error").toString() :
+                            "MCP query failed: " + response.code();
+                        throw new ConnectorException(errorMsg, connector, "mcpQuery");
+                    } catch (JsonProcessingException e) {
+                        throw new ConnectorException("MCP query failed: " + response.code(), connector, "mcpQuery");
+                    }
+                }
+
+                return objectMapper.readValue(responseJson, ConnectorResponse.class);
+            }
+        }, "mcpQuery");
+    }
+
+    /**
+     * Asynchronously executes a query against the MCP connector endpoint.
+     *
+     * @param connector name of the MCP connector
+     * @param statement SQL statement to execute
+     * @return a future containing the response
+     */
+    public CompletableFuture<ConnectorResponse> mcpQueryAsync(String connector, String statement) {
+        return CompletableFuture.supplyAsync(() -> mcpQuery(connector, statement), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously executes a query against the MCP connector endpoint with options.
+     *
+     * @param connector name of the MCP connector
+     * @param statement SQL statement to execute
+     * @param options optional additional options
+     * @return a future containing the response
+     */
+    public CompletableFuture<ConnectorResponse> mcpQueryAsync(String connector, String statement, Map<String, Object> options) {
+        return CompletableFuture.supplyAsync(() -> mcpQuery(connector, statement, options), asyncExecutor);
+    }
+
+    /**
+     * Executes a statement against an MCP connector (alias for mcpQuery).
+     *
+     * @param connector name of the MCP connector
+     * @param statement SQL statement to execute
+     * @return ConnectorResponse with data, redaction info, and policy_info
+     */
+    public ConnectorResponse mcpExecute(String connector, String statement) {
+        return mcpQuery(connector, statement);
     }
 
     // ========================================================================

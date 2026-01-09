@@ -5,6 +5,21 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-01-09
+
+### Added
+
+- **MCP Policy Enforcement Response Fields**: `mcpQuery()` and `mcpExecute()` now return policy enforcement metadata
+  - `isRedacted()` - Whether any fields were redacted by PII policies
+  - `getRedactedFields()` - JSON paths of redacted fields (e.g., `rows[0].ssn`)
+  - `getPolicyInfo()` - Full policy evaluation metadata
+
+- **PolicyInfo types**: New types for policy enforcement metadata
+  - `ConnectorPolicyInfo` - Contains `getPoliciesEvaluated()`, `isBlocked()`, `getBlockReason()`, `getRedactionsApplied()`, `getProcessingTimeMs()`, `getMatchedPolicies()`
+  - `PolicyMatchInfo` - Details of matched policies including `getPolicyId()`, `getPolicyName()`, `getCategory()`, `getSeverity()`, `getAction()`
+
+---
+
 ## [2.2.0] - 2026-01-08
 
 ### Added
