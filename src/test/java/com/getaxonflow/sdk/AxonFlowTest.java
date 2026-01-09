@@ -1451,19 +1451,9 @@ class AxonFlowTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                        "success": true,
-                        "data": [{"id": 1, "name": "Test"}],
-                        "redacted": false,
-                        "policy_info": {
-                            "policies_evaluated": 5,
-                            "blocked": false,
-                            "redactions_applied": 0,
-                            "processing_time_ms": 2
-                        }
-                    }
-                    """)));
+                .withBody("{\"success\": true, \"data\": [{\"id\": 1, \"name\": \"Test\"}], " +
+                    "\"redacted\": false, \"policy_info\": {\"policies_evaluated\": 5, " +
+                    "\"blocked\": false, \"redactions_applied\": 0, \"processing_time_ms\": 2}}")));
 
         ConnectorResponse response = axonflow.mcpQuery("postgres", "SELECT * FROM users");
 
@@ -1480,20 +1470,10 @@ class AxonFlowTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                        "success": true,
-                        "data": [{"id": 1, "ssn": "***REDACTED***"}],
-                        "redacted": true,
-                        "redacted_fields": ["data[0].ssn"],
-                        "policy_info": {
-                            "policies_evaluated": 5,
-                            "blocked": false,
-                            "redactions_applied": 1,
-                            "processing_time_ms": 3
-                        }
-                    }
-                    """)));
+                .withBody("{\"success\": true, \"data\": [{\"id\": 1, \"ssn\": \"***REDACTED***\"}], " +
+                    "\"redacted\": true, \"redacted_fields\": [\"data[0].ssn\"], " +
+                    "\"policy_info\": {\"policies_evaluated\": 5, \"blocked\": false, " +
+                    "\"redactions_applied\": 1, \"processing_time_ms\": 3}}")));
 
         ConnectorResponse response = axonflow.mcpQuery("postgres", "SELECT * FROM customers");
 
@@ -1510,11 +1490,7 @@ class AxonFlowTest {
             .willReturn(aResponse()
                 .withStatus(403)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                        "error": "Request blocked: SQLi detected"
-                    }
-                    """)));
+                .withBody("{\"error\": \"Request blocked: SQLi detected\"}")));
 
         assertThatThrownBy(() -> axonflow.mcpQuery("postgres", "SELECT * FROM users; DROP TABLE users;--"))
             .isInstanceOf(ConnectorException.class)
@@ -1528,18 +1504,9 @@ class AxonFlowTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("""
-                    {
-                        "success": true,
-                        "data": {"affected_rows": 1},
-                        "policy_info": {
-                            "policies_evaluated": 3,
-                            "blocked": false,
-                            "redactions_applied": 0,
-                            "processing_time_ms": 1
-                        }
-                    }
-                    """)));
+                .withBody("{\"success\": true, \"data\": {\"affected_rows\": 1}, " +
+                    "\"policy_info\": {\"policies_evaluated\": 3, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 1}}")));
 
         ConnectorResponse response = axonflow.mcpExecute("postgres", "UPDATE users SET name = $1 WHERE id = $2");
 
