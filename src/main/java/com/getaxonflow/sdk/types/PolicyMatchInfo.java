@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 AxonFlow
+ * Copyright 2026 AxonFlow
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,9 @@ public final class PolicyMatchInfo {
     @JsonProperty("policy_id")
     private final String policyId;
 
+    @JsonProperty("policy_name")
+    private final String policyName;
+
     @JsonProperty("category")
     private final String category;
 
@@ -40,10 +43,12 @@ public final class PolicyMatchInfo {
 
     public PolicyMatchInfo(
             @JsonProperty("policy_id") String policyId,
+            @JsonProperty("policy_name") String policyName,
             @JsonProperty("category") String category,
             @JsonProperty("severity") String severity,
             @JsonProperty("action") String action) {
         this.policyId = policyId;
+        this.policyName = policyName;
         this.category = category;
         this.severity = severity;
         this.action = action;
@@ -51,6 +56,10 @@ public final class PolicyMatchInfo {
 
     public String getPolicyId() {
         return policyId;
+    }
+
+    public String getPolicyName() {
+        return policyName;
     }
 
     public String getCategory() {
@@ -71,6 +80,7 @@ public final class PolicyMatchInfo {
         if (o == null || getClass() != o.getClass()) return false;
         PolicyMatchInfo that = (PolicyMatchInfo) o;
         return Objects.equals(policyId, that.policyId) &&
+               Objects.equals(policyName, that.policyName) &&
                Objects.equals(category, that.category) &&
                Objects.equals(severity, that.severity) &&
                Objects.equals(action, that.action);
@@ -78,13 +88,14 @@ public final class PolicyMatchInfo {
 
     @Override
     public int hashCode() {
-        return Objects.hash(policyId, category, severity, action);
+        return Objects.hash(policyId, policyName, category, severity, action);
     }
 
     @Override
     public String toString() {
         return "PolicyMatchInfo{" +
                "policyId='" + policyId + '\'' +
+               ", policyName='" + policyName + '\'' +
                ", category='" + category + '\'' +
                ", severity='" + severity + '\'' +
                ", action='" + action + '\'' +

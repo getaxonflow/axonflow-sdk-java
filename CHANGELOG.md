@@ -9,19 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **MCP Query and Execute methods**: New methods for MCP connector operations with policy enforcement
-  - `mcpQuery(MCPQueryRequest)` - Execute SQL query through MCP connector with policy enforcement
-  - `mcpExecute(MCPExecuteRequest)` - Execute non-query SQL statement through MCP connector
-  - Returns `ConnectorResponse` with `isRedacted()`, `getRedactedFields()`, and `getPolicyInfo()` methods
-
-- **PolicyInfo types**: New types for policy enforcement metadata in responses
-  - `PolicyInfo` - Contains `getPoliciesEvaluated()`, `isBlocked()`, `getBlockReason()`, `getRedactionsApplied()`, `getProcessingTimeMs()`, `getMatchedPolicies()`
-  - `PolicyMatchInfo` - Details of matched policies including `getPolicyId()`, `getPolicyName()`, `getCategory()`, `getSeverity()`, `getAction()`
-
-- **ConnectorResponse fields**: New fields for redaction information
-  - `isRedacted()` - Whether any fields were redacted
+- **MCP Policy Enforcement Response Fields**: `mcpQuery()` and `mcpExecute()` now return policy enforcement metadata
+  - `isRedacted()` - Whether any fields were redacted by PII policies
   - `getRedactedFields()` - JSON paths of redacted fields (e.g., `rows[0].ssn`)
-  - `getPolicyInfo()` - Policy enforcement metadata
+  - `getPolicyInfo()` - Full policy evaluation metadata
+
+- **PolicyInfo types**: New types for policy enforcement metadata
+  - `ConnectorPolicyInfo` - Contains `getPoliciesEvaluated()`, `isBlocked()`, `getBlockReason()`, `getRedactionsApplied()`, `getProcessingTimeMs()`, `getMatchedPolicies()`
+  - `PolicyMatchInfo` - Details of matched policies including `getPolicyId()`, `getPolicyName()`, `getCategory()`, `getSeverity()`, `getAction()`
 
 ---
 
