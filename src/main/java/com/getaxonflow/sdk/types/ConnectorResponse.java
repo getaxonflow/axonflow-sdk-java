@@ -76,6 +76,21 @@ public final class ConnectorResponse {
         this.policyInfo = policyInfo;
     }
 
+    /**
+     * Backward-compatible constructor without policy fields.
+     * Creates a ConnectorResponse with default values for redacted (false),
+     * redactedFields (empty list), and policyInfo (null).
+     */
+    public ConnectorResponse(
+            boolean success,
+            Object data,
+            String error,
+            String connectorId,
+            String operation,
+            String processingTime) {
+        this(success, data, error, connectorId, operation, processingTime, false, null, null);
+    }
+
     public boolean isSuccess() {
         return success;
     }
