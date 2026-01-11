@@ -514,3 +514,5 @@ This SDK is licensed under the [Apache License 2.0](LICENSE).
 - **Documentation**: https://docs.getaxonflow.com
 - **Issues**: https://github.com/getaxonflow/axonflow-sdk-java/issues
 - **Email**: dev@getaxonflow.com
+
+<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=ebd08248-7b5b-408f-8f54-cc062bd41c72" />
