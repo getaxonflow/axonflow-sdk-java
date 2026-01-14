@@ -202,6 +202,39 @@ MCPQueryRequest query = MCPQueryRequest.builder()
 MCPQueryResponse response = client.queryConnector(query);
 ```
 
+### MCP Policy Features (v3.2.0)
+
+**Exfiltration Detection** - Prevent large-scale data extraction:
+
+```java
+// Query with exfiltration limits (default: 10K rows, 10MB)
+MCPQueryResponse response = client.queryConnector(query);
+
+// Check exfiltration info
+PolicyInfo.ExfiltrationCheck exCheck = response.getPolicyInfo().getExfiltrationCheck();
+if (exCheck.isExceeded()) {
+    System.out.println("Limit exceeded: " + exCheck.getLimitType());
+    // LimitType: "rows" or "bytes"
+}
+
+// Configure: MCP_MAX_ROWS_PER_QUERY=1000, MCP_MAX_BYTES_PER_QUERY=5242880
+```
+
+**Dynamic Policy Evaluation** - Orchestrator-based rate limiting, budget controls:
+
+```java
+// Response includes dynamic policy info when enabled
+PolicyInfo.DynamicPolicyInfo dynamicInfo = response.getPolicyInfo().getDynamicPolicyInfo();
+if (dynamicInfo.isOrchestratorReachable()) {
+    System.out.println("Policies evaluated: " + dynamicInfo.getPoliciesEvaluated());
+    for (PolicyMatch match : dynamicInfo.getMatchedPolicies()) {
+        System.out.println("  " + match.getPolicyName() + ": " + match.getAction());
+    }
+}
+
+// Enable: MCP_DYNAMIC_POLICIES_ENABLED=true
+```
+
 ### Policy Management
 
 ```java
