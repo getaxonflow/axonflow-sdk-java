@@ -49,19 +49,43 @@ public final class ConnectorPolicyInfo {
     @JsonProperty("matched_policies")
     private final List<PolicyMatchInfo> matchedPolicies;
 
+    @JsonProperty("exfiltration_check")
+    private final ExfiltrationCheckInfo exfiltrationCheck;
+
+    @JsonProperty("dynamic_policy_info")
+    private final DynamicPolicyInfo dynamicPolicyInfo;
+
     public ConnectorPolicyInfo(
             @JsonProperty("policies_evaluated") int policiesEvaluated,
             @JsonProperty("blocked") boolean blocked,
             @JsonProperty("block_reason") String blockReason,
             @JsonProperty("redactions_applied") int redactionsApplied,
             @JsonProperty("processing_time_ms") long processingTimeMs,
-            @JsonProperty("matched_policies") List<PolicyMatchInfo> matchedPolicies) {
+            @JsonProperty("matched_policies") List<PolicyMatchInfo> matchedPolicies,
+            @JsonProperty("exfiltration_check") ExfiltrationCheckInfo exfiltrationCheck,
+            @JsonProperty("dynamic_policy_info") DynamicPolicyInfo dynamicPolicyInfo) {
         this.policiesEvaluated = policiesEvaluated;
         this.blocked = blocked;
         this.blockReason = blockReason;
         this.redactionsApplied = redactionsApplied;
         this.processingTimeMs = processingTimeMs;
         this.matchedPolicies = matchedPolicies != null ? matchedPolicies : Collections.emptyList();
+        this.exfiltrationCheck = exfiltrationCheck;
+        this.dynamicPolicyInfo = dynamicPolicyInfo;
+    }
+
+    /**
+     * Backward-compatible constructor without exfiltration and dynamic policy fields.
+     */
+    public ConnectorPolicyInfo(
+            int policiesEvaluated,
+            boolean blocked,
+            String blockReason,
+            int redactionsApplied,
+            long processingTimeMs,
+            List<PolicyMatchInfo> matchedPolicies) {
+        this(policiesEvaluated, blocked, blockReason, redactionsApplied,
+             processingTimeMs, matchedPolicies, null, null);
     }
 
     public int getPoliciesEvaluated() {
@@ -88,6 +112,22 @@ public final class ConnectorPolicyInfo {
         return matchedPolicies;
     }
 
+    /**
+     * Returns exfiltration check information (Issue #966).
+     * May be null if exfiltration checking is disabled.
+     */
+    public ExfiltrationCheckInfo getExfiltrationCheck() {
+        return exfiltrationCheck;
+    }
+
+    /**
+     * Returns dynamic policy evaluation information (Issue #968).
+     * May be null if dynamic policies are disabled.
+     */
+    public DynamicPolicyInfo getDynamicPolicyInfo() {
+        return dynamicPolicyInfo;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -98,12 +138,15 @@ public final class ConnectorPolicyInfo {
                redactionsApplied == that.redactionsApplied &&
                processingTimeMs == that.processingTimeMs &&
                Objects.equals(blockReason, that.blockReason) &&
-               Objects.equals(matchedPolicies, that.matchedPolicies);
+               Objects.equals(matchedPolicies, that.matchedPolicies) &&
+               Objects.equals(exfiltrationCheck, that.exfiltrationCheck) &&
+               Objects.equals(dynamicPolicyInfo, that.dynamicPolicyInfo);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(policiesEvaluated, blocked, blockReason, redactionsApplied, processingTimeMs, matchedPolicies);
+        return Objects.hash(policiesEvaluated, blocked, blockReason, redactionsApplied,
+                processingTimeMs, matchedPolicies, exfiltrationCheck, dynamicPolicyInfo);
     }
 
     @Override
@@ -115,6 +158,8 @@ public final class ConnectorPolicyInfo {
                ", redactionsApplied=" + redactionsApplied +
                ", processingTimeMs=" + processingTimeMs +
                ", matchedPolicies=" + matchedPolicies +
+               ", exfiltrationCheck=" + exfiltrationCheck +
+               ", dynamicPolicyInfo=" + dynamicPolicyInfo +
                '}';
     }
 }
