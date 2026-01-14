@@ -19,14 +19,14 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>2.2.0</version>
+    <version>2.3.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'com.getaxonflow:axonflow-sdk:3.0.0'
+implementation 'com.getaxonflow:axonflow-sdk:2.3.0'
 ```
 
 ## Quick Start
@@ -200,6 +200,39 @@ MCPQueryRequest query = MCPQueryRequest.builder()
     .build();
 
 MCPQueryResponse response = client.queryConnector(query);
+```
+
+### MCP Policy Features (v3.2.0)
+
+**Exfiltration Detection** - Prevent large-scale data extraction:
+
+```java
+// Query with exfiltration limits (default: 10K rows, 10MB)
+MCPQueryResponse response = client.queryConnector(query);
+
+// Check exfiltration info
+PolicyInfo.ExfiltrationCheck exCheck = response.getPolicyInfo().getExfiltrationCheck();
+if (exCheck.isExceeded()) {
+    System.out.println("Limit exceeded: " + exCheck.getLimitType());
+    // LimitType: "rows" or "bytes"
+}
+
+// Configure: MCP_MAX_ROWS_PER_QUERY=1000, MCP_MAX_BYTES_PER_QUERY=5242880
+```
+
+**Dynamic Policy Evaluation** - Orchestrator-based rate limiting, budget controls:
+
+```java
+// Response includes dynamic policy info when enabled
+PolicyInfo.DynamicPolicyInfo dynamicInfo = response.getPolicyInfo().getDynamicPolicyInfo();
+if (dynamicInfo.isOrchestratorReachable()) {
+    System.out.println("Policies evaluated: " + dynamicInfo.getPoliciesEvaluated());
+    for (PolicyMatch match : dynamicInfo.getMatchedPolicies()) {
+        System.out.println("  " + match.getPolicyName() + ": " + match.getAction());
+    }
+}
+
+// Enable: MCP_DYNAMIC_POLICIES_ENABLED=true
 ```
 
 ### Policy Management
@@ -414,11 +447,92 @@ See our [Spring Boot Integration Guide](https://docs.getaxonflow.com/sdks/java/s
 
 ## Examples
 
-- [Hello World](examples/hello-world) - Basic usage
-- [Gateway Mode](examples/gateway-mode) - Pre-check and audit flow
-- [Proxy Mode](examples/proxy-mode) - Simple proxy integration
-- [Multi-Agent Planning](examples/map) - Orchestrated workflows
-- [Error Handling](examples/error-handling) - Exception handling patterns
+Complete working examples for all features are available in the [examples folder](https://github.com/getaxonflow/axonflow/tree/main/examples).
+
+### Community Features
+
+```java
+// PII Detection - Automatically detect sensitive data
+PolicyApproval result = client.getPolicyApprovedContext(
+    ClientRequest.builder()
+        .userPrompt("My SSN is 123-45-6789")
+        .userId("user-123")
+        .build()
+);
+// result.isAllowed() = true, result.requiresRedaction() = true (SSN detected)
+
+// SQL Injection Detection - Block malicious queries
+PolicyApproval result = client.getPolicyApprovedContext(
+    ClientRequest.builder()
+        .userPrompt("SELECT * FROM users; DROP TABLE users;")
+        .userId("user-123")
+        .build()
+);
+// result.isAllowed() = false, result.getBlockedReason() = "SQL injection detected"
+
+// Static Policies - List and manage built-in policies
+List<Policy> policies = client.listPolicies();
+// Returns: [Policy{name="pii-detection", enabled=true}, ...]
+
+// Dynamic Policies - Create runtime policies
+client.createDynamicPolicy(DynamicPolicyRequest.builder()
+    .name("block-competitor-queries")
+    .conditions(Map.of("contains", List.of("competitor", "pricing")))
+    .action("block")
+    .build());
+
+// MCP Connectors - Query external data sources
+MCPQueryResponse resp = client.queryConnector(MCPQueryRequest.builder()
+    .connectorName("postgres-db")
+    .operation("query")
+    .parameters(Map.of("sql", "SELECT name FROM customers"))
+    .build());
+
+// Multi-Agent Planning - Orchestrate complex workflows
+PlanResponse plan = client.generatePlan(PlanRequest.builder()
+    .goal("Research AI governance regulations")
+    .domain("legal")
+    .build());
+StepExecutionResponse result = client.executePlan(plan.getPlanId());
+
+// Audit Logging - Track all LLM interactions
+client.auditLLMCall(AuditRequest.builder()
+    .requestId(approval.getRequestId())
+    .llmResponse(llmResponse)
+    .model("gpt-4")
+    .tokenUsage(TokenUsage.builder()
+        .promptTokens(100)
+        .completionTokens(200)
+        .totalTokens(300)
+        .build())
+    .latencyMs(450)
+    .build());
+```
+
+### Enterprise Features
+
+These features require an AxonFlow Enterprise license:
+
+```java
+// Code Governance - Automated PR reviews with AI
+PRReviewResponse prResult = client.reviewPullRequest(PRReviewRequest.builder()
+    .repoOwner("your-org")
+    .repoName("your-repo")
+    .prNumber(123)
+    .checkTypes(List.of("security", "style", "performance"))
+    .build());
+
+// Cost Controls - Budget management for LLM usage
+Budget budget = client.getBudget("team-engineering");
+// Returns: Budget{limit=1000.00, used=234.56, remaining=765.44}
+
+// MCP Policy Enforcement - Automatic PII redaction in connector responses
+MCPQueryResponse resp = client.queryConnector(query);
+// resp.getPolicyInfo().isRedacted() = true
+// resp.getPolicyInfo().getRedactedFields() = ["ssn", "credit_card"]
+```
+
+For enterprise features, contact [sales@getaxonflow.com](mailto:sales@getaxonflow.com).
 
 ## Contributing
 
@@ -430,6 +544,8 @@ This SDK is licensed under the [Apache License 2.0](LICENSE).
 
 ## Support
 
-- [Documentation](https://docs.getaxonflow.com)
-- [GitHub Issues](https://github.com/getaxonflow/axonflow-sdk-java/issues)
-- [Community Discord](https://discord.gg/axonflow)
+- **Documentation**: https://docs.getaxonflow.com
+- **Issues**: https://github.com/getaxonflow/axonflow-sdk-java/issues
+- **Email**: dev@getaxonflow.com
+
+<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=ebd08248-7b5b-408f-8f54-cc062bd41c72" />
