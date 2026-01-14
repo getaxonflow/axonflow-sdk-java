@@ -5,6 +5,23 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-01-14
+
+### Added
+
+- **MCP Exfiltration Detection** (Issue #966): `ConnectorPolicyInfo` now includes `getExfiltrationCheck()` with row/volume limit information
+  - `ExfiltrationCheckInfo` type with `getRowsReturned()`, `getRowLimit()`, `getBytesReturned()`, `getByteLimit()`, `isWithinLimits()` methods
+  - Prevents large-scale data extraction via MCP queries
+  - Configurable via `MCP_MAX_ROWS_PER_QUERY` and `MCP_MAX_BYTES_PER_QUERY` environment variables
+
+- **MCP Dynamic Policies** (Issue #968): `ConnectorPolicyInfo` now includes `getDynamicPolicyInfo()` for Orchestrator-evaluated policies
+  - `DynamicPolicyInfo` type with `getPoliciesEvaluated()`, `getMatchedPolicies()`, `isOrchestratorReachable()`, `getProcessingTimeMs()`
+  - `DynamicPolicyMatch` type with `getPolicyId()`, `getPolicyName()`, `getPolicyType()`, `getAction()`, `getReason()`
+  - Supports rate limiting, budget controls, time-based access, and role-based access policies
+  - Optional feature - enable via `MCP_DYNAMIC_POLICIES_ENABLED=true`
+
+---
+
 ## [2.3.0] - 2026-01-09
 
 ### Added
