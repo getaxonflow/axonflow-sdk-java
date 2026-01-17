@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `resumeWorkflow()` - Resume after approval
   - New types: `WorkflowStatus`, `WorkflowSource`, `GateDecision`, `StepType`, `ApprovalStatus`, `MarkStepCompletedRequest`
   - Helper methods on `StepGateResponse`: `isAllowed()`, `isBlocked()`, `requiresApproval()`
+  - Helper methods on `WorkflowStatus` and `WorkflowStatusResponse`: `isTerminal()`
 
 ---
 
