@@ -3135,6 +3135,312 @@ public final class AxonFlow implements Closeable {
         return CompletableFuture.supplyAsync(() -> getUsageSummary(period), asyncExecutor);
     }
 
+    // ========================================================================
+    // Workflow Control Plane
+    // ========================================================================
+    // The Workflow Control Plane provides governance gates for external
+    // orchestrators like LangChain, LangGraph, and CrewAI.
+    //
+    // "LangChain runs the workflow. AxonFlow decides when it's allowed to move forward."
+
+    /**
+     * Creates a new workflow for governance tracking.
+     *
+     * <p>Registers a new workflow with AxonFlow. Call this at the start of your
+     * external orchestrator workflow (LangChain, LangGraph, CrewAI, etc.).
+     *
+     * @param request workflow creation request
+     * @return created workflow with ID
+     * @throws AxonFlowException if creation fails
+     *
+     * @example
+     * <pre>{@code
+     * CreateWorkflowResponse workflow = axonflow.createWorkflow(
+     *     CreateWorkflowRequest.builder()
+     *         .workflowName("code-review-pipeline")
+     *         .source(WorkflowSource.LANGGRAPH)
+     *         .totalSteps(5)
+     *         .build()
+     * );
+     * System.out.println("Workflow created: " + workflow.getWorkflowId());
+     * }</pre>
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.CreateWorkflowResponse createWorkflow(
+            com.getaxonflow.sdk.types.workflow.WorkflowTypes.CreateWorkflowRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/workflows", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response,
+                    new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.CreateWorkflowResponse>() {});
+            }
+        }, "createWorkflow");
+    }
+
+    /**
+     * Gets the status of a workflow.
+     *
+     * @param workflowId workflow ID
+     * @return workflow status including steps
+     * @throws AxonFlowException if workflow not found
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.WorkflowStatusResponse getWorkflow(String workflowId) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/workflows/" + workflowId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response,
+                    new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.WorkflowStatusResponse>() {});
+            }
+        }, "getWorkflow");
+    }
+
+    /**
+     * Checks if a workflow step is allowed to proceed (step gate).
+     *
+     * <p>This is the core governance method. Call this before executing each step
+     * in your workflow to check if the step is allowed based on policies.
+     *
+     * @param workflowId workflow ID
+     * @param stepId unique step identifier (you provide this)
+     * @param request step gate request with step details
+     * @return gate decision: allow, block, or require_approval
+     * @throws AxonFlowException if check fails
+     *
+     * @example
+     * <pre>{@code
+     * StepGateResponse gate = axonflow.stepGate(
+     *     workflow.getWorkflowId(),
+     *     "step-1",
+     *     StepGateRequest.builder()
+     *         .stepName("Generate Code")
+     *         .stepType(StepType.LLM_CALL)
+     *         .model("gpt-4")
+     *         .provider("openai")
+     *         .build()
+     * );
+     *
+     * if (gate.isBlocked()) {
+     *     throw new RuntimeException("Step blocked: " + gate.getReason());
+     * } else if (gate.requiresApproval()) {
+     *     System.out.println("Approval needed: " + gate.getApprovalUrl());
+     * } else {
+     *     // Execute the step
+     *     executeStep();
+     * }
+     * }</pre>
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateResponse stepGate(
+            String workflowId,
+            String stepId,
+            com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateRequest request) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+        Objects.requireNonNull(stepId, "stepId cannot be null");
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/gate", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response,
+                    new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateResponse>() {});
+            }
+        }, "stepGate");
+    }
+
+    /**
+     * Marks a step as completed.
+     *
+     * <p>Call this after successfully executing a step to record its completion.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @param request optional completion request with output data
+     */
+    public void markStepCompleted(
+            String workflowId,
+            String stepId,
+            com.getaxonflow.sdk.types.workflow.WorkflowTypes.MarkStepCompletedRequest request) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+        Objects.requireNonNull(stepId, "stepId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/complete",
+                request != null ? request : Collections.emptyMap());
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "markStepCompleted");
+    }
+
+    /**
+     * Marks a step as completed with no output data.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     */
+    public void markStepCompleted(String workflowId, String stepId) {
+        markStepCompleted(workflowId, stepId, null);
+    }
+
+    /**
+     * Completes a workflow successfully.
+     *
+     * <p>Call this when your workflow has completed all steps successfully.
+     *
+     * @param workflowId workflow ID
+     */
+    public void completeWorkflow(String workflowId) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflows/" + workflowId + "/complete", Collections.emptyMap());
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "completeWorkflow");
+    }
+
+    /**
+     * Aborts a workflow.
+     *
+     * <p>Call this when you need to stop a workflow due to an error or user request.
+     *
+     * @param workflowId workflow ID
+     * @param reason optional reason for aborting
+     */
+    public void abortWorkflow(String workflowId, String reason) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Map<String, String> body = reason != null ?
+                Collections.singletonMap("reason", reason) : Collections.emptyMap();
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflows/" + workflowId + "/abort", body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "abortWorkflow");
+    }
+
+    /**
+     * Aborts a workflow with no reason.
+     *
+     * @param workflowId workflow ID
+     */
+    public void abortWorkflow(String workflowId) {
+        abortWorkflow(workflowId, null);
+    }
+
+    /**
+     * Resumes a workflow after approval.
+     *
+     * <p>Call this after a step has been approved to continue the workflow.
+     *
+     * @param workflowId workflow ID
+     */
+    public void resumeWorkflow(String workflowId) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflows/" + workflowId + "/resume", Collections.emptyMap());
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "resumeWorkflow");
+    }
+
+    /**
+     * Lists workflows with optional filters.
+     *
+     * @param options filter and pagination options
+     * @return list of workflows
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ListWorkflowsResponse listWorkflows(
+            com.getaxonflow.sdk.types.workflow.WorkflowTypes.ListWorkflowsOptions options) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/workflows");
+            StringBuilder query = new StringBuilder();
+
+            if (options != null) {
+                if (options.getStatus() != null) {
+                    appendQueryParam(query, "status", options.getStatus().getValue());
+                }
+                if (options.getSource() != null) {
+                    appendQueryParam(query, "source", options.getSource().getValue());
+                }
+                if (options.getLimit() > 0) {
+                    appendQueryParam(query, "limit", String.valueOf(options.getLimit()));
+                }
+                if (options.getOffset() > 0) {
+                    appendQueryParam(query, "offset", String.valueOf(options.getOffset()));
+                }
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response,
+                    new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.ListWorkflowsResponse>() {});
+            }
+        }, "listWorkflows");
+    }
+
+    /**
+     * Lists all workflows with default options.
+     *
+     * @return list of workflows
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ListWorkflowsResponse listWorkflows() {
+        return listWorkflows(null);
+    }
+
+    /**
+     * Asynchronously creates a workflow.
+     *
+     * @param request workflow creation request
+     * @return a future containing the created workflow
+     */
+    public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.CreateWorkflowResponse> createWorkflowAsync(
+            com.getaxonflow.sdk.types.workflow.WorkflowTypes.CreateWorkflowRequest request) {
+        return CompletableFuture.supplyAsync(() -> createWorkflow(request), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously checks a step gate.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @param request step gate request
+     * @return a future containing the gate decision
+     */
+    public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateResponse> stepGateAsync(
+            String workflowId,
+            String stepId,
+            com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateRequest request) {
+        return CompletableFuture.supplyAsync(() -> stepGate(workflowId, stepId, request), asyncExecutor);
+    }
+
     @Override
     public void close() {
         httpClient.dispatcher().executorService().shutdown();
