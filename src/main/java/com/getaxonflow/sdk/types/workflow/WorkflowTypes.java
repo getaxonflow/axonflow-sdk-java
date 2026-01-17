@@ -1,0 +1,888 @@
+/*
+ * Copyright 2026 AxonFlow
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.getaxonflow.sdk.types.workflow;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+/**
+ * Workflow Control Plane types for AxonFlow SDK.
+ *
+ * <p>The Workflow Control Plane provides governance gates for external orchestrators
+ * like LangChain, LangGraph, and CrewAI.
+ *
+ * <p>"LangChain runs the workflow. AxonFlow decides when it's allowed to move forward."
+ */
+public final class WorkflowTypes {
+
+    private WorkflowTypes() {
+        // Utility class
+    }
+
+    /**
+     * Workflow status values.
+     */
+    public enum WorkflowStatus {
+        @JsonProperty("in_progress")
+        IN_PROGRESS("in_progress"),
+        @JsonProperty("completed")
+        COMPLETED("completed"),
+        @JsonProperty("aborted")
+        ABORTED("aborted"),
+        @JsonProperty("failed")
+        FAILED("failed");
+
+        private final String value;
+
+        WorkflowStatus(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+
+        @JsonCreator
+        public static WorkflowStatus fromValue(String value) {
+            for (WorkflowStatus status : values()) {
+                if (status.value.equals(value)) {
+                    return status;
+                }
+            }
+            throw new IllegalArgumentException("Unknown workflow status: " + value);
+        }
+    }
+
+    /**
+     * Source of the workflow (which orchestrator is running it).
+     */
+    public enum WorkflowSource {
+        @JsonProperty("langgraph")
+        LANGGRAPH("langgraph"),
+        @JsonProperty("langchain")
+        LANGCHAIN("langchain"),
+        @JsonProperty("crewai")
+        CREWAI("crewai"),
+        @JsonProperty("external")
+        EXTERNAL("external");
+
+        private final String value;
+
+        WorkflowSource(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+
+        @JsonCreator
+        public static WorkflowSource fromValue(String value) {
+            for (WorkflowSource source : values()) {
+                if (source.value.equals(value)) {
+                    return source;
+                }
+            }
+            throw new IllegalArgumentException("Unknown workflow source: " + value);
+        }
+    }
+
+    /**
+     * Gate decision values returned by step gate checks.
+     */
+    public enum GateDecision {
+        @JsonProperty("allow")
+        ALLOW("allow"),
+        @JsonProperty("block")
+        BLOCK("block"),
+        @JsonProperty("require_approval")
+        REQUIRE_APPROVAL("require_approval");
+
+        private final String value;
+
+        GateDecision(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+
+        @JsonCreator
+        public static GateDecision fromValue(String value) {
+            for (GateDecision decision : values()) {
+                if (decision.value.equals(value)) {
+                    return decision;
+                }
+            }
+            throw new IllegalArgumentException("Unknown gate decision: " + value);
+        }
+    }
+
+    /**
+     * Approval status for steps requiring human approval.
+     */
+    public enum ApprovalStatus {
+        @JsonProperty("pending")
+        PENDING("pending"),
+        @JsonProperty("approved")
+        APPROVED("approved"),
+        @JsonProperty("rejected")
+        REJECTED("rejected");
+
+        private final String value;
+
+        ApprovalStatus(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+
+        @JsonCreator
+        public static ApprovalStatus fromValue(String value) {
+            for (ApprovalStatus status : values()) {
+                if (status.value.equals(value)) {
+                    return status;
+                }
+            }
+            throw new IllegalArgumentException("Unknown approval status: " + value);
+        }
+    }
+
+    /**
+     * Step type indicating what kind of operation the step performs.
+     */
+    public enum StepType {
+        @JsonProperty("llm_call")
+        LLM_CALL("llm_call"),
+        @JsonProperty("tool_call")
+        TOOL_CALL("tool_call"),
+        @JsonProperty("connector_call")
+        CONNECTOR_CALL("connector_call"),
+        @JsonProperty("human_task")
+        HUMAN_TASK("human_task");
+
+        private final String value;
+
+        StepType(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+
+        @JsonCreator
+        public static StepType fromValue(String value) {
+            for (StepType type : values()) {
+                if (type.value.equals(value)) {
+                    return type;
+                }
+            }
+            throw new IllegalArgumentException("Unknown step type: " + value);
+        }
+    }
+
+    /**
+     * Request to create a new workflow.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class CreateWorkflowRequest {
+
+        @JsonProperty("workflow_name")
+        private final String workflowName;
+
+        @JsonProperty("source")
+        private final WorkflowSource source;
+
+        @JsonProperty("total_steps")
+        private final Integer totalSteps;
+
+        @JsonProperty("metadata")
+        private final Map<String, Object> metadata;
+
+        @JsonCreator
+        public CreateWorkflowRequest(
+                @JsonProperty("workflow_name") String workflowName,
+                @JsonProperty("source") WorkflowSource source,
+                @JsonProperty("total_steps") Integer totalSteps,
+                @JsonProperty("metadata") Map<String, Object> metadata) {
+            this.workflowName = Objects.requireNonNull(workflowName, "workflowName is required");
+            this.source = source != null ? source : WorkflowSource.EXTERNAL;
+            this.totalSteps = totalSteps;
+            this.metadata = metadata != null ? Collections.unmodifiableMap(metadata) : Collections.emptyMap();
+        }
+
+        public String getWorkflowName() {
+            return workflowName;
+        }
+
+        public WorkflowSource getSource() {
+            return source;
+        }
+
+        public Integer getTotalSteps() {
+            return totalSteps;
+        }
+
+        public Map<String, Object> getMetadata() {
+            return metadata;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+            private String workflowName;
+            private WorkflowSource source = WorkflowSource.EXTERNAL;
+            private Integer totalSteps;
+            private Map<String, Object> metadata;
+
+            public Builder workflowName(String workflowName) {
+                this.workflowName = workflowName;
+                return this;
+            }
+
+            public Builder source(WorkflowSource source) {
+                this.source = source;
+                return this;
+            }
+
+            public Builder totalSteps(Integer totalSteps) {
+                this.totalSteps = totalSteps;
+                return this;
+            }
+
+            public Builder metadata(Map<String, Object> metadata) {
+                this.metadata = metadata;
+                return this;
+            }
+
+            public CreateWorkflowRequest build() {
+                return new CreateWorkflowRequest(workflowName, source, totalSteps, metadata);
+            }
+        }
+    }
+
+    /**
+     * Response from creating a workflow.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class CreateWorkflowResponse {
+
+        @JsonProperty("workflow_id")
+        private final String workflowId;
+
+        @JsonProperty("workflow_name")
+        private final String workflowName;
+
+        @JsonProperty("source")
+        private final WorkflowSource source;
+
+        @JsonProperty("status")
+        private final WorkflowStatus status;
+
+        @JsonProperty("created_at")
+        private final Instant createdAt;
+
+        @JsonCreator
+        public CreateWorkflowResponse(
+                @JsonProperty("workflow_id") String workflowId,
+                @JsonProperty("workflow_name") String workflowName,
+                @JsonProperty("source") WorkflowSource source,
+                @JsonProperty("status") WorkflowStatus status,
+                @JsonProperty("created_at") Instant createdAt) {
+            this.workflowId = workflowId;
+            this.workflowName = workflowName;
+            this.source = source;
+            this.status = status;
+            this.createdAt = createdAt;
+        }
+
+        public String getWorkflowId() {
+            return workflowId;
+        }
+
+        public String getWorkflowName() {
+            return workflowName;
+        }
+
+        public WorkflowSource getSource() {
+            return source;
+        }
+
+        public WorkflowStatus getStatus() {
+            return status;
+        }
+
+        public Instant getCreatedAt() {
+            return createdAt;
+        }
+    }
+
+    /**
+     * Request to check if a step is allowed to proceed.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class StepGateRequest {
+
+        @JsonProperty("step_name")
+        private final String stepName;
+
+        @JsonProperty("step_type")
+        private final StepType stepType;
+
+        @JsonProperty("step_input")
+        private final Map<String, Object> stepInput;
+
+        @JsonProperty("model")
+        private final String model;
+
+        @JsonProperty("provider")
+        private final String provider;
+
+        @JsonCreator
+        public StepGateRequest(
+                @JsonProperty("step_name") String stepName,
+                @JsonProperty("step_type") StepType stepType,
+                @JsonProperty("step_input") Map<String, Object> stepInput,
+                @JsonProperty("model") String model,
+                @JsonProperty("provider") String provider) {
+            this.stepName = stepName;
+            this.stepType = Objects.requireNonNull(stepType, "stepType is required");
+            this.stepInput = stepInput != null ? Collections.unmodifiableMap(stepInput) : Collections.emptyMap();
+            this.model = model;
+            this.provider = provider;
+        }
+
+        public String getStepName() {
+            return stepName;
+        }
+
+        public StepType getStepType() {
+            return stepType;
+        }
+
+        public Map<String, Object> getStepInput() {
+            return stepInput;
+        }
+
+        public String getModel() {
+            return model;
+        }
+
+        public String getProvider() {
+            return provider;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+            private String stepName;
+            private StepType stepType;
+            private Map<String, Object> stepInput;
+            private String model;
+            private String provider;
+
+            public Builder stepName(String stepName) {
+                this.stepName = stepName;
+                return this;
+            }
+
+            public Builder stepType(StepType stepType) {
+                this.stepType = stepType;
+                return this;
+            }
+
+            public Builder stepInput(Map<String, Object> stepInput) {
+                this.stepInput = stepInput;
+                return this;
+            }
+
+            public Builder model(String model) {
+                this.model = model;
+                return this;
+            }
+
+            public Builder provider(String provider) {
+                this.provider = provider;
+                return this;
+            }
+
+            public StepGateRequest build() {
+                return new StepGateRequest(stepName, stepType, stepInput, model, provider);
+            }
+        }
+    }
+
+    /**
+     * Response from a step gate check.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class StepGateResponse {
+
+        @JsonProperty("decision")
+        private final GateDecision decision;
+
+        @JsonProperty("step_id")
+        private final String stepId;
+
+        @JsonProperty("reason")
+        private final String reason;
+
+        @JsonProperty("policy_ids")
+        private final List<String> policyIds;
+
+        @JsonProperty("approval_url")
+        private final String approvalUrl;
+
+        @JsonCreator
+        public StepGateResponse(
+                @JsonProperty("decision") GateDecision decision,
+                @JsonProperty("step_id") String stepId,
+                @JsonProperty("reason") String reason,
+                @JsonProperty("policy_ids") List<String> policyIds,
+                @JsonProperty("approval_url") String approvalUrl) {
+            this.decision = decision;
+            this.stepId = stepId;
+            this.reason = reason;
+            this.policyIds = policyIds != null ? Collections.unmodifiableList(policyIds) : Collections.emptyList();
+            this.approvalUrl = approvalUrl;
+        }
+
+        public GateDecision getDecision() {
+            return decision;
+        }
+
+        public String getStepId() {
+            return stepId;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        public List<String> getPolicyIds() {
+            return policyIds;
+        }
+
+        public String getApprovalUrl() {
+            return approvalUrl;
+        }
+
+        public boolean isAllowed() {
+            return decision == GateDecision.ALLOW;
+        }
+
+        public boolean isBlocked() {
+            return decision == GateDecision.BLOCK;
+        }
+
+        public boolean requiresApproval() {
+            return decision == GateDecision.REQUIRE_APPROVAL;
+        }
+    }
+
+    /**
+     * Information about a workflow step.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class WorkflowStepInfo {
+
+        @JsonProperty("step_id")
+        private final String stepId;
+
+        @JsonProperty("step_index")
+        private final int stepIndex;
+
+        @JsonProperty("step_name")
+        private final String stepName;
+
+        @JsonProperty("step_type")
+        private final StepType stepType;
+
+        @JsonProperty("decision")
+        private final GateDecision decision;
+
+        @JsonProperty("decision_reason")
+        private final String decisionReason;
+
+        @JsonProperty("approval_status")
+        private final ApprovalStatus approvalStatus;
+
+        @JsonProperty("approved_by")
+        private final String approvedBy;
+
+        @JsonProperty("gate_checked_at")
+        private final Instant gateCheckedAt;
+
+        @JsonProperty("completed_at")
+        private final Instant completedAt;
+
+        @JsonCreator
+        public WorkflowStepInfo(
+                @JsonProperty("step_id") String stepId,
+                @JsonProperty("step_index") int stepIndex,
+                @JsonProperty("step_name") String stepName,
+                @JsonProperty("step_type") StepType stepType,
+                @JsonProperty("decision") GateDecision decision,
+                @JsonProperty("decision_reason") String decisionReason,
+                @JsonProperty("approval_status") ApprovalStatus approvalStatus,
+                @JsonProperty("approved_by") String approvedBy,
+                @JsonProperty("gate_checked_at") Instant gateCheckedAt,
+                @JsonProperty("completed_at") Instant completedAt) {
+            this.stepId = stepId;
+            this.stepIndex = stepIndex;
+            this.stepName = stepName;
+            this.stepType = stepType;
+            this.decision = decision;
+            this.decisionReason = decisionReason;
+            this.approvalStatus = approvalStatus;
+            this.approvedBy = approvedBy;
+            this.gateCheckedAt = gateCheckedAt;
+            this.completedAt = completedAt;
+        }
+
+        public String getStepId() {
+            return stepId;
+        }
+
+        public int getStepIndex() {
+            return stepIndex;
+        }
+
+        public String getStepName() {
+            return stepName;
+        }
+
+        public StepType getStepType() {
+            return stepType;
+        }
+
+        public GateDecision getDecision() {
+            return decision;
+        }
+
+        public String getDecisionReason() {
+            return decisionReason;
+        }
+
+        public ApprovalStatus getApprovalStatus() {
+            return approvalStatus;
+        }
+
+        public String getApprovedBy() {
+            return approvedBy;
+        }
+
+        public Instant getGateCheckedAt() {
+            return gateCheckedAt;
+        }
+
+        public Instant getCompletedAt() {
+            return completedAt;
+        }
+    }
+
+    /**
+     * Response containing workflow status.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class WorkflowStatusResponse {
+
+        @JsonProperty("workflow_id")
+        private final String workflowId;
+
+        @JsonProperty("workflow_name")
+        private final String workflowName;
+
+        @JsonProperty("source")
+        private final WorkflowSource source;
+
+        @JsonProperty("status")
+        private final WorkflowStatus status;
+
+        @JsonProperty("current_step_index")
+        private final int currentStepIndex;
+
+        @JsonProperty("total_steps")
+        private final Integer totalSteps;
+
+        @JsonProperty("started_at")
+        private final Instant startedAt;
+
+        @JsonProperty("completed_at")
+        private final Instant completedAt;
+
+        @JsonProperty("steps")
+        private final List<WorkflowStepInfo> steps;
+
+        @JsonCreator
+        public WorkflowStatusResponse(
+                @JsonProperty("workflow_id") String workflowId,
+                @JsonProperty("workflow_name") String workflowName,
+                @JsonProperty("source") WorkflowSource source,
+                @JsonProperty("status") WorkflowStatus status,
+                @JsonProperty("current_step_index") int currentStepIndex,
+                @JsonProperty("total_steps") Integer totalSteps,
+                @JsonProperty("started_at") Instant startedAt,
+                @JsonProperty("completed_at") Instant completedAt,
+                @JsonProperty("steps") List<WorkflowStepInfo> steps) {
+            this.workflowId = workflowId;
+            this.workflowName = workflowName;
+            this.source = source;
+            this.status = status;
+            this.currentStepIndex = currentStepIndex;
+            this.totalSteps = totalSteps;
+            this.startedAt = startedAt;
+            this.completedAt = completedAt;
+            this.steps = steps != null ? Collections.unmodifiableList(steps) : Collections.emptyList();
+        }
+
+        public String getWorkflowId() {
+            return workflowId;
+        }
+
+        public String getWorkflowName() {
+            return workflowName;
+        }
+
+        public WorkflowSource getSource() {
+            return source;
+        }
+
+        public WorkflowStatus getStatus() {
+            return status;
+        }
+
+        public int getCurrentStepIndex() {
+            return currentStepIndex;
+        }
+
+        public Integer getTotalSteps() {
+            return totalSteps;
+        }
+
+        public Instant getStartedAt() {
+            return startedAt;
+        }
+
+        public Instant getCompletedAt() {
+            return completedAt;
+        }
+
+        public List<WorkflowStepInfo> getSteps() {
+            return steps;
+        }
+
+        public boolean isTerminal() {
+            return status == WorkflowStatus.COMPLETED ||
+                   status == WorkflowStatus.ABORTED ||
+                   status == WorkflowStatus.FAILED;
+        }
+    }
+
+    /**
+     * Options for listing workflows.
+     */
+    public static final class ListWorkflowsOptions {
+
+        private final WorkflowStatus status;
+        private final WorkflowSource source;
+        private final int limit;
+        private final int offset;
+
+        public ListWorkflowsOptions(WorkflowStatus status, WorkflowSource source, int limit, int offset) {
+            this.status = status;
+            this.source = source;
+            this.limit = limit > 0 ? limit : 50;
+            this.offset = Math.max(offset, 0);
+        }
+
+        public WorkflowStatus getStatus() {
+            return status;
+        }
+
+        public WorkflowSource getSource() {
+            return source;
+        }
+
+        public int getLimit() {
+            return limit;
+        }
+
+        public int getOffset() {
+            return offset;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+            private WorkflowStatus status;
+            private WorkflowSource source;
+            private int limit = 50;
+            private int offset = 0;
+
+            public Builder status(WorkflowStatus status) {
+                this.status = status;
+                return this;
+            }
+
+            public Builder source(WorkflowSource source) {
+                this.source = source;
+                return this;
+            }
+
+            public Builder limit(int limit) {
+                this.limit = limit;
+                return this;
+            }
+
+            public Builder offset(int offset) {
+                this.offset = offset;
+                return this;
+            }
+
+            public ListWorkflowsOptions build() {
+                return new ListWorkflowsOptions(status, source, limit, offset);
+            }
+        }
+    }
+
+    /**
+     * Response from listing workflows.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class ListWorkflowsResponse {
+
+        @JsonProperty("workflows")
+        private final List<WorkflowStatusResponse> workflows;
+
+        @JsonProperty("total")
+        private final int total;
+
+        @JsonCreator
+        public ListWorkflowsResponse(
+                @JsonProperty("workflows") List<WorkflowStatusResponse> workflows,
+                @JsonProperty("total") int total) {
+            this.workflows = workflows != null ? Collections.unmodifiableList(workflows) : Collections.emptyList();
+            this.total = total;
+        }
+
+        public List<WorkflowStatusResponse> getWorkflows() {
+            return workflows;
+        }
+
+        public int getTotal() {
+            return total;
+        }
+    }
+
+    /**
+     * Request to mark a step as completed.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class MarkStepCompletedRequest {
+
+        @JsonProperty("output")
+        private final Map<String, Object> output;
+
+        @JsonProperty("metadata")
+        private final Map<String, Object> metadata;
+
+        @JsonCreator
+        public MarkStepCompletedRequest(
+                @JsonProperty("output") Map<String, Object> output,
+                @JsonProperty("metadata") Map<String, Object> metadata) {
+            this.output = output != null ? Collections.unmodifiableMap(output) : Collections.emptyMap();
+            this.metadata = metadata != null ? Collections.unmodifiableMap(metadata) : Collections.emptyMap();
+        }
+
+        public Map<String, Object> getOutput() {
+            return output;
+        }
+
+        public Map<String, Object> getMetadata() {
+            return metadata;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+            private Map<String, Object> output;
+            private Map<String, Object> metadata;
+
+            public Builder output(Map<String, Object> output) {
+                this.output = output;
+                return this;
+            }
+
+            public Builder metadata(Map<String, Object> metadata) {
+                this.metadata = metadata;
+                return this;
+            }
+
+            public MarkStepCompletedRequest build() {
+                return new MarkStepCompletedRequest(output, metadata);
+            }
+        }
+    }
+
+    /**
+     * Request to abort a workflow.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class AbortWorkflowRequest {
+
+        @JsonProperty("reason")
+        private final String reason;
+
+        @JsonCreator
+        public AbortWorkflowRequest(@JsonProperty("reason") String reason) {
+            this.reason = reason;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        public static AbortWorkflowRequest withReason(String reason) {
+            return new AbortWorkflowRequest(reason);
+        }
+    }
+}
