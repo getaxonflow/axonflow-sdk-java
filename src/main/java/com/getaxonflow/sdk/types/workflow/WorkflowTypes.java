@@ -467,18 +467,28 @@ public final class WorkflowTypes {
         @JsonProperty("approval_url")
         private final String approvalUrl;
 
+        @JsonProperty("policies_evaluated")
+        private final List<PolicyMatch> policiesEvaluated;
+
+        @JsonProperty("policies_matched")
+        private final List<PolicyMatch> policiesMatched;
+
         @JsonCreator
         public StepGateResponse(
                 @JsonProperty("decision") GateDecision decision,
                 @JsonProperty("step_id") String stepId,
                 @JsonProperty("reason") String reason,
                 @JsonProperty("policy_ids") List<String> policyIds,
-                @JsonProperty("approval_url") String approvalUrl) {
+                @JsonProperty("approval_url") String approvalUrl,
+                @JsonProperty("policies_evaluated") List<PolicyMatch> policiesEvaluated,
+                @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched) {
             this.decision = decision;
             this.stepId = stepId;
             this.reason = reason;
             this.policyIds = policyIds != null ? Collections.unmodifiableList(policyIds) : Collections.emptyList();
             this.approvalUrl = approvalUrl;
+            this.policiesEvaluated = policiesEvaluated != null ? Collections.unmodifiableList(policiesEvaluated) : Collections.emptyList();
+            this.policiesMatched = policiesMatched != null ? Collections.unmodifiableList(policiesMatched) : Collections.emptyList();
         }
 
         public GateDecision getDecision() {
@@ -499,6 +509,26 @@ public final class WorkflowTypes {
 
         public String getApprovalUrl() {
             return approvalUrl;
+        }
+
+        /**
+         * Returns all policies that were evaluated during the gate check.
+         *
+         * @return immutable list of evaluated policies
+         * @since 2.3.0
+         */
+        public List<PolicyMatch> getPoliciesEvaluated() {
+            return policiesEvaluated;
+        }
+
+        /**
+         * Returns policies that matched and influenced the decision.
+         *
+         * @return immutable list of matched policies
+         * @since 2.3.0
+         */
+        public List<PolicyMatch> getPoliciesMatched() {
+            return policiesMatched;
         }
 
         public boolean isAllowed() {

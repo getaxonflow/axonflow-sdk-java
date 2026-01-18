@@ -24,6 +24,13 @@
  *
  * <p>"LangChain runs the workflow. AxonFlow decides when it's allowed to move forward."
  *
+ * <h2>Policy Enforcement Types (v2.3.0)</h2>
+ * <ul>
+ *   <li>{@link com.getaxonflow.sdk.types.workflow.PolicyEvaluationResult} - Result of policy evaluation during execution</li>
+ *   <li>{@link com.getaxonflow.sdk.types.workflow.PolicyMatch} - Information about a matched policy</li>
+ *   <li>{@link com.getaxonflow.sdk.types.workflow.PlanExecutionResponse} - Response from MAP plan execution with policy info</li>
+ * </ul>
+ *
  * <h2>Example Usage</h2>
  * <pre>{@code
  * // Create a workflow
@@ -35,7 +42,7 @@
  *         .build()
  * );
  *
- * // Check step gate
+ * // Check step gate with policy evaluation
  * StepGateResponse gate = axonflow.stepGate(
  *     workflow.getWorkflowId(),
  *     "step-1",
@@ -47,6 +54,10 @@
  * );
  *
  * if (gate.isBlocked()) {
+ *     // Check which policies blocked the step
+ *     for (PolicyMatch match : gate.getPoliciesMatched()) {
+ *         System.out.println("Blocked by: " + match.getPolicyName() + " - " + match.getReason());
+ *     }
  *     throw new RuntimeException("Step blocked: " + gate.getReason());
  * }
  *
@@ -55,6 +66,9 @@
  * }</pre>
  *
  * @see com.getaxonflow.sdk.types.workflow.WorkflowTypes
+ * @see com.getaxonflow.sdk.types.workflow.PolicyEvaluationResult
+ * @see com.getaxonflow.sdk.types.workflow.PolicyMatch
+ * @see com.getaxonflow.sdk.types.workflow.PlanExecutionResponse
  * @see com.getaxonflow.sdk.AxonFlow#createWorkflow
  * @see com.getaxonflow.sdk.AxonFlow#stepGate
  */
