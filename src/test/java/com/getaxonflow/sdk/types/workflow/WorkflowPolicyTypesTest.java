@@ -259,8 +259,11 @@ class WorkflowPolicyTypesTest {
     @DisplayName("PlanExecutionResponse - should deserialize from JSON")
     void planExecutionResponseShouldDeserialize() throws Exception {
         String json = "{"
-            + "\"success\": true,"
+            + "\"plan_id\": \"plan-123\","
+            + "\"status\": \"completed\","
             + "\"result\": \"Plan executed successfully\","
+            + "\"steps_completed\": 3,"
+            + "\"total_steps\": 3,"
             + "\"policy_info\": {"
             + "  \"allowed\": true,"
             + "  \"applied_policies\": [\"cost-limit\"],"
@@ -270,7 +273,8 @@ class WorkflowPolicyTypesTest {
 
         PlanExecutionResponse response = objectMapper.readValue(json, PlanExecutionResponse.class);
 
-        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.isCompleted()).isTrue();
+        assertThat(response.getPlanId()).isEqualTo("plan-123");
         assertThat(response.getResult()).isEqualTo("Plan executed successfully");
         assertThat(response.getPolicyInfo()).isNotNull();
         assertThat(response.getPolicyInfo().isAllowed()).isTrue();
@@ -281,8 +285,11 @@ class WorkflowPolicyTypesTest {
     @DisplayName("PlanExecutionResponse - should handle blocked response")
     void planExecutionResponseShouldHandleBlockedResponse() throws Exception {
         String json = "{"
-            + "\"success\": false,"
-            + "\"error\": \"Plan execution blocked by policy\","
+            + "\"plan_id\": \"plan-456\","
+            + "\"status\": \"blocked\","
+            + "\"result\": \"Plan execution blocked by policy\","
+            + "\"steps_completed\": 0,"
+            + "\"total_steps\": 3,"
             + "\"policy_info\": {"
             + "  \"allowed\": false,"
             + "  \"applied_policies\": [\"high-risk-block\"],"
@@ -292,27 +299,36 @@ class WorkflowPolicyTypesTest {
 
         PlanExecutionResponse response = objectMapper.readValue(json, PlanExecutionResponse.class);
 
-        assertThat(response.isSuccess()).isFalse();
-        assertThat(response.getError()).isEqualTo("Plan execution blocked by policy");
+        assertThat(response.isBlocked()).isTrue();
+        assertThat(response.isCompleted()).isFalse();
+        assertThat(response.getResult()).isEqualTo("Plan execution blocked by policy");
         assertThat(response.getPolicyInfo().isAllowed()).isFalse();
     }
 
     @Test
-    @DisplayName("PlanExecutionResponse - should build with all fields")
-    void planExecutionResponseShouldBuildWithAllFields() {
+    @DisplayName("PlanExecutionResponse - should construct with all fields")
+    void planExecutionResponseShouldConstructWithAllFields() {
         PolicyEvaluationResult policyInfo = PolicyEvaluationResult.builder()
             .allowed(true)
             .riskScore(0.1)
             .build();
 
-        PlanExecutionResponse response = PlanExecutionResponse.builder()
-            .success(true)
-            .result("completed")
-            .policyInfo(policyInfo)
-            .build();
+        PlanExecutionResponse response = new PlanExecutionResponse(
+            "plan-789",
+            "completed",
+            "done",
+            3,
+            3,
+            null,
+            null,
+            null,
+            policyInfo,
+            null
+        );
 
-        assertThat(response.isSuccess()).isTrue();
-        assertThat(response.getResult()).isEqualTo("completed");
+        assertThat(response.isCompleted()).isTrue();
+        assertThat(response.getPlanId()).isEqualTo("plan-789");
+        assertThat(response.getResult()).isEqualTo("done");
         assertThat(response.getPolicyInfo()).isEqualTo(policyInfo);
     }
 
@@ -324,17 +340,13 @@ class WorkflowPolicyTypesTest {
             .riskScore(0.5)
             .build();
 
-        PlanExecutionResponse response1 = PlanExecutionResponse.builder()
-            .success(true)
-            .result("done")
-            .policyInfo(policyInfo)
-            .build();
+        PlanExecutionResponse response1 = new PlanExecutionResponse(
+            "plan-123", "completed", "done", 2, 2, null, null, null, policyInfo, null
+        );
 
-        PlanExecutionResponse response2 = PlanExecutionResponse.builder()
-            .success(true)
-            .result("done")
-            .policyInfo(policyInfo)
-            .build();
+        PlanExecutionResponse response2 = new PlanExecutionResponse(
+            "plan-123", "completed", "done", 2, 2, null, null, null, policyInfo, null
+        );
 
         assertThat(response1).isEqualTo(response2);
         assertThat(response1.hashCode()).isEqualTo(response2.hashCode());
@@ -343,14 +355,65 @@ class WorkflowPolicyTypesTest {
     @Test
     @DisplayName("PlanExecutionResponse - toString contains all fields")
     void planExecutionResponseToStringShouldContainAllFields() {
-        PlanExecutionResponse response = PlanExecutionResponse.builder()
-            .success(true)
-            .result("test-result")
-            .build();
+        PlanExecutionResponse response = new PlanExecutionResponse(
+            "plan-test", "completed", "test-result", 1, 2, null, null, null, null, null
+        );
 
         String str = response.toString();
 
-        assertThat(str).contains("success=true");
-        assertThat(str).contains("test-result");
+        assertThat(str).contains("plan-test");
+        assertThat(str).contains("completed");
+    }
+
+    @Test
+    @DisplayName("PlanExecutionResponse - status helper methods")
+    void planExecutionResponseStatusHelperMethods() {
+        PlanExecutionResponse completed = new PlanExecutionResponse(
+            "p1", "completed", null, 3, 3, null, null, null, null, null
+        );
+        PlanExecutionResponse failed = new PlanExecutionResponse(
+            "p2", "failed", null, 1, 3, null, null, null, null, null
+        );
+        PlanExecutionResponse blocked = new PlanExecutionResponse(
+            "p3", "blocked", null, 0, 3, null, null, null, null, null
+        );
+        PlanExecutionResponse inProgress = new PlanExecutionResponse(
+            "p4", "in_progress", null, 1, 3, null, null, null, null, null
+        );
+
+        assertThat(completed.isCompleted()).isTrue();
+        assertThat(completed.isFailed()).isFalse();
+        assertThat(completed.isBlocked()).isFalse();
+
+        assertThat(failed.isFailed()).isTrue();
+        assertThat(failed.isCompleted()).isFalse();
+
+        assertThat(blocked.isBlocked()).isTrue();
+        assertThat(blocked.isCompleted()).isFalse();
+
+        assertThat(inProgress.isInProgress()).isTrue();
+        assertThat(inProgress.isCompleted()).isFalse();
+    }
+
+    @Test
+    @DisplayName("PlanExecutionResponse - progress calculation")
+    void planExecutionResponseProgressCalculation() {
+        PlanExecutionResponse halfDone = new PlanExecutionResponse(
+            "p1", "in_progress", null, 2, 4, null, null, null, null, null
+        );
+        PlanExecutionResponse allDone = new PlanExecutionResponse(
+            "p2", "completed", null, 3, 3, null, null, null, null, null
+        );
+        PlanExecutionResponse notStarted = new PlanExecutionResponse(
+            "p3", "pending", null, 0, 5, null, null, null, null, null
+        );
+        PlanExecutionResponse zeroSteps = new PlanExecutionResponse(
+            "p4", "pending", null, 0, 0, null, null, null, null, null
+        );
+
+        assertThat(halfDone.getProgress()).isEqualTo(0.5);
+        assertThat(allDone.getProgress()).isEqualTo(1.0);
+        assertThat(notStarted.getProgress()).isEqualTo(0.0);
+        assertThat(zeroSteps.getProgress()).isEqualTo(0.0);
     }
 }
