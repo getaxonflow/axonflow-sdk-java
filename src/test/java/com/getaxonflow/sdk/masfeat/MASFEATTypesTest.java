@@ -414,7 +414,15 @@ class MASFEATTypesTest {
             assessment.setAccountabilityScore(88);
             assessment.setTransparencyScore(92);
             assessment.setOverallScore(89);
-            assessment.setFindings(List.of("Finding 1"));
+            Finding finding = Finding.builder()
+                .id("f-1")
+                .pillar(FEATPillar.FAIRNESS)
+                .severity(FindingSeverity.MINOR)
+                .category("test-category")
+                .description("Finding 1")
+                .status(FindingStatus.OPEN)
+                .build();
+            assessment.setFindings(List.of(finding));
             assessment.setRecommendations(List.of("Recommendation 1"));
             assessment.setAssessors(List.of("assessor1"));
             assessment.setApprovedBy("approver@example.com");
@@ -433,7 +441,8 @@ class MASFEATTypesTest {
             assertThat(assessment.getAccountabilityScore()).isEqualTo(88);
             assertThat(assessment.getTransparencyScore()).isEqualTo(92);
             assertThat(assessment.getOverallScore()).isEqualTo(89);
-            assertThat(assessment.getFindings()).containsExactly("Finding 1");
+            assertThat(assessment.getFindings()).hasSize(1);
+            assertThat(assessment.getFindings().get(0).getDescription()).isEqualTo("Finding 1");
             assertThat(assessment.getRecommendations()).containsExactly("Recommendation 1");
             assertThat(assessment.getAssessors()).containsExactly("assessor1");
             assertThat(assessment.getApprovedBy()).isEqualTo("approver@example.com");
