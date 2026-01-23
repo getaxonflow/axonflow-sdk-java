@@ -490,17 +490,30 @@ public final class AxonFlow implements Closeable {
     // ========================================================================
 
     /**
-     * Executes a query through AxonFlow (Proxy Mode).
+     * Sends a query through AxonFlow with full policy enforcement (Proxy Mode).
      *
-     * <p>In Proxy Mode, AxonFlow handles both policy enforcement and LLM routing.
-     * This is the simplest integration pattern but adds latency.
+     * <p>This is Proxy Mode - AxonFlow acts as an intermediary, making the LLM call on your behalf.
+     *
+     * <p>Use this when you want AxonFlow to:
+     * <ul>
+     *   <li>Evaluate policies before the LLM call</li>
+     *   <li>Make the LLM call to the configured provider</li>
+     *   <li>Filter/redact sensitive data from responses</li>
+     *   <li>Automatically track costs and audit the interaction</li>
+     * </ul>
+     *
+     * <p>For Gateway Mode (lower latency, you make the LLM call), use:
+     * <ul>
+     *   <li>{@link #getPolicyApprovedContext} before your LLM call</li>
+     *   <li>{@link #auditLLMCall} after your LLM call</li>
+     * </ul>
      *
      * @param request the client request
      * @return the response from AxonFlow
      * @throws PolicyViolationException if the request is blocked by policy
      * @throws AuthenticationException  if authentication fails
      */
-    public ClientResponse executeQuery(ClientRequest request) {
+    public ClientResponse proxyLLMCall(ClientRequest request) {
         Objects.requireNonNull(request, "request cannot be null");
 
         // Check cache first
@@ -528,7 +541,7 @@ public final class AxonFlow implements Closeable {
 
                     return result;
                 }
-            }, "executeQuery");
+            }, "proxyLLMCall");
 
             // Cache successful responses
             if (response.isSuccess() && !response.isBlocked()) {
@@ -540,13 +553,41 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
+     * Asynchronously sends a query through AxonFlow with full policy enforcement (Proxy Mode).
+     *
+     * @param request the client request
+     * @return a future containing the response
+     * @see #proxyLLMCall(ClientRequest)
+     */
+    public CompletableFuture<ClientResponse> proxyLLMCallAsync(ClientRequest request) {
+        return CompletableFuture.supplyAsync(() -> proxyLLMCall(request), asyncExecutor);
+    }
+
+    /**
+     * Executes a query through AxonFlow (Proxy Mode).
+     *
+     * @param request the client request
+     * @return the response from AxonFlow
+     * @deprecated Use {@link #proxyLLMCall(ClientRequest)} instead. This method will be removed in v3.0.0.
+     */
+    @Deprecated
+    public ClientResponse executeQuery(ClientRequest request) {
+        if (config.isDebug()) {
+            logger.warn("DEPRECATION WARNING: executeQuery() is deprecated. Use proxyLLMCall() instead. This method will be removed in v3.0.0.");
+        }
+        return proxyLLMCall(request);
+    }
+
+    /**
      * Asynchronously executes a query through AxonFlow.
      *
      * @param request the client request
      * @return a future containing the response
+     * @deprecated Use {@link #proxyLLMCallAsync(ClientRequest)} instead. This method will be removed in v3.0.0.
      */
+    @Deprecated
     public CompletableFuture<ClientResponse> executeQueryAsync(ClientRequest request) {
-        return CompletableFuture.supplyAsync(() -> executeQuery(request), asyncExecutor);
+        return proxyLLMCallAsync(request);
     }
 
     // ========================================================================
