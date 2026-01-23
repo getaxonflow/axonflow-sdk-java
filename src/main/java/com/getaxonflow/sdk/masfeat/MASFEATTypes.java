@@ -160,6 +160,160 @@ public final class MASFEATTypes {
         }
     }
 
+    /** FEAT framework pillars. */
+    public enum FEATPillar {
+        FAIRNESS("fairness"),
+        ETHICS("ethics"),
+        ACCOUNTABILITY("accountability"),
+        TRANSPARENCY("transparency");
+
+        private final String value;
+
+        FEATPillar(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public static FEATPillar fromValue(String value) {
+            for (FEATPillar e : values()) {
+                if (e.value.equals(value)) {
+                    return e;
+                }
+            }
+            throw new IllegalArgumentException("Unknown pillar: " + value);
+        }
+    }
+
+    /** FEAT assessment finding severity. */
+    public enum FindingSeverity {
+        CRITICAL("critical"),
+        MAJOR("major"),
+        MINOR("minor"),
+        OBSERVATION("observation");
+
+        private final String value;
+
+        FindingSeverity(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public static FindingSeverity fromValue(String value) {
+            for (FindingSeverity e : values()) {
+                if (e.value.equals(value)) {
+                    return e;
+                }
+            }
+            throw new IllegalArgumentException("Unknown finding severity: " + value);
+        }
+    }
+
+    /** FEAT assessment finding status. */
+    public enum FindingStatus {
+        OPEN("open"),
+        RESOLVED("resolved"),
+        ACCEPTED("accepted");
+
+        private final String value;
+
+        FindingStatus(String value) {
+            this.value = value;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public static FindingStatus fromValue(String value) {
+            for (FindingStatus e : values()) {
+                if (e.value.equals(value)) {
+                    return e;
+                }
+            }
+            throw new IllegalArgumentException("Unknown finding status: " + value);
+        }
+    }
+
+    // =========================================================================
+    // Finding Type
+    // =========================================================================
+
+    /** A FEAT assessment finding. */
+    public static class Finding {
+        private String id;
+        private FEATPillar pillar;
+        private FindingSeverity severity;
+        private String category;
+        private String description;
+        private FindingStatus status;
+        private String remediation;
+        private Instant dueDate;
+
+        public Finding() {}
+
+        private Finding(Builder builder) {
+            this.id = builder.id;
+            this.pillar = builder.pillar;
+            this.severity = builder.severity;
+            this.category = builder.category;
+            this.description = builder.description;
+            this.status = builder.status;
+            this.remediation = builder.remediation;
+            this.dueDate = builder.dueDate;
+        }
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+        public FEATPillar getPillar() { return pillar; }
+        public void setPillar(FEATPillar pillar) { this.pillar = pillar; }
+        public FindingSeverity getSeverity() { return severity; }
+        public void setSeverity(FindingSeverity severity) { this.severity = severity; }
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+        public FindingStatus getStatus() { return status; }
+        public void setStatus(FindingStatus status) { this.status = status; }
+        public String getRemediation() { return remediation; }
+        public void setRemediation(String remediation) { this.remediation = remediation; }
+        public Instant getDueDate() { return dueDate; }
+        public void setDueDate(Instant dueDate) { this.dueDate = dueDate; }
+
+        public static class Builder {
+            private String id;
+            private FEATPillar pillar;
+            private FindingSeverity severity;
+            private String category;
+            private String description;
+            private FindingStatus status;
+            private String remediation;
+            private Instant dueDate;
+
+            public Builder id(String id) { this.id = id; return this; }
+            public Builder pillar(FEATPillar pillar) { this.pillar = pillar; return this; }
+            public Builder severity(FindingSeverity severity) { this.severity = severity; return this; }
+            public Builder category(String category) { this.category = category; return this; }
+            public Builder description(String description) { this.description = description; return this; }
+            public Builder status(FindingStatus status) { this.status = status; return this; }
+            public Builder remediation(String remediation) { this.remediation = remediation; return this; }
+            public Builder dueDate(Instant dueDate) { this.dueDate = dueDate; return this; }
+
+            public Finding build() {
+                return new Finding(this);
+            }
+        }
+    }
+
     // =========================================================================
     // AI System Registry Types
     // =========================================================================
@@ -373,7 +527,7 @@ public final class MASFEATTypes {
         private Map<String, Object> ethicsDetails;
         private Map<String, Object> accountabilityDetails;
         private Map<String, Object> transparencyDetails;
-        private List<String> findings;
+        private List<Finding> findings;
         private List<String> recommendations;
         private List<String> assessors;
 
@@ -403,7 +557,7 @@ public final class MASFEATTypes {
         public Map<String, Object> getEthicsDetails() { return ethicsDetails; }
         public Map<String, Object> getAccountabilityDetails() { return accountabilityDetails; }
         public Map<String, Object> getTransparencyDetails() { return transparencyDetails; }
-        public List<String> getFindings() { return findings; }
+        public List<Finding> getFindings() { return findings; }
         public List<String> getRecommendations() { return recommendations; }
         public List<String> getAssessors() { return assessors; }
 
@@ -416,7 +570,7 @@ public final class MASFEATTypes {
             private Map<String, Object> ethicsDetails;
             private Map<String, Object> accountabilityDetails;
             private Map<String, Object> transparencyDetails;
-            private List<String> findings;
+            private List<Finding> findings;
             private List<String> recommendations;
             private List<String> assessors;
 
@@ -428,7 +582,7 @@ public final class MASFEATTypes {
             public Builder ethicsDetails(Map<String, Object> details) { this.ethicsDetails = details; return this; }
             public Builder accountabilityDetails(Map<String, Object> details) { this.accountabilityDetails = details; return this; }
             public Builder transparencyDetails(Map<String, Object> details) { this.transparencyDetails = details; return this; }
-            public Builder findings(List<String> findings) { this.findings = findings; return this; }
+            public Builder findings(List<Finding> findings) { this.findings = findings; return this; }
             public Builder recommendations(List<String> recommendations) { this.recommendations = recommendations; return this; }
             public Builder assessors(List<String> assessors) { this.assessors = assessors; return this; }
 
@@ -456,7 +610,7 @@ public final class MASFEATTypes {
         private Map<String, Object> ethicsDetails;
         private Map<String, Object> accountabilityDetails;
         private Map<String, Object> transparencyDetails;
-        private List<String> findings;
+        private List<Finding> findings;
         private List<String> recommendations;
         private List<String> assessors;
         private String approvedBy;
@@ -497,8 +651,8 @@ public final class MASFEATTypes {
         public void setAccountabilityDetails(Map<String, Object> accountabilityDetails) { this.accountabilityDetails = accountabilityDetails; }
         public Map<String, Object> getTransparencyDetails() { return transparencyDetails; }
         public void setTransparencyDetails(Map<String, Object> transparencyDetails) { this.transparencyDetails = transparencyDetails; }
-        public List<String> getFindings() { return findings; }
-        public void setFindings(List<String> findings) { this.findings = findings; }
+        public List<Finding> getFindings() { return findings; }
+        public void setFindings(List<Finding> findings) { this.findings = findings; }
         public List<String> getRecommendations() { return recommendations; }
         public void setRecommendations(List<String> recommendations) { this.recommendations = recommendations; }
         public List<String> getAssessors() { return assessors; }
