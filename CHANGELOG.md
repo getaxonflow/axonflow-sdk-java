@@ -5,9 +5,21 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.7.0] - 2026-01-23
+## [2.7.0] - 2026-01-24
 
 ### Added
+
+- **Unified Execution Tracking** (Issue #1075 - EPIC #1074): Consistent status tracking for MAP plans and WCP workflows
+  - `getExecutionStatus(executionId)` - Get unified execution status by ID
+  - `listUnifiedExecutions(request)` - List executions with type/status filters
+  - `ExecutionTypes.ExecutionStatus` class with unified fields for both MAP and WCP executions
+  - `ExecutionTypes.ExecutionType` enum: `MAP_PLAN`, `WCP_WORKFLOW`
+  - `ExecutionTypes.ExecutionStatusValue` enum: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`, `ABORTED`, `EXPIRED`
+  - `ExecutionTypes.StepStatusValue` enum: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`, `SKIPPED`, `BLOCKED`, `APPROVAL`
+  - `ExecutionTypes.UnifiedStepType` enum: `LLM_CALL`, `TOOL_CALL`, `CONNECTOR_CALL`, `HUMAN_TASK`, `SYNTHESIS`, `ACTION`, `GATE`
+  - `ExecutionTypes.UnifiedStepStatus` class with step-level details (duration, cost, policy decisions)
+  - Helper methods: `isTerminal()`, `isStepTerminal()`, `isStepBlocking()`, `calculateTotalCost()`, `getCurrentStep()`
+  - Consistent response format across MAP Multi-Agent Planning and WCP Workflow Control Plane
 
 - **MAS FEAT Compliance Module** (Enterprise): Singapore financial services AI governance
   - AI System Registry: `masfeat().registerSystem()`, `masfeat().getSystem()`, `masfeat().updateSystem()`, `masfeat().listSystems()`, `masfeat().activateSystem()`, `masfeat().retireSystem()`, `masfeat().getRegistrySummary()`
