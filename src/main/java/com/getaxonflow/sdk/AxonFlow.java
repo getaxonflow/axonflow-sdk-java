@@ -21,6 +21,7 @@ import com.getaxonflow.sdk.types.codegovernance.*;
 import com.getaxonflow.sdk.types.costcontrols.CostControlTypes.*;
 import com.getaxonflow.sdk.types.executionreplay.ExecutionReplayTypes.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
+import com.getaxonflow.sdk.masfeat.MASFEATTypes.*;
 import com.getaxonflow.sdk.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -120,6 +121,7 @@ public final class AxonFlow implements Closeable {
     private final ResponseCache cache;
     private final Executor asyncExecutor;
     private volatile String sessionCookie; // Session cookie for Customer Portal authentication
+    private final MASFEATNamespace masfeatNamespace;
 
     private AxonFlow(AxonFlowConfig config) {
         this.config = Objects.requireNonNull(config, "config cannot be null");
@@ -128,6 +130,7 @@ public final class AxonFlow implements Closeable {
         this.retryExecutor = new RetryExecutor(config.getRetryConfig());
         this.cache = new ResponseCache(config.getCacheConfig());
         this.asyncExecutor = ForkJoinPool.commonPool();
+        this.masfeatNamespace = new MASFEATNamespace();
 
         logger.info("AxonFlow client initialized for {}", config.getEndpoint());
     }
@@ -213,6 +216,37 @@ public final class AxonFlow implements Closeable {
      */
     public CompletableFuture<HealthStatus> healthCheckAsync() {
         return CompletableFuture.supplyAsync(this::healthCheck, asyncExecutor);
+    }
+
+    // ========================================================================
+    // MAS FEAT Namespace Accessor
+    // ========================================================================
+
+    /**
+     * Returns the MAS FEAT (Monetary Authority of Singapore - Fairness, Ethics,
+     * Accountability, Transparency) compliance namespace.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * AISystemRegistry system = client.masfeat().registerSystem(
+     *     RegisterSystemRequest.builder()
+     *         .systemId("credit-scoring-ai")
+     *         .systemName("Credit Scoring AI")
+     *         .useCase(AISystemUseCase.CREDIT_SCORING)
+     *         .ownerTeam("Risk Management")
+     *         .customerImpact(4)
+     *         .modelComplexity(3)
+     *         .humanReliance(5)
+     *         .build()
+     * );
+     * }</pre>
+     *
+     * @return the MAS FEAT compliance namespace
+     */
+    public MASFEATNamespace masfeat() {
+        return masfeatNamespace;
     }
 
     /**
@@ -3480,6 +3514,777 @@ public final class AxonFlow implements Closeable {
             String stepId,
             com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateRequest request) {
         return CompletableFuture.supplyAsync(() -> stepGate(workflowId, stepId, request), asyncExecutor);
+    }
+
+    // ========================================================================
+    // MAS FEAT Namespace Inner Class
+    // ========================================================================
+
+    /**
+     * MAS FEAT (Monetary Authority of Singapore - Fairness, Ethics, Accountability,
+     * Transparency) compliance namespace.
+     *
+     * <p>Provides methods for AI system registry, FEAT assessments, and kill switch
+     * management for Singapore financial services compliance.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     */
+    public final class MASFEATNamespace {
+
+        private static final String BASE_PATH = "/api/v1/masfeat";
+
+        /**
+         * Registers a new AI system in the MAS FEAT registry.
+         *
+         * @param request the registration request
+         * @return the registered system
+         */
+        public AISystemRegistry registerSystem(RegisterSystemRequest request) {
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                // Map SDK field names to backend field names
+                Map<String, Object> body = new HashMap<>();
+                body.put("system_id", request.getSystemId());
+                body.put("system_name", request.getSystemName());
+                if (request.getDescription() != null) {
+                    body.put("description", request.getDescription());
+                }
+                if (request.getUseCase() != null) {
+                    body.put("use_case", request.getUseCase().getValue());
+                }
+                body.put("owner_team", request.getOwnerTeam());
+                if (request.getTechnicalOwner() != null) {
+                    body.put("technical_owner", request.getTechnicalOwner());
+                }
+                // businessOwner maps to owner_email
+                if (request.getBusinessOwner() != null) {
+                    body.put("owner_email", request.getBusinessOwner());
+                }
+                // Risk rating fields
+                body.put("risk_rating_impact", request.getCustomerImpact());
+                body.put("risk_rating_complexity", request.getModelComplexity());
+                body.put("risk_rating_reliance", request.getHumanReliance());
+                if (request.getMetadata() != null) {
+                    body.put("metadata", request.getMetadata());
+                }
+
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/registry", body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseSystemResponse(response);
+                }
+            }, "masfeat.registerSystem");
+        }
+
+        /**
+         * Activates an AI system (changes status to 'active').
+         *
+         * @param systemId the system UUID (not the systemId string)
+         * @return the activated system
+         */
+        public AISystemRegistry activateSystem(String systemId) {
+            Objects.requireNonNull(systemId, "systemId cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                body.put("status", "active");
+
+                Request httpRequest = buildOrchestratorRequest("PUT", BASE_PATH + "/registry/" + systemId, body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseSystemResponse(response);
+                }
+            }, "masfeat.activateSystem");
+        }
+
+        /**
+         * Gets an AI system by its UUID.
+         *
+         * @param systemId the system UUID
+         * @return the system
+         */
+        public AISystemRegistry getSystem(String systemId) {
+            Objects.requireNonNull(systemId, "systemId cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Request httpRequest = buildOrchestratorRequest("GET", BASE_PATH + "/registry/" + systemId, null);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseSystemResponse(response);
+                }
+            }, "masfeat.getSystem");
+        }
+
+        /**
+         * Gets the registry summary statistics.
+         *
+         * @return the registry summary
+         */
+        public RegistrySummary getRegistrySummary() {
+            return retryExecutor.execute(() -> {
+                Request httpRequest = buildOrchestratorRequest("GET", BASE_PATH + "/registry/summary", null);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseSummaryResponse(response);
+                }
+            }, "masfeat.getRegistrySummary");
+        }
+
+        /**
+         * Creates a new FEAT assessment.
+         *
+         * @param request the assessment creation request
+         * @return the created assessment
+         */
+        public FEATAssessment createAssessment(CreateAssessmentRequest request) {
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                body.put("system_id", request.getSystemId());
+                body.put("assessment_type", request.getAssessmentType());
+                if (request.getAssessors() != null) {
+                    body.put("assessors", request.getAssessors());
+                }
+
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/assessments", body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseAssessmentResponse(response);
+                }
+            }, "masfeat.createAssessment");
+        }
+
+        /**
+         * Gets a FEAT assessment by its ID.
+         *
+         * @param assessmentId the assessment ID
+         * @return the assessment
+         */
+        public FEATAssessment getAssessment(String assessmentId) {
+            Objects.requireNonNull(assessmentId, "assessmentId cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Request httpRequest = buildOrchestratorRequest("GET", BASE_PATH + "/assessments/" + assessmentId, null);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseAssessmentResponse(response);
+                }
+            }, "masfeat.getAssessment");
+        }
+
+        /**
+         * Updates a FEAT assessment with pillar scores and details.
+         *
+         * @param assessmentId the assessment ID
+         * @param request the update request
+         * @return the updated assessment
+         */
+        public FEATAssessment updateAssessment(String assessmentId, UpdateAssessmentRequest request) {
+            Objects.requireNonNull(assessmentId, "assessmentId cannot be null");
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                if (request.getFairnessScore() != null) {
+                    body.put("fairness_score", request.getFairnessScore());
+                }
+                if (request.getEthicsScore() != null) {
+                    body.put("ethics_score", request.getEthicsScore());
+                }
+                if (request.getAccountabilityScore() != null) {
+                    body.put("accountability_score", request.getAccountabilityScore());
+                }
+                if (request.getTransparencyScore() != null) {
+                    body.put("transparency_score", request.getTransparencyScore());
+                }
+                if (request.getFairnessDetails() != null) {
+                    body.put("fairness_details", request.getFairnessDetails());
+                }
+                if (request.getEthicsDetails() != null) {
+                    body.put("ethics_details", request.getEthicsDetails());
+                }
+                if (request.getAccountabilityDetails() != null) {
+                    body.put("accountability_details", request.getAccountabilityDetails());
+                }
+                if (request.getTransparencyDetails() != null) {
+                    body.put("transparency_details", request.getTransparencyDetails());
+                }
+                if (request.getFindings() != null) {
+                    body.put("findings", request.getFindings());
+                }
+                if (request.getRecommendations() != null) {
+                    body.put("recommendations", request.getRecommendations());
+                }
+                if (request.getAssessors() != null) {
+                    body.put("assessors", request.getAssessors());
+                }
+
+                Request httpRequest = buildOrchestratorRequest("PUT", BASE_PATH + "/assessments/" + assessmentId, body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseAssessmentResponse(response);
+                }
+            }, "masfeat.updateAssessment");
+        }
+
+        /**
+         * Submits a FEAT assessment for review.
+         *
+         * @param assessmentId the assessment ID
+         * @return the submitted assessment
+         */
+        public FEATAssessment submitAssessment(String assessmentId) {
+            Objects.requireNonNull(assessmentId, "assessmentId cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/assessments/" + assessmentId + "/submit", null);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseAssessmentResponse(response);
+                }
+            }, "masfeat.submitAssessment");
+        }
+
+        /**
+         * Approves a FEAT assessment.
+         *
+         * @param assessmentId the assessment ID
+         * @param request the approval request
+         * @return the approved assessment
+         */
+        public FEATAssessment approveAssessment(String assessmentId, ApproveAssessmentRequest request) {
+            Objects.requireNonNull(assessmentId, "assessmentId cannot be null");
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                body.put("approved_by", request.getApprovedBy());
+                if (request.getComments() != null) {
+                    body.put("comments", request.getComments());
+                }
+
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/assessments/" + assessmentId + "/approve", body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseAssessmentResponse(response);
+                }
+            }, "masfeat.approveAssessment");
+        }
+
+        /**
+         * Rejects a FEAT assessment.
+         *
+         * @param assessmentId the assessment ID
+         * @param request the rejection request
+         * @return the rejected assessment
+         */
+        public FEATAssessment rejectAssessment(String assessmentId, RejectAssessmentRequest request) {
+            Objects.requireNonNull(assessmentId, "assessmentId cannot be null");
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                body.put("rejected_by", request.getRejectedBy());
+                body.put("reason", request.getReason());
+
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/assessments/" + assessmentId + "/reject", body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseAssessmentResponse(response);
+                }
+            }, "masfeat.rejectAssessment");
+        }
+
+        /**
+         * Gets the kill switch configuration for an AI system.
+         *
+         * @param systemId the system ID (string ID, not UUID)
+         * @return the kill switch configuration
+         */
+        public KillSwitch getKillSwitch(String systemId) {
+            Objects.requireNonNull(systemId, "systemId cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Request httpRequest = buildOrchestratorRequest("GET", BASE_PATH + "/killswitch/" + systemId, null);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseKillSwitchResponse(response);
+                }
+            }, "masfeat.getKillSwitch");
+        }
+
+        /**
+         * Configures the kill switch for an AI system.
+         *
+         * @param systemId the system ID (string ID, not UUID)
+         * @param request the configuration request
+         * @return the configured kill switch
+         */
+        public KillSwitch configureKillSwitch(String systemId, ConfigureKillSwitchRequest request) {
+            Objects.requireNonNull(systemId, "systemId cannot be null");
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                if (request.getAccuracyThreshold() != null) {
+                    body.put("accuracy_threshold", request.getAccuracyThreshold());
+                }
+                if (request.getBiasThreshold() != null) {
+                    body.put("bias_threshold", request.getBiasThreshold());
+                }
+                if (request.getErrorRateThreshold() != null) {
+                    body.put("error_rate_threshold", request.getErrorRateThreshold());
+                }
+                if (request.getAutoTriggerEnabled() != null) {
+                    body.put("auto_trigger_enabled", request.getAutoTriggerEnabled());
+                }
+
+                // Note: configure uses POST, not PUT
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/killswitch/" + systemId + "/configure", body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseKillSwitchResponse(response);
+                }
+            }, "masfeat.configureKillSwitch");
+        }
+
+        /**
+         * Triggers the kill switch for an AI system.
+         *
+         * @param systemId the system ID (string ID, not UUID)
+         * @param request the trigger request
+         * @return the triggered kill switch
+         */
+        public KillSwitch triggerKillSwitch(String systemId, TriggerKillSwitchRequest request) {
+            Objects.requireNonNull(systemId, "systemId cannot be null");
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                body.put("reason", request.getReason());
+                if (request.getTriggeredBy() != null) {
+                    body.put("triggered_by", request.getTriggeredBy());
+                }
+
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/killswitch/" + systemId + "/trigger", body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseKillSwitchResponse(response);
+                }
+            }, "masfeat.triggerKillSwitch");
+        }
+
+        /**
+         * Restores the kill switch for an AI system after remediation.
+         *
+         * @param systemId the system ID (string ID, not UUID)
+         * @param request the restore request
+         * @return the restored kill switch
+         */
+        public KillSwitch restoreKillSwitch(String systemId, RestoreKillSwitchRequest request) {
+            Objects.requireNonNull(systemId, "systemId cannot be null");
+            Objects.requireNonNull(request, "request cannot be null");
+
+            return retryExecutor.execute(() -> {
+                Map<String, Object> body = new HashMap<>();
+                body.put("reason", request.getReason());
+                if (request.getRestoredBy() != null) {
+                    body.put("restored_by", request.getRestoredBy());
+                }
+
+                Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/killswitch/" + systemId + "/restore", body);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseKillSwitchResponse(response);
+                }
+            }, "masfeat.restoreKillSwitch");
+        }
+
+        /**
+         * Gets the kill switch event history for an AI system.
+         *
+         * @param systemId the system ID (string ID, not UUID)
+         * @param limit maximum number of events to return
+         * @return list of kill switch events
+         */
+        public List<KillSwitchEvent> getKillSwitchHistory(String systemId, int limit) {
+            Objects.requireNonNull(systemId, "systemId cannot be null");
+
+            return retryExecutor.execute(() -> {
+                String path = BASE_PATH + "/killswitch/" + systemId + "/history";
+                if (limit > 0) {
+                    path += "?limit=" + limit;
+                }
+
+                Request httpRequest = buildOrchestratorRequest("GET", path, null);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseKillSwitchHistoryResponse(response);
+                }
+            }, "masfeat.getKillSwitchHistory");
+        }
+
+        // ========================================================================
+        // Response Parsing Helpers
+        // ========================================================================
+
+        private AISystemRegistry parseSystemResponse(Response response) throws IOException {
+            handleErrorResponse(response);
+
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new AxonFlowException("Empty response body", response.code(), null);
+            }
+
+            String json = body.string();
+            JsonNode node = objectMapper.readTree(json);
+
+            AISystemRegistry system = new AISystemRegistry();
+            system.setId(getTextOrNull(node, "id"));
+            system.setOrgId(getTextOrNull(node, "org_id"));
+            system.setSystemId(getTextOrNull(node, "system_id"));
+            system.setSystemName(getTextOrNull(node, "system_name"));
+            system.setDescription(getTextOrNull(node, "description"));
+            system.setOwnerTeam(getTextOrNull(node, "owner_team"));
+            system.setTechnicalOwner(getTextOrNull(node, "technical_owner"));
+            system.setBusinessOwner(getTextOrNull(node, "owner_email"));
+            system.setCreatedBy(getTextOrNull(node, "created_by"));
+
+            // Handle use_case enum
+            String useCase = getTextOrNull(node, "use_case");
+            if (useCase != null) {
+                try {
+                    system.setUseCase(AISystemUseCase.fromValue(useCase));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown use case: {}", useCase);
+                }
+            }
+
+            // Handle risk ratings
+            system.setCustomerImpact(getIntOrZero(node, "risk_rating_impact"));
+            system.setModelComplexity(getIntOrZero(node, "risk_rating_complexity"));
+            system.setHumanReliance(getIntOrZero(node, "risk_rating_reliance"));
+
+            // Handle materiality (may be "materiality" or "materiality_classification")
+            String materiality = getTextOrNull(node, "materiality");
+            if (materiality == null) {
+                materiality = getTextOrNull(node, "materiality_classification");
+            }
+            if (materiality != null) {
+                try {
+                    system.setMateriality(MaterialityClassification.fromValue(materiality));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown materiality: {}", materiality);
+                }
+            }
+
+            // Handle status
+            String status = getTextOrNull(node, "status");
+            if (status != null) {
+                try {
+                    system.setStatus(SystemStatus.fromValue(status));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown status: {}", status);
+                }
+            }
+
+            // Handle timestamps
+            system.setCreatedAt(parseInstant(node, "created_at"));
+            system.setUpdatedAt(parseInstant(node, "updated_at"));
+
+            // Handle metadata
+            if (node.has("metadata") && !node.get("metadata").isNull()) {
+                system.setMetadata(objectMapper.convertValue(node.get("metadata"),
+                    new TypeReference<Map<String, Object>>() {}));
+            }
+
+            return system;
+        }
+
+        private RegistrySummary parseSummaryResponse(Response response) throws IOException {
+            handleErrorResponse(response);
+
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new AxonFlowException("Empty response body", response.code(), null);
+            }
+
+            String json = body.string();
+            JsonNode node = objectMapper.readTree(json);
+
+            RegistrySummary summary = new RegistrySummary();
+            summary.setTotalSystems(getIntOrZero(node, "total_systems"));
+            summary.setActiveSystems(getIntOrZero(node, "active_systems"));
+
+            // Handle high_materiality_count (may be "high_materiality_count" or "high_materiality")
+            int highMateriality = getIntOrZero(node, "high_materiality_count");
+            if (highMateriality == 0) {
+                highMateriality = getIntOrZero(node, "high_materiality");
+            }
+            summary.setHighMaterialityCount(highMateriality);
+
+            summary.setMediumMaterialityCount(getIntOrZero(node, "medium_materiality_count"));
+            summary.setLowMaterialityCount(getIntOrZero(node, "low_materiality_count"));
+
+            if (node.has("by_use_case") && !node.get("by_use_case").isNull()) {
+                summary.setByUseCase(objectMapper.convertValue(node.get("by_use_case"),
+                    new TypeReference<Map<String, Integer>>() {}));
+            }
+
+            if (node.has("by_status") && !node.get("by_status").isNull()) {
+                summary.setByStatus(objectMapper.convertValue(node.get("by_status"),
+                    new TypeReference<Map<String, Integer>>() {}));
+            }
+
+            return summary;
+        }
+
+        private FEATAssessment parseAssessmentResponse(Response response) throws IOException {
+            handleErrorResponse(response);
+
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new AxonFlowException("Empty response body", response.code(), null);
+            }
+
+            String json = body.string();
+            JsonNode node = objectMapper.readTree(json);
+
+            FEATAssessment assessment = new FEATAssessment();
+            assessment.setId(getTextOrNull(node, "id"));
+            assessment.setOrgId(getTextOrNull(node, "org_id"));
+            assessment.setSystemId(getTextOrNull(node, "system_id"));
+            assessment.setAssessmentType(getTextOrNull(node, "assessment_type"));
+            assessment.setApprovedBy(getTextOrNull(node, "approved_by"));
+            assessment.setCreatedBy(getTextOrNull(node, "created_by"));
+
+            // Handle status
+            String status = getTextOrNull(node, "status");
+            if (status != null) {
+                try {
+                    assessment.setStatus(FEATAssessmentStatus.fromValue(status));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown assessment status: {}", status);
+                }
+            }
+
+            // Handle scores
+            assessment.setFairnessScore(getIntegerOrNull(node, "fairness_score"));
+            assessment.setEthicsScore(getIntegerOrNull(node, "ethics_score"));
+            assessment.setAccountabilityScore(getIntegerOrNull(node, "accountability_score"));
+            assessment.setTransparencyScore(getIntegerOrNull(node, "transparency_score"));
+
+            // Overall score may be int or float
+            if (node.has("overall_score") && !node.get("overall_score").isNull()) {
+                JsonNode scoreNode = node.get("overall_score");
+                if (scoreNode.isNumber()) {
+                    assessment.setOverallScore(scoreNode.asInt());
+                }
+            }
+
+            // Handle timestamps
+            assessment.setAssessmentDate(parseInstant(node, "assessment_date"));
+            assessment.setValidUntil(parseInstant(node, "valid_until"));
+            assessment.setApprovedAt(parseInstant(node, "approved_at"));
+            assessment.setCreatedAt(parseInstant(node, "created_at"));
+            assessment.setUpdatedAt(parseInstant(node, "updated_at"));
+
+            // Handle details
+            if (node.has("fairness_details") && !node.get("fairness_details").isNull()) {
+                assessment.setFairnessDetails(objectMapper.convertValue(node.get("fairness_details"),
+                    new TypeReference<Map<String, Object>>() {}));
+            }
+            if (node.has("ethics_details") && !node.get("ethics_details").isNull()) {
+                assessment.setEthicsDetails(objectMapper.convertValue(node.get("ethics_details"),
+                    new TypeReference<Map<String, Object>>() {}));
+            }
+            if (node.has("accountability_details") && !node.get("accountability_details").isNull()) {
+                assessment.setAccountabilityDetails(objectMapper.convertValue(node.get("accountability_details"),
+                    new TypeReference<Map<String, Object>>() {}));
+            }
+            if (node.has("transparency_details") && !node.get("transparency_details").isNull()) {
+                assessment.setTransparencyDetails(objectMapper.convertValue(node.get("transparency_details"),
+                    new TypeReference<Map<String, Object>>() {}));
+            }
+
+            // Handle assessors
+            if (node.has("assessors") && node.get("assessors").isArray()) {
+                assessment.setAssessors(objectMapper.convertValue(node.get("assessors"),
+                    new TypeReference<List<String>>() {}));
+            }
+
+            // Handle recommendations
+            if (node.has("recommendations") && node.get("recommendations").isArray()) {
+                assessment.setRecommendations(objectMapper.convertValue(node.get("recommendations"),
+                    new TypeReference<List<String>>() {}));
+            }
+
+            return assessment;
+        }
+
+        private KillSwitch parseKillSwitchResponse(Response response) throws IOException {
+            handleErrorResponse(response);
+
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new AxonFlowException("Empty response body", response.code(), null);
+            }
+
+            String json = body.string();
+            JsonNode node = objectMapper.readTree(json);
+
+            // Handle nested response: {"kill_switch": {...}, "message": "..."}
+            if (node.has("kill_switch") && !node.get("kill_switch").isNull()) {
+                node = node.get("kill_switch");
+            }
+
+            KillSwitch ks = new KillSwitch();
+            ks.setId(getTextOrNull(node, "id"));
+            ks.setOrgId(getTextOrNull(node, "org_id"));
+            ks.setSystemId(getTextOrNull(node, "system_id"));
+            ks.setTriggeredBy(getTextOrNull(node, "triggered_by"));
+            ks.setRestoredBy(getTextOrNull(node, "restored_by"));
+
+            // Handle triggered_reason (may be "triggered_reason" or "trigger_reason")
+            String triggeredReason = getTextOrNull(node, "triggered_reason");
+            if (triggeredReason == null) {
+                triggeredReason = getTextOrNull(node, "trigger_reason");
+            }
+            ks.setTriggeredReason(triggeredReason);
+
+            // Handle status
+            String status = getTextOrNull(node, "status");
+            if (status != null) {
+                try {
+                    ks.setStatus(KillSwitchStatus.fromValue(status));
+                } catch (IllegalArgumentException e) {
+                    logger.warn("Unknown kill switch status: {}", status);
+                }
+            }
+
+            // Handle auto_trigger
+            if (node.has("auto_trigger_enabled") && !node.get("auto_trigger_enabled").isNull()) {
+                ks.setAutoTriggerEnabled(node.get("auto_trigger_enabled").asBoolean());
+            }
+
+            // Handle thresholds
+            ks.setAccuracyThreshold(getDoubleOrNull(node, "accuracy_threshold"));
+            ks.setBiasThreshold(getDoubleOrNull(node, "bias_threshold"));
+            ks.setErrorRateThreshold(getDoubleOrNull(node, "error_rate_threshold"));
+
+            // Handle timestamps
+            ks.setTriggeredAt(parseInstant(node, "triggered_at"));
+            ks.setRestoredAt(parseInstant(node, "restored_at"));
+            ks.setCreatedAt(parseInstant(node, "created_at"));
+            ks.setUpdatedAt(parseInstant(node, "updated_at"));
+
+            return ks;
+        }
+
+        private List<KillSwitchEvent> parseKillSwitchHistoryResponse(Response response) throws IOException {
+            handleErrorResponse(response);
+
+            ResponseBody body = response.body();
+            if (body == null) {
+                throw new AxonFlowException("Empty response body", response.code(), null);
+            }
+
+            String json = body.string();
+            JsonNode node = objectMapper.readTree(json);
+
+            // Handle nested response: {"history": [...]} or direct array
+            JsonNode eventsNode;
+            if (node.has("history") && node.get("history").isArray()) {
+                eventsNode = node.get("history");
+            } else if (node.has("events") && node.get("events").isArray()) {
+                eventsNode = node.get("events");
+            } else if (node.isArray()) {
+                eventsNode = node;
+            } else {
+                return new ArrayList<>();
+            }
+
+            List<KillSwitchEvent> events = new ArrayList<>();
+            for (JsonNode eventNode : eventsNode) {
+                KillSwitchEvent event = new KillSwitchEvent();
+                event.setId(getTextOrNull(eventNode, "id"));
+                event.setKillSwitchId(getTextOrNull(eventNode, "kill_switch_id"));
+
+                // Handle event_type (may be "event_type" or "action")
+                String eventType = getTextOrNull(eventNode, "event_type");
+                if (eventType == null) {
+                    eventType = getTextOrNull(eventNode, "action");
+                }
+                event.setEventType(eventType);
+
+                // Handle created_by (may be "created_by" or "performed_by")
+                String createdBy = getTextOrNull(eventNode, "created_by");
+                if (createdBy == null) {
+                    createdBy = getTextOrNull(eventNode, "performed_by");
+                }
+                event.setCreatedBy(createdBy);
+
+                // Handle created_at (may be "created_at" or "performed_at")
+                java.time.Instant createdAt = parseInstant(eventNode, "created_at");
+                if (createdAt == null) {
+                    createdAt = parseInstant(eventNode, "performed_at");
+                }
+                event.setCreatedAt(createdAt);
+
+                // Handle event_data
+                if (eventNode.has("event_data") && !eventNode.get("event_data").isNull()) {
+                    event.setEventData(objectMapper.convertValue(eventNode.get("event_data"),
+                        new TypeReference<Map<String, Object>>() {}));
+                } else {
+                    // Build event_data from individual fields if present
+                    Map<String, Object> eventData = new HashMap<>();
+                    String prevStatus = getTextOrNull(eventNode, "previous_status");
+                    String newStatus = getTextOrNull(eventNode, "new_status");
+                    String reason = getTextOrNull(eventNode, "reason");
+                    if (prevStatus != null) eventData.put("previous_status", prevStatus);
+                    if (newStatus != null) eventData.put("new_status", newStatus);
+                    if (reason != null) eventData.put("reason", reason);
+                    if (!eventData.isEmpty()) {
+                        event.setEventData(eventData);
+                    }
+                }
+
+                events.add(event);
+            }
+
+            return events;
+        }
+
+        // ========================================================================
+        // JSON Helper Methods
+        // ========================================================================
+
+        private String getTextOrNull(JsonNode node, String field) {
+            if (node.has(field) && !node.get(field).isNull()) {
+                return node.get(field).asText();
+            }
+            return null;
+        }
+
+        private int getIntOrZero(JsonNode node, String field) {
+            if (node.has(field) && !node.get(field).isNull()) {
+                return node.get(field).asInt();
+            }
+            return 0;
+        }
+
+        private Integer getIntegerOrNull(JsonNode node, String field) {
+            if (node.has(field) && !node.get(field).isNull()) {
+                return node.get(field).asInt();
+            }
+            return null;
+        }
+
+        private Double getDoubleOrNull(JsonNode node, String field) {
+            if (node.has(field) && !node.get(field).isNull()) {
+                return node.get(field).asDouble();
+            }
+            return null;
+        }
+
+        private java.time.Instant parseInstant(JsonNode node, String field) {
+            if (node.has(field) && !node.get(field).isNull()) {
+                String value = node.get(field).asText();
+                try {
+                    return java.time.Instant.parse(value);
+                } catch (Exception e) {
+                    logger.warn("Failed to parse timestamp '{}': {}", value, e.getMessage());
+                }
+            }
+            return null;
+        }
     }
 
     @Override
