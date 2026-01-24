@@ -1625,6 +1625,77 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // Unified Execution Tracking (Issue #1075 - EPIC #1074)
+    // ========================================================================
+
+    /**
+     * Gets the unified execution status for a given execution ID.
+     *
+     * <p>This method works for both MAP plans and WCP workflows, returning
+     * a consistent status format regardless of execution type.
+     *
+     * @param executionId the execution ID (plan ID or workflow ID)
+     * @return the unified execution status
+     */
+    public com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus getExecutionStatus(String executionId) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/executions/" + executionId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus.class);
+            }
+        }, "getExecutionStatus");
+    }
+
+    /**
+     * Lists unified executions with optional filtering.
+     *
+     * @param request filter options
+     * @return paginated list of executions
+     */
+    public com.getaxonflow.sdk.types.execution.ExecutionTypes.UnifiedListExecutionsResponse listUnifiedExecutions(
+            com.getaxonflow.sdk.types.execution.ExecutionTypes.UnifiedListExecutionsRequest request) {
+
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/executions");
+            if (request != null) {
+                StringBuilder params = new StringBuilder();
+                if (request.getExecutionType() != null) {
+                    params.append("execution_type=").append(request.getExecutionType().getValue());
+                }
+                if (request.getStatus() != null) {
+                    if (params.length() > 0) params.append("&");
+                    params.append("status=").append(request.getStatus().getValue());
+                }
+                if (request.getTenantId() != null) {
+                    if (params.length() > 0) params.append("&");
+                    params.append("tenant_id=").append(request.getTenantId());
+                }
+                if (request.getOrgId() != null) {
+                    if (params.length() > 0) params.append("&");
+                    params.append("org_id=").append(request.getOrgId());
+                }
+                if (request.getLimit() > 0) {
+                    if (params.length() > 0) params.append("&");
+                    params.append("limit=").append(request.getLimit());
+                }
+                if (request.getOffset() > 0) {
+                    if (params.length() > 0) params.append("&");
+                    params.append("offset=").append(request.getOffset());
+                }
+                if (params.length() > 0) {
+                    path.append("?").append(params);
+                }
+            }
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, com.getaxonflow.sdk.types.execution.ExecutionTypes.UnifiedListExecutionsResponse.class);
+            }
+        }, "listUnifiedExecutions");
+    }
+
+    // ========================================================================
     // Configuration Access
     // ========================================================================
 
