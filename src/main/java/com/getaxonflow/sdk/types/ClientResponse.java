@@ -57,6 +57,9 @@ public final class ClientResponse {
     @JsonProperty("error")
     private final String error;
 
+    @JsonProperty("budget_info")
+    private final BudgetInfo budgetInfo;
+
     public ClientResponse(
             @JsonProperty("success") boolean success,
             @JsonProperty("data") Object data,
@@ -65,7 +68,8 @@ public final class ClientResponse {
             @JsonProperty("blocked") boolean blocked,
             @JsonProperty("block_reason") String blockReason,
             @JsonProperty("policy_info") PolicyInfo policyInfo,
-            @JsonProperty("error") String error) {
+            @JsonProperty("error") String error,
+            @JsonProperty("budget_info") BudgetInfo budgetInfo) {
         this.success = success;
         this.data = data;
         this.result = result;
@@ -74,6 +78,7 @@ public final class ClientResponse {
         this.blockReason = blockReason;
         this.policyInfo = policyInfo;
         this.error = error;
+        this.budgetInfo = budgetInfo;
     }
 
     /**
@@ -179,6 +184,15 @@ public final class ClientResponse {
         return error;
     }
 
+    /**
+     * Returns budget enforcement status information.
+     *
+     * @return the budget info, may be null if no budget check was performed
+     */
+    public BudgetInfo getBudgetInfo() {
+        return budgetInfo;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -191,12 +205,13 @@ public final class ClientResponse {
                Objects.equals(planId, that.planId) &&
                Objects.equals(blockReason, that.blockReason) &&
                Objects.equals(policyInfo, that.policyInfo) &&
-               Objects.equals(error, that.error);
+               Objects.equals(error, that.error) &&
+               Objects.equals(budgetInfo, that.budgetInfo);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(success, data, result, planId, blocked, blockReason, policyInfo, error);
+        return Objects.hash(success, data, result, planId, blocked, blockReason, policyInfo, error, budgetInfo);
     }
 
     @Override
@@ -207,6 +222,7 @@ public final class ClientResponse {
                ", blockReason='" + blockReason + '\'' +
                ", policyInfo=" + policyInfo +
                ", error='" + error + '\'' +
+               ", budgetInfo=" + budgetInfo +
                '}';
     }
 }

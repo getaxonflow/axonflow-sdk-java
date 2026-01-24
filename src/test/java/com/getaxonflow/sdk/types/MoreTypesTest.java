@@ -1379,7 +1379,7 @@ class MoreTypesTest {
 
             ClientResponse response = new ClientResponse(
                 true, "Response data", "result text", "plan-123",
-                false, null, policyInfo, null
+                false, null, policyInfo, null, null
             );
 
             assertThat(response.isSuccess()).isTrue();
@@ -1396,7 +1396,7 @@ class MoreTypesTest {
         void shouldCreateBlockedResponse() {
             ClientResponse response = new ClientResponse(
                 false, null, null, null,
-                true, "Request blocked by policy: pii-check", null, null
+                true, "Request blocked by policy: pii-check", null, null, null
             );
 
             assertThat(response.isSuccess()).isFalse();
@@ -1409,7 +1409,7 @@ class MoreTypesTest {
         void shouldCreateErrorResponse() {
             ClientResponse response = new ClientResponse(
                 false, null, null, null,
-                false, null, null, "Internal server error"
+                false, null, null, "Internal server error", null
             );
 
             assertThat(response.isSuccess()).isFalse();
@@ -1421,7 +1421,7 @@ class MoreTypesTest {
         void shouldExtractBlockingPolicyNameFormat1() {
             ClientResponse response = new ClientResponse(
                 false, null, null, null,
-                true, "Request blocked by policy: my-policy", null, null
+                true, "Request blocked by policy: my-policy", null, null, null
             );
 
             assertThat(response.getBlockingPolicyName()).isEqualTo("my-policy");
@@ -1432,7 +1432,7 @@ class MoreTypesTest {
         void shouldExtractBlockingPolicyNameFormat2() {
             ClientResponse response = new ClientResponse(
                 false, null, null, null,
-                true, "Blocked by policy: another-policy", null, null
+                true, "Blocked by policy: another-policy", null, null, null
             );
 
             assertThat(response.getBlockingPolicyName()).isEqualTo("another-policy");
@@ -1443,7 +1443,7 @@ class MoreTypesTest {
         void shouldExtractBlockingPolicyNameBracket() {
             ClientResponse response = new ClientResponse(
                 false, null, null, null,
-                true, "[policy-name] Detailed description", null, null
+                true, "[policy-name] Detailed description", null, null, null
             );
 
             assertThat(response.getBlockingPolicyName()).isEqualTo("policy-name");
@@ -1454,7 +1454,7 @@ class MoreTypesTest {
         void shouldReturnFullReasonWhenNoPattern() {
             ClientResponse response = new ClientResponse(
                 false, null, null, null,
-                true, "Custom block reason", null, null
+                true, "Custom block reason", null, null, null
             );
 
             assertThat(response.getBlockingPolicyName()).isEqualTo("Custom block reason");
@@ -1464,10 +1464,10 @@ class MoreTypesTest {
         @DisplayName("should return null for null or empty block reason")
         void shouldReturnNullForNullOrEmpty() {
             ClientResponse nullReason = new ClientResponse(
-                true, null, null, null, false, null, null, null
+                true, null, null, null, false, null, null, null, null
             );
             ClientResponse emptyReason = new ClientResponse(
-                true, null, null, null, false, "", null, null
+                true, null, null, null, false, "", null, null, null
             );
 
             assertThat(nullReason.getBlockingPolicyName()).isNull();
@@ -1495,9 +1495,9 @@ class MoreTypesTest {
         @Test
         @DisplayName("should implement equals and hashCode")
         void shouldImplementEqualsAndHashCode() {
-            ClientResponse r1 = new ClientResponse(true, "data", null, null, false, null, null, null);
-            ClientResponse r2 = new ClientResponse(true, "data", null, null, false, null, null, null);
-            ClientResponse r3 = new ClientResponse(false, "data", null, null, false, null, null, null);
+            ClientResponse r1 = new ClientResponse(true, "data", null, null, false, null, null, null, null);
+            ClientResponse r2 = new ClientResponse(true, "data", null, null, false, null, null, null, null);
+            ClientResponse r3 = new ClientResponse(false, "data", null, null, false, null, null, null, null);
 
             assertThat(r1).isEqualTo(r2);
             assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
@@ -1508,7 +1508,7 @@ class MoreTypesTest {
         @DisplayName("should have toString")
         void shouldHaveToString() {
             ClientResponse response = new ClientResponse(
-                true, null, null, null, false, null, null, null
+                true, null, null, null, false, null, null, null, null
             );
             assertThat(response.toString()).contains("ClientResponse");
         }
