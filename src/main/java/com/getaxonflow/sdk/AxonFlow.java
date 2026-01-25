@@ -2022,6 +2022,9 @@ public final class AxonFlow implements Closeable {
         switch (code) {
             case 401:
                 throw new AuthenticationException(errorMessage);
+            case 402:
+                // Budget exceeded - treat similarly to 403 policy violation
+                throw new PolicyViolationException(errorMessage);
             case 403:
                 // Check if this is a policy violation
                 if (body.contains("policy") || body.contains("blocked")) {
