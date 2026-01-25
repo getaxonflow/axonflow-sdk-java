@@ -550,16 +550,35 @@ public final class AxonFlow implements Closeable {
     public ClientResponse proxyLLMCall(ClientRequest request) {
         Objects.requireNonNull(request, "request cannot be null");
 
+        // Auto-populate clientId from config if not set in request (matches Go/Python/TypeScript SDK behavior)
+        ClientRequest effectiveRequest = request;
+        if ((request.getClientId() == null || request.getClientId().isEmpty())
+                && config.getClientId() != null && !config.getClientId().isEmpty()) {
+            effectiveRequest = ClientRequest.builder()
+                .query(request.getQuery())
+                .userToken(request.getUserToken())
+                .clientId(config.getClientId())
+                .requestType(request.getRequestType() != null
+                    ? RequestType.fromValue(request.getRequestType())
+                    : RequestType.CHAT)
+                .context(request.getContext())
+                .llmProvider(request.getLlmProvider())
+                .model(request.getModel())
+                .build();
+        }
+
+        final ClientRequest finalRequest = effectiveRequest;
+
         // Check cache first
         String cacheKey = ResponseCache.generateKey(
-            request.getRequestType(),
-            request.getQuery(),
-            request.getUserToken()
+            finalRequest.getRequestType(),
+            finalRequest.getQuery(),
+            finalRequest.getUserToken()
         );
 
         return cache.get(cacheKey, ClientResponse.class).orElseGet(() -> {
             ClientResponse response = retryExecutor.execute(() -> {
-                Request httpRequest = buildRequest("POST", "/api/request", request);
+                Request httpRequest = buildRequest("POST", "/api/request", finalRequest);
                 try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
                     ClientResponse result = parseResponse(httpResponse, ClientResponse.class);
 

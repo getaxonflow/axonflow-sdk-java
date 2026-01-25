@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **PolicyCategory enum**: Added `PII_SINGAPORE("pii-singapore")` value for Singapore PII detection policies (NRIC, FIN, UEN patterns)
+- **proxyLLMCall clientId auto-injection**: Auto-populate `clientId` from config when not explicitly set in `ClientRequest`, matching Go/Python/TypeScript SDK behavior
 
 ---
 
