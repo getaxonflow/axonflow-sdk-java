@@ -562,4 +562,9 @@ This SDK is licensed under the [Apache License 2.0](LICENSE).
 - **Issues**: https://github.com/getaxonflow/axonflow-sdk-java/issues
 - **Email**: dev@getaxonflow.com
 
+If you are evaluating AxonFlow in a company setting and cannot open a public issue, you can share feedback or blockers confidentially here:
+[Anonymous evaluation feedback form](https://getaxonflow.com/feedback)
+
+No email required. Optional contact if you want a response.
+
 <img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=ebd08248-7b5b-408f-8f54-cc062bd41c72" />
