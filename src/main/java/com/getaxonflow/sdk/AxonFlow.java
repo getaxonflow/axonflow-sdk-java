@@ -294,8 +294,8 @@ public final class AxonFlow implements Closeable {
     public PolicyApprovalResult getPolicyApprovedContext(PolicyApprovalRequest request) {
         Objects.requireNonNull(request, "request cannot be null");
 
-        // Gateway Mode: Let server decide if credentials are required based on DEPLOYMENT_MODE
-        // Community/self-hosted deployments work without credentials
+        // Gateway Mode is an enterprise feature that requires credentials
+        requireCredentials("Gateway Mode (getPolicyApprovedContext)");
 
         // Auto-populate clientId from config if not set in request (matches Go SDK behavior)
         PolicyApprovalRequest effectiveRequest = request;
@@ -363,8 +363,8 @@ public final class AxonFlow implements Closeable {
     public AuditResult auditLLMCall(AuditOptions options) {
         Objects.requireNonNull(options, "options cannot be null");
 
-        // Gateway Mode: Let server decide if credentials are required based on DEPLOYMENT_MODE
-        // Community/self-hosted deployments work without credentials
+        // Gateway Mode is an enterprise feature that requires credentials
+        requireCredentials("Gateway Mode (auditLLMCall)");
 
         return retryExecutor.execute(() -> {
             Request httpRequest = buildRequest("POST", "/api/audit/llm-call", options);
