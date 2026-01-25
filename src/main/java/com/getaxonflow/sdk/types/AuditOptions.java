@@ -78,7 +78,7 @@ public final class AuditOptions {
 
     private AuditOptions(Builder builder) {
         this.contextId = Objects.requireNonNull(builder.contextId, "contextId cannot be null");
-        this.clientId = Objects.requireNonNull(builder.clientId, "clientId cannot be null");
+        this.clientId = builder.clientId; // Optional - SDK will use smart default if null
         this.responseSummary = builder.responseSummary;
         this.provider = builder.provider;
         this.model = builder.model;
