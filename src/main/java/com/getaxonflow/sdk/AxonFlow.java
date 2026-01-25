@@ -294,22 +294,19 @@ public final class AxonFlow implements Closeable {
     public PolicyApprovalResult getPolicyApprovedContext(PolicyApprovalRequest request) {
         Objects.requireNonNull(request, "request cannot be null");
 
-        // Gateway Mode is an enterprise feature that requires credentials
-        requireCredentials("Gateway Mode (getPolicyApprovedContext)");
+        // Use smart default for clientId - enables zero-config community mode
+        String effectiveClientId = (request.getClientId() != null && !request.getClientId().isEmpty())
+            ? request.getClientId()
+            : getEffectiveClientId();
 
-        // Auto-populate clientId from config if not set in request (matches Go SDK behavior)
-        PolicyApprovalRequest effectiveRequest = request;
-        if ((request.getClientId() == null || request.getClientId().isEmpty())
-                && config.getClientId() != null && !config.getClientId().isEmpty()) {
-            Map<String, Object> ctx = request.getContext();
-            effectiveRequest = PolicyApprovalRequest.builder()
-                .userToken(request.getUserToken())
-                .query(request.getQuery())
-                .dataSources(request.getDataSources())
-                .context(ctx == null || ctx.isEmpty() ? null : ctx)
-                .clientId(config.getClientId())
-                .build();
-        }
+        Map<String, Object> ctx = request.getContext();
+        PolicyApprovalRequest effectiveRequest = PolicyApprovalRequest.builder()
+            .userToken(request.getUserToken())
+            .query(request.getQuery())
+            .dataSources(request.getDataSources())
+            .context(ctx == null || ctx.isEmpty() ? null : ctx)
+            .clientId(effectiveClientId)
+            .build();
 
         final PolicyApprovalRequest finalRequest = effectiveRequest;
         return retryExecutor.execute(() -> {
@@ -363,11 +360,32 @@ public final class AxonFlow implements Closeable {
     public AuditResult auditLLMCall(AuditOptions options) {
         Objects.requireNonNull(options, "options cannot be null");
 
-        // Gateway Mode is an enterprise feature that requires credentials
-        requireCredentials("Gateway Mode (auditLLMCall)");
+        // Use smart default for clientId - enables zero-config community mode
+        String effectiveClientId = (options.getClientId() != null && !options.getClientId().isEmpty())
+            ? options.getClientId()
+            : getEffectiveClientId();
+
+        // Create effective options with the smart default clientId
+        AuditOptions.Builder builder = AuditOptions.builder()
+            .contextId(options.getContextId())
+            .clientId(effectiveClientId)
+            .responseSummary(options.getResponseSummary())
+            .provider(options.getProvider())
+            .model(options.getModel())
+            .tokenUsage(options.getTokenUsage())
+            .metadata(options.getMetadata())
+            .success(options.getSuccess())
+            .errorMessage(options.getErrorMessage());
+
+        // Handle null latencyMs (builder takes primitive long)
+        if (options.getLatencyMs() != null) {
+            builder.latencyMs(options.getLatencyMs());
+        }
+
+        AuditOptions effectiveOptions = builder.build();
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildRequest("POST", "/api/audit/llm-call", options);
+            Request httpRequest = buildRequest("POST", "/api/audit/llm-call", effectiveOptions);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, AuditResult.class);
             }
@@ -1952,16 +1970,17 @@ public final class AxonFlow implements Closeable {
 
     /**
      * Requires credentials for enterprise features.
+     * Get the effective clientId, using smart default for community mode.
      *
-     * @param feature the feature name for error message
-     * @throws AuthenticationException if clientId is not configured
+     * <p>Returns the configured clientId if set, otherwise returns "community"
+     * as a smart default. This enables zero-config usage for community/self-hosted
+     * deployments while still supporting enterprise deployments with explicit credentials.
+     *
+     * @return the clientId to use in requests
      */
-    private void requireCredentials(String feature) {
-        if (!config.hasCredentials()) {
-            throw new AuthenticationException(
-                feature + " requires clientId. Set clientId in config (clientSecret is optional for community mode)."
-            );
-        }
+    private String getEffectiveClientId() {
+        String clientId = config.getClientId();
+        return (clientId != null && !clientId.isEmpty()) ? clientId : "community";
     }
 
     private void addTenantIdHeader(Request.Builder builder) {

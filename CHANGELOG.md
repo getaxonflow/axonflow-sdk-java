@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.7.1] - 2026-01-25
 
+### Changed
+
+- **Gateway Mode smart defaults**: `getPolicyApprovedContext()` and `auditLLMCall()` now use `"community"` as default clientId when not configured, enabling zero-config usage for community/self-hosted deployments
+
 ### Fixed
 
-- **Gateway Mode credential enforcement**: `getPolicyApprovedContext()` and `auditLLMCall()` now require credentials (clientId), matching Go/Python SDK behavior for consistency across all SDKs
 - **PolicyCategory enum**: Added `PII_SINGAPORE("pii-singapore")` value for Singapore PII detection policies (NRIC, FIN, UEN patterns)
 - **proxyLLMCall clientId auto-injection**: Auto-populate `clientId` from config when not explicitly set in `ClientRequest`, matching Go/Python/TypeScript SDK behavior
 

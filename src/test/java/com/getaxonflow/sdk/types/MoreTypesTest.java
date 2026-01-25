@@ -411,12 +411,14 @@ class MoreTypesTest {
         }
 
         @Test
-        @DisplayName("should fail when clientId is null")
-        void shouldFailWhenClientIdIsNull() {
-            assertThatThrownBy(() -> AuditOptions.builder()
+        @DisplayName("should allow clientId to be null for smart defaults")
+        void shouldAllowClientIdToBeNull() {
+            // clientId can be null - SDK will use smart default "community"
+            AuditOptions options = AuditOptions.builder()
                 .contextId("ctx")
-                .build())
-                .isInstanceOf(NullPointerException.class);
+                .build();
+            assertThat(options.getContextId()).isEqualTo("ctx");
+            assertThat(options.getClientId()).isNull();
         }
 
         @Test
