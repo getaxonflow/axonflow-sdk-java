@@ -281,6 +281,62 @@ class AxonFlowTest {
         assertThat(response.isSuccess()).isTrue();
     }
 
+    @Test
+    @DisplayName("proxyLLMCall should auto-inject clientId from config when not set in request")
+    void proxyLLMCallShouldAutoInjectClientId() {
+        // Stub to verify the request contains client_id from config
+        stubFor(post(urlEqualTo("/api/request"))
+            .withRequestBody(matchingJsonPath("$.client_id", equalTo("test-client")))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"blocked\":false}")));
+
+        // Build request WITHOUT clientId
+        ClientRequest request = ClientRequest.builder()
+            .query("test query")
+            .userToken("user-123")
+            .requestType(RequestType.CHAT)
+            .build();
+
+        // The SDK should auto-inject clientId from config
+        ClientResponse response = axonflow.proxyLLMCall(request);
+
+        assertThat(response.isSuccess()).isTrue();
+
+        // Verify the request was made with client_id
+        verify(postRequestedFor(urlEqualTo("/api/request"))
+            .withRequestBody(matchingJsonPath("$.client_id", equalTo("test-client"))));
+    }
+
+    @Test
+    @DisplayName("proxyLLMCall should preserve clientId when explicitly set in request")
+    void proxyLLMCallShouldPreserveExplicitClientId() {
+        // Stub to verify the request contains explicit client_id
+        stubFor(post(urlEqualTo("/api/request"))
+            .withRequestBody(matchingJsonPath("$.client_id", equalTo("explicit-client")))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"blocked\":false}")));
+
+        // Build request WITH explicit clientId
+        ClientRequest request = ClientRequest.builder()
+            .query("test query")
+            .userToken("user-123")
+            .clientId("explicit-client")
+            .requestType(RequestType.CHAT)
+            .build();
+
+        ClientResponse response = axonflow.proxyLLMCall(request);
+
+        assertThat(response.isSuccess()).isTrue();
+
+        // Verify the request was made with explicit client_id (not overwritten)
+        verify(postRequestedFor(urlEqualTo("/api/request"))
+            .withRequestBody(matchingJsonPath("$.client_id", equalTo("explicit-client"))));
+    }
+
     // ========================================================================
     // Multi-Agent Planning
     // ========================================================================
