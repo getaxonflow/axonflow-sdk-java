@@ -150,8 +150,8 @@ class AxonFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("executeQuery should return response")
-    void executeQueryShouldReturnResponse() {
+    @DisplayName("proxyLLMCall should return response")
+    void proxyLLMCallShouldReturnResponse() {
         stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
@@ -166,7 +166,7 @@ class AxonFlowIntegrationTest {
                     + "}"
                     + "}")));
 
-        ClientResponse response = axonflow.executeQuery(ClientRequest.builder()
+        ClientResponse response = axonflow.proxyLLMCall(ClientRequest.builder()
             .query("What is the weather?")
             .userToken("user-123")
             .build()
@@ -178,8 +178,8 @@ class AxonFlowIntegrationTest {
     }
 
     @Test
-    @DisplayName("executeQuery should throw on policy block")
-    void executeQueryShouldThrowOnPolicyBlock() {
+    @DisplayName("proxyLLMCall should throw on policy block")
+    void proxyLLMCallShouldThrowOnPolicyBlock() {
         stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
@@ -194,7 +194,7 @@ class AxonFlowIntegrationTest {
                     + "}"
                     + "}")));
 
-        assertThatThrownBy(() -> axonflow.executeQuery(ClientRequest.builder()
+        assertThatThrownBy(() -> axonflow.proxyLLMCall(ClientRequest.builder()
             .query("SELECT * FROM users; DROP TABLE users;")
             .userToken("user-123")
             .build()
@@ -215,7 +215,7 @@ class AxonFlowIntegrationTest {
                     + "\"error\": \"Invalid credentials\""
                     + "}")));
 
-        assertThatThrownBy(() -> axonflow.executeQuery(ClientRequest.builder()
+        assertThatThrownBy(() -> axonflow.proxyLLMCall(ClientRequest.builder()
             .query("test")
             .build()
         ))
@@ -233,7 +233,7 @@ class AxonFlowIntegrationTest {
                     + "\"error\": \"Rate limit exceeded\""
                     + "}")));
 
-        assertThatThrownBy(() -> axonflow.executeQuery(ClientRequest.builder()
+        assertThatThrownBy(() -> axonflow.proxyLLMCall(ClientRequest.builder()
             .query("test")
             .build()
         ))
@@ -344,10 +344,10 @@ class AxonFlowIntegrationTest {
             .build();
 
         // First call - should hit the server
-        axonflow.executeQuery(request);
+        axonflow.proxyLLMCall(request);
 
         // Second call with same parameters - should use cache
-        axonflow.executeQuery(request);
+        axonflow.proxyLLMCall(request);
 
         // Verify only one request was made
         verify(1, postRequestedFor(urlEqualTo("/api/request")));

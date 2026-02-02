@@ -79,7 +79,7 @@ public class GeminiInterceptor {
             }
 
             // Pre-check with AxonFlow
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)
@@ -123,7 +123,7 @@ public class GeminiInterceptor {
             context.put("model", request.getModel());
 
             // Pre-check (synchronous for now)
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)

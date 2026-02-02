@@ -244,7 +244,7 @@ class SelfHostedZeroConfigTest {
                         + "\"blocked\": false"
                         + "}")));
 
-            ClientResponse response = axonflow.executeQuery(ClientRequest.builder()
+            ClientResponse response = axonflow.proxyLLMCall(ClientRequest.builder()
                 .userToken("")  // Empty token
                 .query("What is 2 + 2?")
                 .build()
@@ -376,7 +376,7 @@ class SelfHostedZeroConfigTest {
                     .withHeader("Content-Type", "application/json")
                     .withBody("{\"status\": \"healthy\"}")));
 
-            // Stub executeQuery endpoint (community feature)
+            // Stub proxyLLMCall endpoint (community feature)
             stubFor(post(urlEqualTo("/api/request"))
                 .willReturn(aResponse()
                     .withStatus(200)
@@ -396,8 +396,8 @@ class SelfHostedZeroConfigTest {
             HealthStatus health = client.healthCheck();
             assertThat(health.isHealthy()).isTrue();
 
-            // Step 2: executeQuery should work (community feature)
-            ClientResponse response = client.executeQuery(
+            // Step 2: proxyLLMCall should work (community feature)
+            ClientResponse response = client.proxyLLMCall(
                 ClientRequest.builder()
                     .userToken("")
                     .query("Hello, this is my first query!")
@@ -409,7 +409,7 @@ class SelfHostedZeroConfigTest {
             System.out.println("✅ First-time user experience validated (community mode)");
             System.out.println("   - Client creation: OK");
             System.out.println("   - Health check: OK");
-            System.out.println("   - Execute query: OK");
+            System.out.println("   - Proxy LLM call: OK");
         }
     }
 
@@ -438,7 +438,7 @@ class SelfHostedZeroConfigTest {
                 .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
                 .build());
 
-            client.executeQuery(
+            client.proxyLLMCall(
                 ClientRequest.builder()
                     .userToken("")
                     .query("Test query")
@@ -471,7 +471,7 @@ class SelfHostedZeroConfigTest {
                 .clientId("test-client").clientSecret("test-secret")
                 .build());
 
-            client.executeQuery(
+            client.proxyLLMCall(
                 ClientRequest.builder()
                     .userToken("")
                     .query("Test query")
@@ -507,7 +507,7 @@ class SelfHostedZeroConfigTest {
                 .clientSecret("my-secret")
                 .build());
 
-            client.executeQuery(
+            client.proxyLLMCall(
                 ClientRequest.builder()
                     .userToken("")
                     .query("Test query")

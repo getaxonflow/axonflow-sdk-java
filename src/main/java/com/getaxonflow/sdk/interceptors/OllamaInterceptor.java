@@ -74,7 +74,7 @@ public class OllamaInterceptor {
             context.put("provider", "ollama");
             context.put("model", request.getModel());
 
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)
@@ -113,7 +113,7 @@ public class OllamaInterceptor {
             context.put("provider", "ollama");
             context.put("model", request.getModel());
 
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(request.getPrompt())
                     .userToken(userToken)
@@ -151,7 +151,7 @@ public class OllamaInterceptor {
             context.put("provider", "ollama");
             context.put("model", request.getModel());
 
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)

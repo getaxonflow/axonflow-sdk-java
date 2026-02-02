@@ -95,7 +95,7 @@ public final class OpenAIInterceptor {
 
             // Check with AxonFlow
             long startTime = System.currentTimeMillis();
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)
@@ -148,7 +148,7 @@ public final class OpenAIInterceptor {
             // Check with AxonFlow (async)
             long startTime = System.currentTimeMillis();
 
-            return axonflow.executeQueryAsync(
+            return axonflow.proxyLLMCallAsync(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)

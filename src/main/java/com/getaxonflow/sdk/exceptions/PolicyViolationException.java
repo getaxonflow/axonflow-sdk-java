@@ -27,7 +27,7 @@ import java.util.List;
  * <p>Example usage:
  * <pre>{@code
  * try {
- *     axonflow.executeQuery(request);
+ *     axonflow.proxyLLMCall(request);
  * } catch (PolicyViolationException e) {
  *     System.out.println("Blocked by policy: " + e.getPolicyName());
  *     System.out.println("Reason: " + e.getBlockReason());

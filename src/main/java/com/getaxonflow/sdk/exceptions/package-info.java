@@ -36,7 +36,7 @@
  * <h2>Usage Example</h2>
  * <pre>{@code
  * try {
- *     axonflow.executeQuery(request);
+ *     axonflow.proxyLLMCall(request);
  * } catch (PolicyViolationException e) {
  *     System.out.println("Blocked by: " + e.getPolicyName());
  * } catch (RateLimitException e) {

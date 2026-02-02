@@ -252,19 +252,19 @@ class AxonFlowTest {
     }
 
     // ========================================================================
-    // Proxy Mode - Execute Query
+    // Proxy Mode - proxyLLMCall
     // ========================================================================
 
     @Test
-    @DisplayName("executeQuery should require non-null request")
-    void executeQueryShouldRequireRequest() {
-        assertThatThrownBy(() -> axonflow.executeQuery(null))
+    @DisplayName("proxyLLMCall should require non-null request")
+    void proxyLLMCallShouldRequireRequest() {
+        assertThatThrownBy(() -> axonflow.proxyLLMCall(null))
             .isInstanceOf(NullPointerException.class);
     }
 
     @Test
-    @DisplayName("executeQueryAsync should return future")
-    void executeQueryAsyncShouldReturnFuture() throws Exception {
+    @DisplayName("proxyLLMCallAsync should return future")
+    void proxyLLMCallAsyncShouldReturnFuture() throws Exception {
         stubFor(post(urlEqualTo("/api/request"))
             .willReturn(aResponse()
                 .withStatus(200)
@@ -275,7 +275,7 @@ class AxonFlowTest {
             .query("test")
             .build();
 
-        CompletableFuture<ClientResponse> future = axonflow.executeQueryAsync(request);
+        CompletableFuture<ClientResponse> future = axonflow.proxyLLMCallAsync(request);
         ClientResponse response = future.get();
 
         assertThat(response.isSuccess()).isTrue();
