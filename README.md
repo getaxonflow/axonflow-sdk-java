@@ -118,7 +118,7 @@ public class ProxyExample {
             .clientSecret("your-client-secret")
             .build());
 
-        ClientResponse response = client.executeQuery(
+        ClientResponse response = client.proxyLLMCall(
             ClientRequest.builder()
                 .userPrompt("Summarize the key points of GDPR compliance")
                 .userId("user-123")
@@ -171,7 +171,7 @@ The SDK supports configuration via environment variables:
 |--------|-------------|
 | `getPolicyApprovedContext(request)` | Pre-check request against policies (Gateway Mode step 1) |
 | `auditLLMCall(request)` | Audit LLM response (Gateway Mode step 2) |
-| `executeQuery(request)` | Execute query through proxy (Proxy Mode) |
+| `proxyLLMCall(request)` | Execute query through proxy (Proxy Mode) |
 | `healthCheck()` | Check agent health status |
 
 ### Multi-Agent Planning (MAP)
@@ -424,8 +424,8 @@ The `AxonFlow` client is thread-safe and designed for reuse. Create a single ins
 AxonFlow client = AxonFlow.create(config);
 
 // Reuse across threads
-executorService.submit(() -> client.executeQuery(request1));
-executorService.submit(() -> client.executeQuery(request2));
+executorService.submit(() -> client.proxyLLMCall(request1));
+executorService.submit(() -> client.proxyLLMCall(request2));
 ```
 
 ## Logging

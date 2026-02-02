@@ -92,7 +92,7 @@ import java.util.concurrent.ForkJoinPool;
  *
  * <h2>Proxy Mode Example</h2>
  * <pre>{@code
- * ClientResponse response = axonflow.executeQuery(
+ * ClientResponse response = axonflow.proxyLLMCall(
  *     ClientRequest.builder()
  *         .query("What is the weather?")
  *         .userToken("user-123")
@@ -632,33 +632,6 @@ public final class AxonFlow implements Closeable {
      */
     public CompletableFuture<ClientResponse> proxyLLMCallAsync(ClientRequest request) {
         return CompletableFuture.supplyAsync(() -> proxyLLMCall(request), asyncExecutor);
-    }
-
-    /**
-     * Executes a query through AxonFlow (Proxy Mode).
-     *
-     * @param request the client request
-     * @return the response from AxonFlow
-     * @deprecated Use {@link #proxyLLMCall(ClientRequest)} instead. This method will be removed in v3.0.0.
-     */
-    @Deprecated
-    public ClientResponse executeQuery(ClientRequest request) {
-        if (config.isDebug()) {
-            logger.warn("DEPRECATION WARNING: executeQuery() is deprecated. Use proxyLLMCall() instead. This method will be removed in v3.0.0.");
-        }
-        return proxyLLMCall(request);
-    }
-
-    /**
-     * Asynchronously executes a query through AxonFlow.
-     *
-     * @param request the client request
-     * @return a future containing the response
-     * @deprecated Use {@link #proxyLLMCallAsync(ClientRequest)} instead. This method will be removed in v3.0.0.
-     */
-    @Deprecated
-    public CompletableFuture<ClientResponse> executeQueryAsync(ClientRequest request) {
-        return proxyLLMCallAsync(request);
     }
 
     // ========================================================================

@@ -5,6 +5,22 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - Unreleased
+
+### Breaking Changes
+
+- **Removed `executeQuery()`**: Use `proxyLLMCall()` instead (deprecated since v2.7.0). Removed both sync and async (`executeQueryAsync`) variants.
+
+### Added
+
+- **`isRedacted()` verification**: Verified `MCPExecuteResponse.isRedacted()` works correctly for execute responses with PII redaction
+
+### Changed
+
+- Updated all internal references, Javadoc examples, and tests from `executeQuery` to `proxyLLMCall`
+
+---
+
 ## [2.7.1] - 2026-01-25
 
 ### Changed

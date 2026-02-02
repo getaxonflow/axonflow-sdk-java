@@ -84,7 +84,7 @@ public class BedrockInterceptor {
             context.put("provider", "bedrock");
             context.put("model", request.getModelId());
 
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)
@@ -122,7 +122,7 @@ public class BedrockInterceptor {
             context.put("provider", "bedrock");
             context.put("model", request.getModelId());
 
-            ClientResponse axonResponse = axonflow.executeQuery(
+            ClientResponse axonResponse = axonflow.proxyLLMCall(
                 ClientRequest.builder()
                     .query(prompt)
                     .userToken(userToken)
