@@ -9,14 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Removed legacy internal helper names `getPortalUrl()` and `getOrchestratorUrl()` from `AxonFlow` (#1132).
-- Standardized request URL construction on `config.getEndpoint()` for both portal and orchestrator paths.
-- No public API break for Java SDK consumers.
-
-### Validation
-
-- `mvn -q -Dtest=AuditReadTest,CodeGovernanceTest test` passed on the release branch.
-- 3.1.0 Java audit example validated end-to-end against local AxonFlow services.
+- Simplified internal endpoint handling by removing legacy helper names `getPortalUrl()` and `getOrchestratorUrl()`.
+- Internal request URL construction is now standardized on `config.getEndpoint()`.
+- No public API change.
 
 ## [3.0.0] - 2026-02-03
 
