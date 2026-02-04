@@ -33,7 +33,7 @@ If you're new to AxonFlow, this short video shows how the control plane and SDKs
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>2.3.0</version>
+    <version>3.1.0</version>
 </dependency>
 ```
 
