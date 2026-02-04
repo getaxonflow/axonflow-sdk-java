@@ -9,12 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`tier` field on `CreateDynamicPolicyRequest`**: Allows setting the policy tier (`SYSTEM`, `ORGANIZATION`, `TENANT`) when creating dynamic policies via `.tier(PolicyTier.ORGANIZATION)` builder method. Defaults to `PolicyTier.TENANT` for backward compatibility.
-- **`organizationId` field on `CreateDynamicPolicyRequest`**: Allows specifying the organization ID for organization-tier policies via `.organizationId(String)` builder method. Serialized as `organization_id` in JSON.
-- **`tier` and `organizationId` fields on `DynamicPolicy`**: Response class now includes `getTier()` and `getOrganizationId()` for policy tier metadata.
-- **`tier` and `organizationId` fields on `UpdateDynamicPolicyRequest`**: Allows updating the policy tier and organization ID on existing dynamic policies via `.tier(PolicyTier)` and `.organizationId(String)` builder methods.
-- **`tier` and `organizationId` filters on `ListDynamicPoliciesOptions`**: Allows filtering dynamic policies by tier and organization ID via `.tier(PolicyTier)` and `.organizationId(String)` builder methods, matching `ListStaticPoliciesOptions` parity.
-- **`listDynamicPolicies` query parameters**: `tier` and `organization_id` query parameters are now passed to the API when filtering dynamic policies.
+- **Dynamic policy tier support**: `tier` (`PolicyTier`) and `organizationId` fields on `CreateDynamicPolicyRequest`, `UpdateDynamicPolicyRequest`, and `DynamicPolicy` response. Defaults to `PolicyTier.TENANT` when not specified. Builder: `.tier(PolicyTier.ORGANIZATION).organizationId("org-123")`.
+- **`ListDynamicPoliciesOptions` filters**: Filter dynamic policies by `tier` and `organizationId`, matching `ListStaticPoliciesOptions` parity.
+
+---
 
 ## [3.1.0] - 2026-02-04
 
