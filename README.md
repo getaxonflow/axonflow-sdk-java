@@ -40,7 +40,7 @@ If you're new to AxonFlow, this short video shows how the control plane and SDKs
 ### Gradle
 
 ```groovy
-implementation 'com.getaxonflow:axonflow-sdk:2.3.0'
+implementation 'com.getaxonflow:axonflow-sdk:3.1.0'
 ```
 
 ## Quick Start
