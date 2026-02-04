@@ -2111,7 +2111,7 @@ public final class AxonFlow implements Closeable {
         RequestBody body = RequestBody.create(json, JSON);
 
         Request request = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/auth/login")
+                .url(config.getEndpoint() + "/api/v1/auth/login")
                 .post(body)
                 .header("Content-Type", "application/json")
                 .build();
@@ -2153,7 +2153,7 @@ public final class AxonFlow implements Closeable {
 
         try {
             Request request = new Request.Builder()
-                    .url(getPortalUrl() + "/api/v1/auth/logout")
+                    .url(config.getEndpoint() + "/api/v1/auth/logout")
                     .post(RequestBody.create("", JSON))
                     .header("Cookie", "axonflow_session=" + sessionCookie)
                     .build();
@@ -2196,7 +2196,7 @@ public final class AxonFlow implements Closeable {
         RequestBody body = RequestBody.create(json, JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/git-providers/validate")
+                .url(config.getEndpoint() + "/api/v1/code-governance/git-providers/validate")
                 .post(body);
 
         addPortalSessionCookie(builder);
@@ -2221,7 +2221,7 @@ public final class AxonFlow implements Closeable {
         RequestBody body = RequestBody.create(json, JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/git-providers")
+                .url(config.getEndpoint() + "/api/v1/code-governance/git-providers")
                 .post(body);
 
         addPortalSessionCookie(builder);
@@ -2242,7 +2242,7 @@ public final class AxonFlow implements Closeable {
         logger.debug("Listing Git providers");
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/git-providers")
+                .url(config.getEndpoint() + "/api/v1/code-governance/git-providers")
                 .get();
 
         addPortalSessionCookie(builder);
@@ -2263,7 +2263,7 @@ public final class AxonFlow implements Closeable {
         logger.debug("Deleting Git provider: {}", providerType);
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/git-providers/" + providerType.getValue())
+                .url(config.getEndpoint() + "/api/v1/code-governance/git-providers/" + providerType.getValue())
                 .delete();
 
         addPortalSessionCookie(builder);
@@ -2288,7 +2288,7 @@ public final class AxonFlow implements Closeable {
         RequestBody body = RequestBody.create(json, JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/prs")
+                .url(config.getEndpoint() + "/api/v1/code-governance/prs")
                 .post(body);
 
         addPortalSessionCookie(builder);
@@ -2309,7 +2309,7 @@ public final class AxonFlow implements Closeable {
         requirePortalLogin();
         logger.debug("Listing PRs");
 
-        StringBuilder url = new StringBuilder(getPortalUrl() + "/api/v1/code-governance/prs");
+        StringBuilder url = new StringBuilder(config.getEndpoint() + "/api/v1/code-governance/prs");
         StringBuilder query = new StringBuilder();
 
         if (options != null) {
@@ -2361,7 +2361,7 @@ public final class AxonFlow implements Closeable {
         logger.debug("Getting PR: {}", prId);
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/prs/" + prId)
+                .url(config.getEndpoint() + "/api/v1/code-governance/prs/" + prId)
                 .get();
 
         addPortalSessionCookie(builder);
@@ -2385,7 +2385,7 @@ public final class AxonFlow implements Closeable {
         RequestBody body = RequestBody.create("{}", JSON);
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/prs/" + prId + "/sync")
+                .url(config.getEndpoint() + "/api/v1/code-governance/prs/" + prId + "/sync")
                 .post(body);
 
         addPortalSessionCookie(builder);
@@ -2409,7 +2409,7 @@ public final class AxonFlow implements Closeable {
         requirePortalLogin();
         logger.debug("Closing PR: {} (deleteBranch={})", prId, deleteBranch);
 
-        String url = getPortalUrl() + "/api/v1/code-governance/prs/" + prId;
+        String url = config.getEndpoint() + "/api/v1/code-governance/prs/" + prId;
         if (deleteBranch) {
             url += "?delete_branch=true";
         }
@@ -2436,7 +2436,7 @@ public final class AxonFlow implements Closeable {
         logger.debug("Getting code governance metrics");
 
         Request.Builder builder = new Request.Builder()
-                .url(getPortalUrl() + "/api/v1/code-governance/metrics")
+                .url(config.getEndpoint() + "/api/v1/code-governance/metrics")
                 .get();
 
         addPortalSessionCookie(builder);
@@ -2457,7 +2457,7 @@ public final class AxonFlow implements Closeable {
         requirePortalLogin();
         logger.debug("Exporting code governance data");
 
-        StringBuilder url = new StringBuilder(getPortalUrl() + "/api/v1/code-governance/export");
+        StringBuilder url = new StringBuilder(config.getEndpoint() + "/api/v1/code-governance/export");
         StringBuilder query = new StringBuilder();
 
         if (options != null) {
@@ -2501,7 +2501,7 @@ public final class AxonFlow implements Closeable {
         requirePortalLogin();
         logger.debug("Exporting code governance data as CSV");
 
-        StringBuilder url = new StringBuilder(getPortalUrl() + "/api/v1/code-governance/export");
+        StringBuilder url = new StringBuilder(config.getEndpoint() + "/api/v1/code-governance/export");
         StringBuilder query = new StringBuilder();
 
         appendQueryParam(query, "format", "csv");
@@ -2540,20 +2540,12 @@ public final class AxonFlow implements Closeable {
     // ========================================================================
 
     /**
-     * Gets the endpoint URL for API requests.
-     * All routes now go through a single endpoint (ADR-026 Single Entry Point).
-     */
-    private String getOrchestratorUrl() {
-        return config.getEndpoint();
-    }
-
-    /**
      * Builds a request for the orchestrator API.
      */
     private Request buildOrchestratorRequest(String method, String path, Object body) {
-        HttpUrl url = HttpUrl.parse(getOrchestratorUrl() + path);
+        HttpUrl url = HttpUrl.parse(config.getEndpoint() + path);
         if (url == null) {
-            throw new ConfigurationException("Invalid URL: " + getOrchestratorUrl() + path);
+            throw new ConfigurationException("Invalid URL: " + config.getEndpoint() + path);
         }
 
         Request.Builder builder = new Request.Builder()
@@ -2598,14 +2590,6 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
-     * Gets the endpoint URL for portal API requests.
-     * All routes now go through a single endpoint (ADR-026 Single Entry Point).
-     */
-    private String getPortalUrl() {
-        return config.getEndpoint();
-    }
-
-    /**
      * Requires portal login before making code governance requests.
      */
     private void requirePortalLogin() {
@@ -2630,9 +2614,9 @@ public final class AxonFlow implements Closeable {
     private Request buildPortalRequest(String method, String path, Object body) {
         requirePortalLogin();
 
-        HttpUrl url = HttpUrl.parse(getPortalUrl() + path);
+        HttpUrl url = HttpUrl.parse(config.getEndpoint() + path);
         if (url == null) {
-            throw new ConfigurationException("Invalid URL: " + getPortalUrl() + path);
+            throw new ConfigurationException("Invalid URL: " + config.getEndpoint() + path);
         }
 
         Request.Builder builder = new Request.Builder()
