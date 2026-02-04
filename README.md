@@ -6,6 +6,8 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 [![Maven Central](https://img.shields.io/maven-central/v/com.getaxonflow/axonflow-sdk.svg)](https://search.maven.org/artifact/com.getaxonflow/axonflow-sdk)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
+> **Production deployment?** [Join our Design Partner program](https://getaxonflow.com/design-partner) for free architecture reviews and priority support.
+
 ## How This SDK Fits with AxonFlow
 
 This SDK is a client library for interacting with a running AxonFlow control plane. It is used from application or agent code to send execution context, policies, and requests at runtime.
