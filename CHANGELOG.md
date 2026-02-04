@@ -5,6 +5,13 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-02-04
+
+### Changed
+
+- Removed legacy internal endpoint helper methods `getOrchestratorUrl()` and `getPortalUrl()` from `AxonFlow`
+- Portal and orchestrator request builders now directly use `config.getEndpoint()`, matching ADR-026 Single Entry Point architecture
+
 ## [3.0.0] - 2026-02-03
 
 ### Breaking Changes
