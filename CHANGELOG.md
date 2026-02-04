@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Removed legacy internal endpoint helper methods `getOrchestratorUrl()` and `getPortalUrl()` from `AxonFlow`
-- Portal and orchestrator request builders now directly use `config.getEndpoint()`, matching ADR-026 Single Entry Point architecture
+- Simplified internal endpoint handling by removing legacy helper names `getPortalUrl()` and `getOrchestratorUrl()`.
+- Internal request URL construction is now standardized on `config.getEndpoint()`.
+- No public API change.
 
 ## [3.0.0] - 2026-02-03
 
