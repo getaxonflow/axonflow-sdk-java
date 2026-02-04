@@ -96,3 +96,6 @@ pmd.xml
 
 # Local configuration
 local.properties
+
+.codex/
+.claude
