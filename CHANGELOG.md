@@ -5,6 +5,14 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-02-05
+
+### Added
+
+- **`tier` field on `CreateDynamicPolicyRequest`**: Allows setting the policy tier (`SYSTEM`, `ORGANIZATION`, `TENANT`) when creating dynamic policies via `.tier(PolicyTier.ORGANIZATION)` builder method. Defaults to `PolicyTier.TENANT` for backward compatibility.
+- **`organizationId` field on `CreateDynamicPolicyRequest`**: Allows specifying the organization ID for organization-tier policies via `.organizationId(String)` builder method. Serialized as `organization_id` in JSON.
+- **`tier` and `organizationId` fields on `DynamicPolicy`**: Response class now includes `getTier()` and `getOrganizationId()` for policy tier metadata.
+
 ## [3.1.0] - 2026-02-04
 
 ### Changed

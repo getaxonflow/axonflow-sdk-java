@@ -41,14 +41,14 @@ If you're new to AxonFlow, this short video shows how the control plane and SDKs
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>3.1.0</version>
+    <version>3.2.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'com.getaxonflow:axonflow-sdk:3.1.0'
+implementation 'com.getaxonflow:axonflow-sdk:3.2.0'
 ```
 
 ## Quick Start
