@@ -631,6 +631,9 @@ public final class PolicyTypes {
         private String description;
         private String type;  // "risk", "content", "user", "cost"
         private String category;  // "dynamic-risk", "dynamic-compliance", etc.
+        private PolicyTier tier;
+        @JsonProperty("organization_id")
+        private String organizationId;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private int priority;
@@ -651,6 +654,10 @@ public final class PolicyTypes {
         public void setType(String type) { this.type = type; }
         public String getCategory() { return category; }
         public void setCategory(String category) { this.category = category; }
+        public PolicyTier getTier() { return tier; }
+        public void setTier(PolicyTier tier) { this.tier = tier; }
+        public String getOrganizationId() { return organizationId; }
+        public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
@@ -754,6 +761,9 @@ public final class PolicyTypes {
         private String description;
         private String type;  // "risk", "content", "user", "cost"
         private String category;  // "dynamic-risk", "dynamic-compliance", etc.
+        private PolicyTier tier = PolicyTier.TENANT;
+        @JsonProperty("organization_id")
+        private String organizationId;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private int priority;
@@ -767,6 +777,8 @@ public final class PolicyTypes {
         public String getDescription() { return description; }
         public String getType() { return type; }
         public String getCategory() { return category; }
+        public PolicyTier getTier() { return tier; }
+        public String getOrganizationId() { return organizationId; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
         public int getPriority() { return priority; }
@@ -805,6 +817,16 @@ public final class PolicyTypes {
              */
             public Builder category(String category) {
                 request.category = category;
+                return this;
+            }
+
+            public Builder tier(PolicyTier tier) {
+                request.tier = tier;
+                return this;
+            }
+
+            public Builder organizationId(String organizationId) {
+                request.organizationId = organizationId;
                 return this;
             }
 
