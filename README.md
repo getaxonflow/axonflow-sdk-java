@@ -14,6 +14,10 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 >
 > No commitment required. We reply within 48 hours.
 
+> **AxonFlow Feedback Week (Feb 5–12, 2026)** — We're shipping 3 improvements from user feedback.
+>
+> [Share feedback](https://github.com/getaxonflow/axonflow/discussions/239) or email [hello@getaxonflow.com](mailto:hello@getaxonflow.com) for private feedback.
+
 ## How This SDK Fits with AxonFlow
 
 This SDK is a client library for interacting with a running AxonFlow control plane. It is used from application or agent code to send execution context, policies, and requests at runtime.
