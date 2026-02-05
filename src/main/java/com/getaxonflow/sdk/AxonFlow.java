@@ -1877,6 +1877,12 @@ public final class AxonFlow implements Closeable {
         if (options.getType() != null) {
             appendQueryParam(query, "type", options.getType());
         }
+        if (options.getTier() != null) {
+            appendQueryParam(query, "tier", options.getTier().getValue());
+        }
+        if (options.getOrganizationId() != null) {
+            appendQueryParam(query, "organization_id", options.getOrganizationId());
+        }
         if (options.getEnabled() != null) {
             appendQueryParam(query, "enabled", options.getEnabled().toString());
         }

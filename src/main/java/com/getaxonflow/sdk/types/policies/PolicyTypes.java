@@ -631,6 +631,9 @@ public final class PolicyTypes {
         private String description;
         private String type;  // "risk", "content", "user", "cost"
         private String category;  // "dynamic-risk", "dynamic-compliance", etc.
+        private PolicyTier tier;
+        @JsonProperty("organization_id")
+        private String organizationId;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private int priority;
@@ -651,6 +654,10 @@ public final class PolicyTypes {
         public void setType(String type) { this.type = type; }
         public String getCategory() { return category; }
         public void setCategory(String category) { this.category = category; }
+        public PolicyTier getTier() { return tier; }
+        public void setTier(PolicyTier tier) { this.tier = tier; }
+        public String getOrganizationId() { return organizationId; }
+        public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
@@ -670,6 +677,8 @@ public final class PolicyTypes {
      */
     public static class ListDynamicPoliciesOptions {
         private String type;  // Filter by policy type: "risk", "content", "user", "cost"
+        private PolicyTier tier;
+        private String organizationId;
         private Boolean enabled;
         private Integer limit;
         private Integer offset;
@@ -682,6 +691,8 @@ public final class PolicyTypes {
         }
 
         public String getType() { return type; }
+        public PolicyTier getTier() { return tier; }
+        public String getOrganizationId() { return organizationId; }
         public Boolean getEnabled() { return enabled; }
         public Integer getLimit() { return limit; }
         public Integer getOffset() { return offset; }
@@ -700,6 +711,28 @@ public final class PolicyTypes {
              */
             public Builder type(String type) {
                 options.type = type;
+                return this;
+            }
+
+            /**
+             * Filters policies by tier.
+             *
+             * @param tier the policy tier
+             * @return this builder
+             */
+            public Builder tier(PolicyTier tier) {
+                options.tier = tier;
+                return this;
+            }
+
+            /**
+             * Filters policies by organization ID (Enterprise).
+             *
+             * @param organizationId the organization ID
+             * @return this builder
+             */
+            public Builder organizationId(String organizationId) {
+                options.organizationId = organizationId;
                 return this;
             }
 
@@ -754,6 +787,9 @@ public final class PolicyTypes {
         private String description;
         private String type;  // "risk", "content", "user", "cost"
         private String category;  // "dynamic-risk", "dynamic-compliance", etc.
+        private PolicyTier tier = PolicyTier.TENANT;
+        @JsonProperty("organization_id")
+        private String organizationId;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private int priority;
@@ -767,6 +803,8 @@ public final class PolicyTypes {
         public String getDescription() { return description; }
         public String getType() { return type; }
         public String getCategory() { return category; }
+        public PolicyTier getTier() { return tier; }
+        public String getOrganizationId() { return organizationId; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
         public int getPriority() { return priority; }
@@ -805,6 +843,28 @@ public final class PolicyTypes {
              */
             public Builder category(String category) {
                 request.category = category;
+                return this;
+            }
+
+            /**
+             * Sets the policy tier. Defaults to {@link PolicyTier#TENANT}.
+             *
+             * @param tier the policy tier
+             * @return this builder
+             */
+            public Builder tier(PolicyTier tier) {
+                request.tier = tier;
+                return this;
+            }
+
+            /**
+             * Sets the organization ID for organization-tier policies (Enterprise).
+             *
+             * @param organizationId the organization ID
+             * @return this builder
+             */
+            public Builder organizationId(String organizationId) {
+                request.organizationId = organizationId;
                 return this;
             }
 
@@ -849,6 +909,9 @@ public final class PolicyTypes {
         private String description;
         private String type;
         private String category;
+        private PolicyTier tier;
+        @JsonProperty("organization_id")
+        private String organizationId;
         private List<DynamicPolicyCondition> conditions;
         private List<DynamicPolicyAction> actions;
         private Integer priority;
@@ -862,6 +925,8 @@ public final class PolicyTypes {
         public String getDescription() { return description; }
         public String getType() { return type; }
         public String getCategory() { return category; }
+        public PolicyTier getTier() { return tier; }
+        public String getOrganizationId() { return organizationId; }
         public List<DynamicPolicyCondition> getConditions() { return conditions; }
         public List<DynamicPolicyAction> getActions() { return actions; }
         public Integer getPriority() { return priority; }
@@ -893,6 +958,28 @@ public final class PolicyTypes {
              */
             public Builder category(String category) {
                 request.category = category;
+                return this;
+            }
+
+            /**
+             * Sets the policy tier.
+             *
+             * @param tier the policy tier
+             * @return this builder
+             */
+            public Builder tier(PolicyTier tier) {
+                request.tier = tier;
+                return this;
+            }
+
+            /**
+             * Sets the organization ID for organization-tier policies (Enterprise).
+             *
+             * @param organizationId the organization ID
+             * @return this builder
+             */
+            public Builder organizationId(String organizationId) {
+                request.organizationId = organizationId;
                 return this;
             }
 
