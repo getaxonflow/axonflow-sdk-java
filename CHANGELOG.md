@@ -9,11 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`cancelExecution(executionId, reason)`**: Cancel a unified execution (MAP plan or WCP workflow) via `POST /api/v1/unified/executions/{id}/cancel`. Overloaded variant without reason parameter.
+- **Unified Execution Cancellation** (EPIC #1074): Cancel running executions across both MAP and WCP subsystems
+  - `cancelExecution(executionId, reason)` - Cancel a unified execution via `POST /api/v1/unified/executions/{id}/cancel`
+  - Overloaded `cancelExecution(executionId)` variant without reason parameter
+  - Propagates to MAP `CancelPlan()` or WCP `AbortWorkflow()` based on execution type
+  - Reason is optional — pass `null` to cancel without a reason
 
 ### Fixed
 
-- **Unified execution API URLs**: `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was `/api/v1/executions`)
+- **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
 
 ---
 
