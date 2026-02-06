@@ -1651,7 +1651,7 @@ public final class AxonFlow implements Closeable {
         Objects.requireNonNull(executionId, "executionId cannot be null");
 
         return retryExecutor.execute(() -> {
-            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/executions/" + executionId, null);
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/unified/executions/" + executionId, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response, com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus.class);
             }
@@ -1668,7 +1668,7 @@ public final class AxonFlow implements Closeable {
             com.getaxonflow.sdk.types.execution.ExecutionTypes.UnifiedListExecutionsRequest request) {
 
         return retryExecutor.execute(() -> {
-            StringBuilder path = new StringBuilder("/api/v1/executions");
+            StringBuilder path = new StringBuilder("/api/v1/unified/executions");
             if (request != null) {
                 StringBuilder params = new StringBuilder();
                 if (request.getExecutionType() != null) {
@@ -1703,6 +1703,41 @@ public final class AxonFlow implements Closeable {
                 return parseResponse(response, com.getaxonflow.sdk.types.execution.ExecutionTypes.UnifiedListExecutionsResponse.class);
             }
         }, "listUnifiedExecutions");
+    }
+
+    /**
+     * Cancels a unified execution (MAP plan or WCP workflow).
+     *
+     * <p>This method cancels an execution via the unified execution API,
+     * automatically propagating to the correct subsystem (MAP or WCP).
+     *
+     * @param executionId the execution ID (plan ID or workflow ID)
+     * @param reason optional reason for cancellation
+     */
+    public void cancelExecution(String executionId, String reason) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Map<String, String> body = reason != null ?
+                Collections.singletonMap("reason", reason) : Collections.emptyMap();
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/unified/executions/" + executionId + "/cancel", body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "cancelExecution");
+    }
+
+    /**
+     * Cancels a unified execution without a reason.
+     *
+     * @param executionId the execution ID
+     */
+    public void cancelExecution(String executionId) {
+        cancelExecution(executionId, null);
     }
 
     // ========================================================================
