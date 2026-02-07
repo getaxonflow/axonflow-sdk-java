@@ -16,6 +16,10 @@
 
 package com.getaxonflow.sdk.types.execution;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -49,10 +53,12 @@ public final class ExecutionTypes {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
 
+        @JsonCreator
         public static ExecutionType fromValue(String value) {
             for (ExecutionType type : values()) {
                 if (type.value.equals(value)) {
@@ -81,6 +87,7 @@ public final class ExecutionTypes {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
@@ -90,6 +97,7 @@ public final class ExecutionTypes {
                    this == ABORTED || this == EXPIRED;
         }
 
+        @JsonCreator
         public static ExecutionStatusValue fromValue(String value) {
             for (ExecutionStatusValue status : values()) {
                 if (status.value.equals(value)) {
@@ -118,6 +126,7 @@ public final class ExecutionTypes {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
@@ -130,6 +139,7 @@ public final class ExecutionTypes {
             return this == BLOCKED || this == APPROVAL;
         }
 
+        @JsonCreator
         public static StepStatusValue fromValue(String value) {
             for (StepStatusValue status : values()) {
                 if (status.value.equals(value)) {
@@ -158,10 +168,12 @@ public final class ExecutionTypes {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
 
+        @JsonCreator
         public static UnifiedStepType fromValue(String value) {
             for (UnifiedStepType type : values()) {
                 if (type.value.equals(value)) {
@@ -186,10 +198,12 @@ public final class ExecutionTypes {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
 
+        @JsonCreator
         public static UnifiedGateDecision fromValue(String value) {
             for (UnifiedGateDecision decision : values()) {
                 if (decision.value.equals(value)) {
@@ -214,10 +228,12 @@ public final class ExecutionTypes {
             this.value = value;
         }
 
+        @JsonValue
         public String getValue() {
             return value;
         }
 
+        @JsonCreator
         public static UnifiedApprovalStatus fromValue(String value) {
             for (UnifiedApprovalStatus status : values()) {
                 if (status.value.equals(value)) {
@@ -254,13 +270,29 @@ public final class ExecutionTypes {
         private final String resultSummary;
         private final String error;
 
+        @JsonCreator
         public UnifiedStepStatus(
-                String stepId, int stepIndex, String stepName, UnifiedStepType stepType,
-                StepStatusValue status, Instant startedAt, Instant endedAt, String duration,
-                UnifiedGateDecision decision, String decisionReason, List<String> policiesMatched,
-                UnifiedApprovalStatus approvalStatus, String approvedBy, Instant approvedAt,
-                String model, String provider, Double costUsd, Object input, Object output,
-                String resultSummary, String error) {
+                @JsonProperty("step_id") String stepId,
+                @JsonProperty("step_index") int stepIndex,
+                @JsonProperty("step_name") String stepName,
+                @JsonProperty("step_type") UnifiedStepType stepType,
+                @JsonProperty("status") StepStatusValue status,
+                @JsonProperty("started_at") Instant startedAt,
+                @JsonProperty("ended_at") Instant endedAt,
+                @JsonProperty("duration") String duration,
+                @JsonProperty("decision") UnifiedGateDecision decision,
+                @JsonProperty("decision_reason") String decisionReason,
+                @JsonProperty("policies_matched") List<String> policiesMatched,
+                @JsonProperty("approval_status") UnifiedApprovalStatus approvalStatus,
+                @JsonProperty("approved_by") String approvedBy,
+                @JsonProperty("approved_at") Instant approvedAt,
+                @JsonProperty("model") String model,
+                @JsonProperty("provider") String provider,
+                @JsonProperty("cost_usd") Double costUsd,
+                @JsonProperty("input") Object input,
+                @JsonProperty("output") Object output,
+                @JsonProperty("result_summary") String resultSummary,
+                @JsonProperty("error") String error) {
             this.stepId = stepId;
             this.stepIndex = stepIndex;
             this.stepName = stepName;
@@ -406,13 +438,30 @@ public final class ExecutionTypes {
         private final Instant createdAt;
         private final Instant updatedAt;
 
+        @JsonCreator
         public ExecutionStatus(
-                String executionId, ExecutionType executionType, String name, String source,
-                ExecutionStatusValue status, int currentStepIndex, int totalSteps,
-                double progressPercent, Instant startedAt, Instant completedAt, String duration,
-                Double estimatedCostUsd, Double actualCostUsd, List<UnifiedStepStatus> steps,
-                String error, String tenantId, String orgId, String userId, String clientId,
-                Map<String, Object> metadata, Instant createdAt, Instant updatedAt) {
+                @JsonProperty("execution_id") String executionId,
+                @JsonProperty("execution_type") ExecutionType executionType,
+                @JsonProperty("name") String name,
+                @JsonProperty("source") String source,
+                @JsonProperty("status") ExecutionStatusValue status,
+                @JsonProperty("current_step_index") int currentStepIndex,
+                @JsonProperty("total_steps") int totalSteps,
+                @JsonProperty("progress_percent") double progressPercent,
+                @JsonProperty("started_at") Instant startedAt,
+                @JsonProperty("completed_at") Instant completedAt,
+                @JsonProperty("duration") String duration,
+                @JsonProperty("estimated_cost_usd") Double estimatedCostUsd,
+                @JsonProperty("actual_cost_usd") Double actualCostUsd,
+                @JsonProperty("steps") List<UnifiedStepStatus> steps,
+                @JsonProperty("error") String error,
+                @JsonProperty("tenant_id") String tenantId,
+                @JsonProperty("org_id") String orgId,
+                @JsonProperty("user_id") String userId,
+                @JsonProperty("client_id") String clientId,
+                @JsonProperty("metadata") Map<String, Object> metadata,
+                @JsonProperty("created_at") Instant createdAt,
+                @JsonProperty("updated_at") Instant updatedAt) {
             this.executionId = executionId;
             this.executionType = executionType;
             this.name = name;
