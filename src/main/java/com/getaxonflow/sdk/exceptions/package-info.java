@@ -30,7 +30,8 @@
  * ├── ConnectionException       - Network/connection errors
  * ├── ConfigurationException    - Invalid configuration
  * ├── ConnectorException        - MCP connector errors
- * └── PlanExecutionException    - Plan generation/execution errors
+ * ├── PlanExecutionException    - Plan generation/execution errors
+ * └── VersionConflictException  - Optimistic concurrency version conflict
  * </pre>
  *
  * <h2>Usage Example</h2>

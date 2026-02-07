@@ -915,4 +915,278 @@ public final class WorkflowTypes {
             return new AbortWorkflowRequest(reason);
         }
     }
+
+    // ========================================================================
+    // WCP Approval Types
+    // ========================================================================
+
+    /**
+     * Response from approving a workflow step.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class ApproveStepResponse {
+
+        @JsonProperty("workflow_id")
+        private final String workflowId;
+
+        @JsonProperty("step_id")
+        private final String stepId;
+
+        @JsonProperty("status")
+        private final String status;
+
+        @JsonCreator
+        public ApproveStepResponse(
+                @JsonProperty("workflow_id") String workflowId,
+                @JsonProperty("step_id") String stepId,
+                @JsonProperty("status") String status) {
+            this.workflowId = workflowId;
+            this.stepId = stepId;
+            this.status = status;
+        }
+
+        public String getWorkflowId() {
+            return workflowId;
+        }
+
+        public String getStepId() {
+            return stepId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ApproveStepResponse that = (ApproveStepResponse) o;
+            return Objects.equals(workflowId, that.workflowId) &&
+                   Objects.equals(stepId, that.stepId) &&
+                   Objects.equals(status, that.status);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(workflowId, stepId, status);
+        }
+
+        @Override
+        public String toString() {
+            return "ApproveStepResponse{" +
+                   "workflowId='" + workflowId + '\'' +
+                   ", stepId='" + stepId + '\'' +
+                   ", status='" + status + '\'' +
+                   '}';
+        }
+    }
+
+    /**
+     * Response from rejecting a workflow step.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class RejectStepResponse {
+
+        @JsonProperty("workflow_id")
+        private final String workflowId;
+
+        @JsonProperty("step_id")
+        private final String stepId;
+
+        @JsonProperty("status")
+        private final String status;
+
+        @JsonCreator
+        public RejectStepResponse(
+                @JsonProperty("workflow_id") String workflowId,
+                @JsonProperty("step_id") String stepId,
+                @JsonProperty("status") String status) {
+            this.workflowId = workflowId;
+            this.stepId = stepId;
+            this.status = status;
+        }
+
+        public String getWorkflowId() {
+            return workflowId;
+        }
+
+        public String getStepId() {
+            return stepId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            RejectStepResponse that = (RejectStepResponse) o;
+            return Objects.equals(workflowId, that.workflowId) &&
+                   Objects.equals(stepId, that.stepId) &&
+                   Objects.equals(status, that.status);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(workflowId, stepId, status);
+        }
+
+        @Override
+        public String toString() {
+            return "RejectStepResponse{" +
+                   "workflowId='" + workflowId + '\'' +
+                   ", stepId='" + stepId + '\'' +
+                   ", status='" + status + '\'' +
+                   '}';
+        }
+    }
+
+    /**
+     * A pending approval for a workflow step.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class PendingApproval {
+
+        @JsonProperty("workflow_id")
+        private final String workflowId;
+
+        @JsonProperty("workflow_name")
+        private final String workflowName;
+
+        @JsonProperty("step_id")
+        private final String stepId;
+
+        @JsonProperty("step_name")
+        private final String stepName;
+
+        @JsonProperty("step_type")
+        private final String stepType;
+
+        @JsonProperty("created_at")
+        private final String createdAt;
+
+        @JsonCreator
+        public PendingApproval(
+                @JsonProperty("workflow_id") String workflowId,
+                @JsonProperty("workflow_name") String workflowName,
+                @JsonProperty("step_id") String stepId,
+                @JsonProperty("step_name") String stepName,
+                @JsonProperty("step_type") String stepType,
+                @JsonProperty("created_at") String createdAt) {
+            this.workflowId = workflowId;
+            this.workflowName = workflowName;
+            this.stepId = stepId;
+            this.stepName = stepName;
+            this.stepType = stepType;
+            this.createdAt = createdAt;
+        }
+
+        public String getWorkflowId() {
+            return workflowId;
+        }
+
+        public String getWorkflowName() {
+            return workflowName;
+        }
+
+        public String getStepId() {
+            return stepId;
+        }
+
+        public String getStepName() {
+            return stepName;
+        }
+
+        public String getStepType() {
+            return stepType;
+        }
+
+        public String getCreatedAt() {
+            return createdAt;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            PendingApproval that = (PendingApproval) o;
+            return Objects.equals(workflowId, that.workflowId) &&
+                   Objects.equals(workflowName, that.workflowName) &&
+                   Objects.equals(stepId, that.stepId) &&
+                   Objects.equals(stepName, that.stepName) &&
+                   Objects.equals(stepType, that.stepType) &&
+                   Objects.equals(createdAt, that.createdAt);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(workflowId, workflowName, stepId, stepName, stepType, createdAt);
+        }
+
+        @Override
+        public String toString() {
+            return "PendingApproval{" +
+                   "workflowId='" + workflowId + '\'' +
+                   ", workflowName='" + workflowName + '\'' +
+                   ", stepId='" + stepId + '\'' +
+                   ", stepName='" + stepName + '\'' +
+                   ", stepType='" + stepType + '\'' +
+                   ", createdAt='" + createdAt + '\'' +
+                   '}';
+        }
+    }
+
+    /**
+     * Response containing a list of pending approvals.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class PendingApprovalsResponse {
+
+        @JsonProperty("approvals")
+        private final List<PendingApproval> approvals;
+
+        @JsonProperty("total")
+        private final int total;
+
+        @JsonCreator
+        public PendingApprovalsResponse(
+                @JsonProperty("approvals") List<PendingApproval> approvals,
+                @JsonProperty("total") int total) {
+            this.approvals = approvals != null ? Collections.unmodifiableList(approvals) : Collections.emptyList();
+            this.total = total;
+        }
+
+        public List<PendingApproval> getApprovals() {
+            return approvals;
+        }
+
+        public int getTotal() {
+            return total;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            PendingApprovalsResponse that = (PendingApprovalsResponse) o;
+            return total == that.total &&
+                   Objects.equals(approvals, that.approvals);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(approvals, total);
+        }
+
+        @Override
+        public String toString() {
+            return "PendingApprovalsResponse{" +
+                   "approvals=" + approvals +
+                   ", total=" + total +
+                   '}';
+        }
+    }
 }

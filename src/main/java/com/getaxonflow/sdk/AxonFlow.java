@@ -22,6 +22,7 @@ import com.getaxonflow.sdk.types.costcontrols.CostControlTypes.*;
 import com.getaxonflow.sdk.types.executionreplay.ExecutionReplayTypes.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
 import com.getaxonflow.sdk.masfeat.MASFEATTypes.*;
+import com.getaxonflow.sdk.types.webhook.WebhookTypes.*;
 import com.getaxonflow.sdk.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -784,8 +785,24 @@ public final class AxonFlow implements Closeable {
         Map<String, Object> agentResponse = objectMapper.readValue(json,
             new TypeReference<Map<String, Object>>() {});
 
-        // Check for errors
+        // Check for errors (outer response)
         Boolean success = (Boolean) agentResponse.get("success");
+
+        // Detect nested data.success=false (agent wraps orchestrator errors)
+        Object dataObj = agentResponse.get("data");
+        if (dataObj instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> dataMap = (Map<String, Object>) dataObj;
+            Boolean dataSuccess = (Boolean) dataMap.get("success");
+            if (dataSuccess != null && !dataSuccess) {
+                success = false;
+                String dataError = (String) dataMap.get("error");
+                if (dataError != null) {
+                    throw new PlanExecutionException(dataError);
+                }
+            }
+        }
+
         if (success == null || !success) {
             String error = (String) agentResponse.get("error");
             throw new PlanExecutionException(error != null ? error : "Plan execution failed");
@@ -815,6 +832,200 @@ public final class AxonFlow implements Closeable {
                 return parseResponse(response, PlanResponse.class);
             }
         }, "getPlanStatus");
+    }
+
+    /**
+     * Generates a multi-agent plan with additional options.
+     *
+     * <p>This overload allows specifying execution mode and other generation
+     * options beyond what is in the base {@link PlanRequest}.
+     *
+     * @param request the plan request
+     * @param options additional generation options
+     * @return the generated plan
+     * @throws PlanExecutionException if plan generation fails
+     */
+    public PlanResponse generatePlan(PlanRequest request, GeneratePlanOptions options) {
+        Objects.requireNonNull(request, "request cannot be null");
+        Objects.requireNonNull(options, "options cannot be null");
+
+        return retryExecutor.execute(() -> {
+            // Build agent request format - use HashMap to allow null-safe values
+            String userToken = request.getUserToken();
+            if (userToken == null) {
+                userToken = config.getClientId() != null ? config.getClientId() : "default";
+            }
+            String clientId = config.getClientId() != null ? config.getClientId() : "default";
+            String domain = request.getDomain() != null ? request.getDomain() : "generic";
+
+            Map<String, Object> context = new java.util.HashMap<>();
+            context.put("domain", domain);
+            if (options.getExecutionMode() != null) {
+                context.put("execution_mode", options.getExecutionMode().getValue());
+            }
+
+            Map<String, Object> agentRequest = new java.util.HashMap<>();
+            agentRequest.put("query", request.getObjective());
+            agentRequest.put("user_token", userToken);
+            agentRequest.put("client_id", clientId);
+            agentRequest.put("request_type", "multi-agent-plan");
+            agentRequest.put("context", context);
+
+            Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parsePlanResponse(response, request.getDomain());
+            }
+        }, "generatePlan");
+    }
+
+    /**
+     * Cancels a running or pending plan.
+     *
+     * @param planId the ID of the plan to cancel
+     * @param reason an optional reason for the cancellation
+     * @return the cancellation result
+     */
+    public CancelPlanResponse cancelPlan(String planId, String reason) {
+        Objects.requireNonNull(planId, "planId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Map<String, Object> body = new java.util.HashMap<>();
+            if (reason != null) {
+                body.put("reason", reason);
+            }
+
+            Request httpRequest = buildRequest("POST",
+                "/api/v1/plan/" + planId + "/cancel", body.isEmpty() ? null : body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, CancelPlanResponse.class);
+            }
+        }, "cancelPlan");
+    }
+
+    /**
+     * Cancels a running or pending plan without specifying a reason.
+     *
+     * @param planId the ID of the plan to cancel
+     * @return the cancellation result
+     */
+    public CancelPlanResponse cancelPlan(String planId) {
+        return cancelPlan(planId, null);
+    }
+
+    /**
+     * Updates a plan with optimistic concurrency control.
+     *
+     * <p>The request must include the expected version number. If the version
+     * does not match the current server version, a {@link VersionConflictException}
+     * is thrown.
+     *
+     * @param planId  the ID of the plan to update
+     * @param request the update request with version and changes
+     * @return the update result
+     * @throws VersionConflictException if the plan version has changed
+     */
+    public UpdatePlanResponse updatePlan(String planId, UpdatePlanRequest request) {
+        Objects.requireNonNull(planId, "planId cannot be null");
+        Objects.requireNonNull(request, "request cannot be null");
+
+        try {
+            return retryExecutor.execute(() -> {
+                Request httpRequest = buildRequest("PUT",
+                    "/api/v1/plan/" + planId, request);
+                try (Response response = httpClient.newCall(httpRequest).execute()) {
+                    return parseResponse(response, UpdatePlanResponse.class);
+                }
+            }, "updatePlan");
+        } catch (AxonFlowException e) {
+            if (e.getStatusCode() == 409) {
+                throw new VersionConflictException(
+                    e.getMessage(), planId, request.getVersion(), null);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Gets the version history of a plan.
+     *
+     * @param planId the plan ID
+     * @return the version history
+     */
+    public PlanVersionsResponse getPlanVersions(String planId) {
+        Objects.requireNonNull(planId, "planId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("GET",
+                "/api/v1/plan/" + planId + "/versions", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, PlanVersionsResponse.class);
+            }
+        }, "getPlanVersions");
+    }
+
+    /**
+     * Resumes a paused plan, optionally approving or rejecting it.
+     *
+     * @param planId   the ID of the plan to resume
+     * @param approved whether to approve the plan to continue (true) or reject it (false)
+     * @return the resume result
+     */
+    public ResumePlanResponse resumePlan(String planId, Boolean approved) {
+        Objects.requireNonNull(planId, "planId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Map<String, Object> body = new java.util.HashMap<>();
+            body.put("approved", approved != null ? approved : true);
+
+            Request httpRequest = buildRequest("POST",
+                "/api/v1/plan/" + planId + "/resume", body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, ResumePlanResponse.class);
+            }
+        }, "resumePlan");
+    }
+
+    /**
+     * Resumes a paused plan with approval (default).
+     *
+     * <p>This is equivalent to calling {@code resumePlan(planId, true)}.
+     *
+     * @param planId the ID of the plan to resume
+     * @return the resume result
+     */
+    public ResumePlanResponse resumePlan(String planId) {
+        return resumePlan(planId, true);
+    }
+
+    /**
+     * Rolls back a plan to a previous version.
+     *
+     * @param planId        the ID of the plan to roll back
+     * @param targetVersion the version number to roll back to
+     * @return the rollback result
+     * @throws AxonFlowException if the rollback fails
+     */
+    public RollbackPlanResponse rollbackPlan(String planId, int targetVersion) {
+        Objects.requireNonNull(planId, "planId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("POST",
+                "/api/v1/plan/" + planId + "/rollback/" + targetVersion, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, RollbackPlanResponse.class);
+            }
+        }, "rollbackPlan");
+    }
+
+    /**
+     * Asynchronously rolls back a plan to a previous version.
+     *
+     * @param planId        the ID of the plan to roll back
+     * @param targetVersion the version number to roll back to
+     * @return a future containing the rollback result
+     */
+    public CompletableFuture<RollbackPlanResponse> rollbackPlanAsync(String planId, int targetVersion) {
+        return CompletableFuture.supplyAsync(() -> rollbackPlan(planId, targetVersion), asyncExecutor);
     }
 
     // ========================================================================
@@ -2083,6 +2294,8 @@ public final class AxonFlow implements Closeable {
                     throw new PolicyViolationException(errorMessage);
                 }
                 throw new AuthenticationException(errorMessage, 403);
+            case 409:
+                throw new AxonFlowException(errorMessage, 409, "VERSION_CONFLICT");
             case 429:
                 throw new RateLimitException(errorMessage);
             case 408:
@@ -3624,6 +3837,279 @@ public final class AxonFlow implements Closeable {
             String stepId,
             com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateRequest request) {
         return CompletableFuture.supplyAsync(() -> stepGate(workflowId, stepId, request), asyncExecutor);
+    }
+
+    // ========================================================================
+    // WCP Approval Methods
+    // ========================================================================
+
+    /**
+     * Approves a workflow step that requires human approval.
+     *
+     * <p>Call this when a step gate returns {@code require_approval} to approve
+     * the step and allow the workflow to proceed.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @return the approval response
+     * @throws AxonFlowException if the approval fails
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse approveStep(
+            String workflowId, String stepId) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+        Objects.requireNonNull(stepId, "stepId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflow-control/" + workflowId + "/steps/" + stepId + "/approve",
+                Collections.emptyMap());
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response,
+                    new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse>() {});
+            }
+        }, "approveStep");
+    }
+
+    /**
+     * Asynchronously approves a workflow step.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @return a future containing the approval response
+     */
+    public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse> approveStepAsync(
+            String workflowId, String stepId) {
+        return CompletableFuture.supplyAsync(() -> approveStep(workflowId, stepId), asyncExecutor);
+    }
+
+    /**
+     * Rejects a workflow step that requires human approval.
+     *
+     * <p>Call this when a step gate returns {@code require_approval} to reject
+     * the step and prevent the workflow from proceeding.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @return the rejection response
+     * @throws AxonFlowException if the rejection fails
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse rejectStep(
+            String workflowId, String stepId) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+        Objects.requireNonNull(stepId, "stepId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflow-control/" + workflowId + "/steps/" + stepId + "/reject",
+                Collections.emptyMap());
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response,
+                    new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse>() {});
+            }
+        }, "rejectStep");
+    }
+
+    /**
+     * Asynchronously rejects a workflow step.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @return a future containing the rejection response
+     */
+    public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse> rejectStepAsync(
+            String workflowId, String stepId) {
+        return CompletableFuture.supplyAsync(() -> rejectStep(workflowId, stepId), asyncExecutor);
+    }
+
+    /**
+     * Gets pending approvals with a limit.
+     *
+     * @param limit maximum number of pending approvals to return
+     * @return the pending approvals response
+     * @throws AxonFlowException if the request fails
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse getPendingApprovals(int limit) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/workflow-control/pending-approvals");
+            if (limit > 0) {
+                path.append("?limit=").append(limit);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response,
+                    new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse>() {});
+            }
+        }, "getPendingApprovals");
+    }
+
+    /**
+     * Gets all pending approvals with default limit.
+     *
+     * @return the pending approvals response
+     * @throws AxonFlowException if the request fails
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse getPendingApprovals() {
+        return getPendingApprovals(0);
+    }
+
+    /**
+     * Asynchronously gets pending approvals with a limit.
+     *
+     * @param limit maximum number of pending approvals to return
+     * @return a future containing the pending approvals response
+     */
+    public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse> getPendingApprovalsAsync(
+            int limit) {
+        return CompletableFuture.supplyAsync(() -> getPendingApprovals(limit), asyncExecutor);
+    }
+
+    // ========================================================================
+    // Webhook Subscriptions
+    // ========================================================================
+
+    /**
+     * Creates a new webhook subscription.
+     *
+     * @param request the webhook creation request
+     * @return the created webhook subscription
+     * @throws AxonFlowException if creation fails
+     */
+    public WebhookSubscription createWebhook(CreateWebhookRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/webhooks", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, WebhookSubscription.class);
+            }
+        }, "createWebhook");
+    }
+
+    /**
+     * Asynchronously creates a new webhook subscription.
+     *
+     * @param request the webhook creation request
+     * @return a future containing the created webhook subscription
+     */
+    public CompletableFuture<WebhookSubscription> createWebhookAsync(CreateWebhookRequest request) {
+        return CompletableFuture.supplyAsync(() -> createWebhook(request), asyncExecutor);
+    }
+
+    /**
+     * Gets a webhook subscription by ID.
+     *
+     * @param webhookId the webhook ID
+     * @return the webhook subscription
+     * @throws AxonFlowException if the webhook is not found
+     */
+    public WebhookSubscription getWebhook(String webhookId) {
+        Objects.requireNonNull(webhookId, "webhookId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET",
+                "/api/v1/webhooks/" + webhookId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, WebhookSubscription.class);
+            }
+        }, "getWebhook");
+    }
+
+    /**
+     * Asynchronously gets a webhook subscription by ID.
+     *
+     * @param webhookId the webhook ID
+     * @return a future containing the webhook subscription
+     */
+    public CompletableFuture<WebhookSubscription> getWebhookAsync(String webhookId) {
+        return CompletableFuture.supplyAsync(() -> getWebhook(webhookId), asyncExecutor);
+    }
+
+    /**
+     * Updates an existing webhook subscription.
+     *
+     * @param webhookId the webhook ID
+     * @param request   the update request
+     * @return the updated webhook subscription
+     * @throws AxonFlowException if the update fails
+     */
+    public WebhookSubscription updateWebhook(String webhookId, UpdateWebhookRequest request) {
+        Objects.requireNonNull(webhookId, "webhookId cannot be null");
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("PUT",
+                "/api/v1/webhooks/" + webhookId, request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, WebhookSubscription.class);
+            }
+        }, "updateWebhook");
+    }
+
+    /**
+     * Asynchronously updates an existing webhook subscription.
+     *
+     * @param webhookId the webhook ID
+     * @param request   the update request
+     * @return a future containing the updated webhook subscription
+     */
+    public CompletableFuture<WebhookSubscription> updateWebhookAsync(String webhookId, UpdateWebhookRequest request) {
+        return CompletableFuture.supplyAsync(() -> updateWebhook(webhookId, request), asyncExecutor);
+    }
+
+    /**
+     * Deletes a webhook subscription.
+     *
+     * @param webhookId the webhook ID
+     * @throws AxonFlowException if the deletion fails
+     */
+    public void deleteWebhook(String webhookId) {
+        Objects.requireNonNull(webhookId, "webhookId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("DELETE",
+                "/api/v1/webhooks/" + webhookId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "deleteWebhook");
+    }
+
+    /**
+     * Asynchronously deletes a webhook subscription.
+     *
+     * @param webhookId the webhook ID
+     * @return a future that completes when the webhook is deleted
+     */
+    public CompletableFuture<Void> deleteWebhookAsync(String webhookId) {
+        return CompletableFuture.runAsync(() -> deleteWebhook(webhookId), asyncExecutor);
+    }
+
+    /**
+     * Lists all webhook subscriptions.
+     *
+     * @return the list of webhook subscriptions
+     * @throws AxonFlowException if the request fails
+     */
+    public ListWebhooksResponse listWebhooks() {
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/webhooks", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, ListWebhooksResponse.class);
+            }
+        }, "listWebhooks");
+    }
+
+    /**
+     * Asynchronously lists all webhook subscriptions.
+     *
+     * @return a future containing the list of webhook subscriptions
+     */
+    public CompletableFuture<ListWebhooksResponse> listWebhooksAsync() {
+        return CompletableFuture.supplyAsync(this::listWebhooks, asyncExecutor);
     }
 
     // ========================================================================
