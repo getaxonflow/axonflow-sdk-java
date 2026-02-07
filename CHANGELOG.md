@@ -9,15 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **WCP Approval Gates** (Issue #1169): HITL approval and rejection for workflow steps
+  - `approveStep(workflowId, stepId)` - Approve a pending workflow step
+  - `rejectStep(workflowId, stepId, reason)` - Reject a step with reason (backward-compatible overload without reason preserved)
+  - `rejectStepAsync(workflowId, stepId, reason)` - Async variant with reason
+  - `getPendingApprovals(limit)` - List steps awaiting human approval
+
+- **MAP Plan Cancellation** (Issue #1072): Cancel running multi-agent plans
+  - `cancelPlan(planId, reason)` - Cancel a plan with optional reason
+
+- **MAP Plan Update** (Issue #1072): Modify plan configuration before or during execution
+  - `updatePlan(planId, request)` - Update execution mode, domain, or version
+
+- **MAP Plan Versioning and Rollback** (Issue #1072): Version history and rollback support
+  - `getPlanVersions(planId)` - List plan version history
+  - `rollbackPlan(planId, version)` - Rollback to a previous version (throws on 409 conflict)
+  - New types: `RollbackPlanResponse`, `PlanVersion`
+
+- **Webhook Subscriptions** (Issue #1169): Event notification management
+  - `createWebhook(request)` - Create a webhook subscription
+  - `listWebhooks()` - List active webhook subscriptions
+  - `getWebhook(webhookId)` - Get webhook details
+  - `updateWebhook(webhookId, request)` - Update webhook configuration
+  - `deleteWebhook(webhookId)` - Delete a webhook subscription
+  - New type: `WebhookSubscription`
+
 - **Unified Execution Cancellation** (EPIC #1074): Cancel running executions across both MAP and WCP subsystems
   - `cancelExecution(executionId, reason)` - Cancel a unified execution via `POST /api/v1/unified/executions/{id}/cancel`
   - Overloaded `cancelExecution(executionId)` variant without reason parameter
-  - Propagates to MAP `CancelPlan()` or WCP `AbortWorkflow()` based on execution type
-  - Reason is optional — pass `null` to cancel without a reason
+  - Propagates to MAP `cancelPlan()` or WCP `abortWorkflow()` based on execution type
 
 ### Fixed
 
 - **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
+- **`rejectStep` reason parameter**: Added `reason` parameter to `rejectStep()` and `rejectStepAsync()` with backward-compatible 2-arg overloads
 
 ---
 
