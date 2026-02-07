@@ -3907,13 +3907,34 @@ public final class AxonFlow implements Closeable {
      */
     public com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse rejectStep(
             String workflowId, String stepId) {
+        return rejectStep(workflowId, stepId, null);
+    }
+
+    /**
+     * Rejects a workflow step that requires human approval, with a reason.
+     *
+     * <p>Call this when a step gate returns {@code require_approval} to reject
+     * the step and prevent the workflow from proceeding.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @param reason optional reason for rejection (included in request body)
+     * @return the rejection response
+     * @throws AxonFlowException if the rejection fails
+     */
+    public com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse rejectStep(
+            String workflowId, String stepId, String reason) {
         Objects.requireNonNull(workflowId, "workflowId cannot be null");
         Objects.requireNonNull(stepId, "stepId cannot be null");
 
         return retryExecutor.execute(() -> {
+            Map<String, Object> body = new HashMap<>();
+            if (reason != null && !reason.isEmpty()) {
+                body.put("reason", reason);
+            }
             Request httpRequest = buildOrchestratorRequest("POST",
                 "/api/v1/workflow-control/" + workflowId + "/steps/" + stepId + "/reject",
-                Collections.emptyMap());
+                body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseResponse(response,
                     new TypeReference<com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse>() {});
@@ -3930,7 +3951,20 @@ public final class AxonFlow implements Closeable {
      */
     public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse> rejectStepAsync(
             String workflowId, String stepId) {
-        return CompletableFuture.supplyAsync(() -> rejectStep(workflowId, stepId), asyncExecutor);
+        return rejectStepAsync(workflowId, stepId, null);
+    }
+
+    /**
+     * Asynchronously rejects a workflow step with a reason.
+     *
+     * @param workflowId workflow ID
+     * @param stepId step ID
+     * @param reason optional reason for rejection
+     * @return a future containing the rejection response
+     */
+    public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse> rejectStepAsync(
+            String workflowId, String stepId, String reason) {
+        return CompletableFuture.supplyAsync(() -> rejectStep(workflowId, stepId, reason), asyncExecutor);
     }
 
     /**
