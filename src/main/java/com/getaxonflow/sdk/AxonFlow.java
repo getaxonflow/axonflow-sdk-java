@@ -748,16 +748,28 @@ public final class AxonFlow implements Closeable {
      * @throws PlanExecutionException if execution fails
      */
     public PlanResponse executePlan(String planId) {
+        return executePlan(planId, null);
+    }
+
+    /**
+     * Executes a previously generated plan with an explicit user token.
+     *
+     * @param planId the ID of the plan to execute
+     * @param userToken the user token (JWT) for authentication; if null, defaults to clientId
+     * @return the execution result
+     * @throws PlanExecutionException if execution fails
+     */
+    public PlanResponse executePlan(String planId, String userToken) {
         Objects.requireNonNull(planId, "planId cannot be null");
 
         return retryExecutor.execute(() -> {
             // Build agent request format - like generatePlan but with request_type "execute-plan"
-            String userToken = config.getClientId() != null ? config.getClientId() : "default";
+            String token = userToken != null ? userToken : (config.getClientId() != null ? config.getClientId() : "default");
             String clientId = config.getClientId() != null ? config.getClientId() : "default";
 
             Map<String, Object> agentRequest = new java.util.HashMap<>();
             agentRequest.put("query", "");
-            agentRequest.put("user_token", userToken);
+            agentRequest.put("user_token", token);
             agentRequest.put("client_id", clientId);
             agentRequest.put("request_type", "execute-plan");
             agentRequest.put("context", Map.of("plan_id", planId));
