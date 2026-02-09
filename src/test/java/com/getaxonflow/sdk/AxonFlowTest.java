@@ -1570,4 +1570,453 @@ class AxonFlowTest {
         assertThat(response.getPolicyInfo()).isNotNull();
         assertThat(response.getPolicyInfo().getPoliciesEvaluated()).isEqualTo(3);
     }
+
+    // ========================================================================
+    // Rollback Plan
+    // ========================================================================
+
+    @Test
+    @DisplayName("rollbackPlan should require non-null planId")
+    void rollbackPlanShouldRequirePlanId() {
+        assertThatThrownBy(() -> axonflow.rollbackPlan(null, 1))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("rollbackPlan should return rollback response")
+    void rollbackPlanShouldReturnResponse() {
+        stubFor(post(urlEqualTo("/api/v1/plan/plan_123/rollback/2"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"plan_id\":\"plan_123\",\"version\":2,\"previous_version\":3,\"status\":\"rolled_back\"}")));
+
+        RollbackPlanResponse response = axonflow.rollbackPlan("plan_123", 2);
+
+        assertThat(response.getPlanId()).isEqualTo("plan_123");
+        assertThat(response.getVersion()).isEqualTo(2);
+        assertThat(response.getPreviousVersion()).isEqualTo(3);
+        assertThat(response.getStatus()).isEqualTo("rolled_back");
+    }
+
+    @Test
+    @DisplayName("rollbackPlanAsync should return future")
+    void rollbackPlanAsyncShouldReturnFuture() throws Exception {
+        stubFor(post(urlEqualTo("/api/v1/plan/plan_456/rollback/1"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"plan_id\":\"plan_456\",\"version\":1,\"previous_version\":3,\"status\":\"rolled_back\"}")));
+
+        CompletableFuture<RollbackPlanResponse> future = axonflow.rollbackPlanAsync("plan_456", 1);
+        RollbackPlanResponse response = future.get();
+
+        assertThat(response.getPlanId()).isEqualTo("plan_456");
+        assertThat(response.getVersion()).isEqualTo(1);
+    }
+
+    // ========================================================================
+    // WCP Approval Methods
+    // ========================================================================
+
+    @Test
+    @DisplayName("approveStep should require non-null workflowId")
+    void approveStepShouldRequireWorkflowId() {
+        assertThatThrownBy(() -> axonflow.approveStep(null, "step-1"))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("approveStep should require non-null stepId")
+    void approveStepShouldRequireStepId() {
+        assertThatThrownBy(() -> axonflow.approveStep("wf-1", null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("approveStep should return approval response")
+    void approveStepShouldReturnResponse() {
+        stubFor(post(urlEqualTo("/api/v1/workflow-control/wf-123/steps/step-1/approve"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"workflow_id\":\"wf-123\",\"step_id\":\"step-1\",\"status\":\"approved\"}")));
+
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse response =
+            axonflow.approveStep("wf-123", "step-1");
+
+        assertThat(response.getWorkflowId()).isEqualTo("wf-123");
+        assertThat(response.getStepId()).isEqualTo("step-1");
+        assertThat(response.getStatus()).isEqualTo("approved");
+    }
+
+    @Test
+    @DisplayName("approveStepAsync should return future")
+    void approveStepAsyncShouldReturnFuture() throws Exception {
+        stubFor(post(urlEqualTo("/api/v1/workflow-control/wf-456/steps/step-2/approve"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"workflow_id\":\"wf-456\",\"step_id\":\"step-2\",\"status\":\"approved\"}")));
+
+        CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse> future =
+            axonflow.approveStepAsync("wf-456", "step-2");
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse response = future.get();
+
+        assertThat(response.getWorkflowId()).isEqualTo("wf-456");
+        assertThat(response.getStatus()).isEqualTo("approved");
+    }
+
+    @Test
+    @DisplayName("rejectStep should require non-null workflowId")
+    void rejectStepShouldRequireWorkflowId() {
+        assertThatThrownBy(() -> axonflow.rejectStep(null, "step-1"))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("rejectStep should require non-null stepId")
+    void rejectStepShouldRequireStepId() {
+        assertThatThrownBy(() -> axonflow.rejectStep("wf-1", null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("rejectStep should return rejection response")
+    void rejectStepShouldReturnResponse() {
+        stubFor(post(urlEqualTo("/api/v1/workflow-control/wf-123/steps/step-1/reject"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"workflow_id\":\"wf-123\",\"step_id\":\"step-1\",\"status\":\"rejected\"}")));
+
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse response =
+            axonflow.rejectStep("wf-123", "step-1");
+
+        assertThat(response.getWorkflowId()).isEqualTo("wf-123");
+        assertThat(response.getStepId()).isEqualTo("step-1");
+        assertThat(response.getStatus()).isEqualTo("rejected");
+    }
+
+    @Test
+    @DisplayName("rejectStepAsync should return future")
+    void rejectStepAsyncShouldReturnFuture() throws Exception {
+        stubFor(post(urlEqualTo("/api/v1/workflow-control/wf-789/steps/step-3/reject"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"workflow_id\":\"wf-789\",\"step_id\":\"step-3\",\"status\":\"rejected\"}")));
+
+        CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse> future =
+            axonflow.rejectStepAsync("wf-789", "step-3");
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.RejectStepResponse response = future.get();
+
+        assertThat(response.getWorkflowId()).isEqualTo("wf-789");
+        assertThat(response.getStatus()).isEqualTo("rejected");
+    }
+
+    @Test
+    @DisplayName("getPendingApprovals should return pending approvals")
+    void getPendingApprovalsShouldReturnApprovals() {
+        stubFor(get(urlEqualTo("/api/v1/workflow-control/pending-approvals"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"approvals\":[{\"workflow_id\":\"wf-1\",\"workflow_name\":\"Review\","
+                    + "\"step_id\":\"s-1\",\"step_name\":\"Generate\","
+                    + "\"step_type\":\"llm_call\",\"created_at\":\"2026-02-07T10:00:00Z\"}],\"total\":1}")));
+
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+            axonflow.getPendingApprovals();
+
+        assertThat(response.getTotal()).isEqualTo(1);
+        assertThat(response.getApprovals()).hasSize(1);
+        assertThat(response.getApprovals().get(0).getWorkflowId()).isEqualTo("wf-1");
+        assertThat(response.getApprovals().get(0).getStepName()).isEqualTo("Generate");
+    }
+
+    @Test
+    @DisplayName("getPendingApprovals with limit should add query parameter")
+    void getPendingApprovalsWithLimitShouldAddQueryParam() {
+        stubFor(get(urlEqualTo("/api/v1/workflow-control/pending-approvals?limit=10"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"approvals\":[],\"total\":0}")));
+
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+            axonflow.getPendingApprovals(10);
+
+        assertThat(response.getTotal()).isEqualTo(0);
+        assertThat(response.getApprovals()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("getPendingApprovalsAsync should return future")
+    void getPendingApprovalsAsyncShouldReturnFuture() throws Exception {
+        stubFor(get(urlEqualTo("/api/v1/workflow-control/pending-approvals?limit=5"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"approvals\":[],\"total\":0}")));
+
+        CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse> future =
+            axonflow.getPendingApprovalsAsync(5);
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response = future.get();
+
+        assertThat(response.getTotal()).isEqualTo(0);
+    }
+
+    // ========================================================================
+    // Webhook CRUD Methods
+    // ========================================================================
+
+    @Test
+    @DisplayName("createWebhook should require non-null request")
+    void createWebhookShouldRequireRequest() {
+        assertThatThrownBy(() -> axonflow.createWebhook(null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("createWebhook should return created subscription")
+    void createWebhookShouldReturnSubscription() {
+        stubFor(post(urlEqualTo("/api/v1/webhooks"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"id\":\"wh-123\",\"url\":\"https://example.com/hook\","
+                    + "\"events\":[\"step.blocked\"],\"active\":true,"
+                    + "\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:00:00Z\"}")));
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.CreateWebhookRequest request =
+            com.getaxonflow.sdk.types.webhook.WebhookTypes.CreateWebhookRequest.builder()
+                .url("https://example.com/hook")
+                .events(List.of("step.blocked"))
+                .secret("my-secret")
+                .active(true)
+                .build();
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription subscription =
+            axonflow.createWebhook(request);
+
+        assertThat(subscription.getId()).isEqualTo("wh-123");
+        assertThat(subscription.getUrl()).isEqualTo("https://example.com/hook");
+        assertThat(subscription.getEvents()).containsExactly("step.blocked");
+        assertThat(subscription.isActive()).isTrue();
+    }
+
+    @Test
+    @DisplayName("createWebhookAsync should return future")
+    void createWebhookAsyncShouldReturnFuture() throws Exception {
+        stubFor(post(urlEqualTo("/api/v1/webhooks"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"id\":\"wh-456\",\"url\":\"https://example.com\","
+                    + "\"events\":[],\"active\":true}")));
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.CreateWebhookRequest request =
+            com.getaxonflow.sdk.types.webhook.WebhookTypes.CreateWebhookRequest.builder()
+                .url("https://example.com")
+                .build();
+
+        CompletableFuture<com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription> future =
+            axonflow.createWebhookAsync(request);
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription subscription = future.get();
+
+        assertThat(subscription.getId()).isEqualTo("wh-456");
+    }
+
+    @Test
+    @DisplayName("getWebhook should require non-null webhookId")
+    void getWebhookShouldRequireWebhookId() {
+        assertThatThrownBy(() -> axonflow.getWebhook(null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("getWebhook should return subscription")
+    void getWebhookShouldReturnSubscription() {
+        stubFor(get(urlEqualTo("/api/v1/webhooks/wh-123"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"id\":\"wh-123\",\"url\":\"https://example.com/hook\","
+                    + "\"events\":[\"workflow.completed\"],\"active\":true,"
+                    + "\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T11:00:00Z\"}")));
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription subscription =
+            axonflow.getWebhook("wh-123");
+
+        assertThat(subscription.getId()).isEqualTo("wh-123");
+        assertThat(subscription.getUrl()).isEqualTo("https://example.com/hook");
+        assertThat(subscription.getEvents()).containsExactly("workflow.completed");
+    }
+
+    @Test
+    @DisplayName("getWebhookAsync should return future")
+    void getWebhookAsyncShouldReturnFuture() throws Exception {
+        stubFor(get(urlEqualTo("/api/v1/webhooks/wh-789"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"id\":\"wh-789\",\"url\":\"https://example.com\","
+                    + "\"events\":[],\"active\":true}")));
+
+        CompletableFuture<com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription> future =
+            axonflow.getWebhookAsync("wh-789");
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription subscription = future.get();
+
+        assertThat(subscription.getId()).isEqualTo("wh-789");
+    }
+
+    @Test
+    @DisplayName("updateWebhook should require non-null webhookId")
+    void updateWebhookShouldRequireWebhookId() {
+        assertThatThrownBy(() -> axonflow.updateWebhook(null,
+            com.getaxonflow.sdk.types.webhook.WebhookTypes.UpdateWebhookRequest.builder().build()))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("updateWebhook should require non-null request")
+    void updateWebhookShouldRequireRequest() {
+        assertThatThrownBy(() -> axonflow.updateWebhook("wh-1", null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("updateWebhook should return updated subscription")
+    void updateWebhookShouldReturnUpdatedSubscription() {
+        stubFor(put(urlEqualTo("/api/v1/webhooks/wh-123"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"id\":\"wh-123\",\"url\":\"https://new-url.com/hook\","
+                    + "\"events\":[\"step.approved\"],\"active\":false,"
+                    + "\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T12:00:00Z\"}")));
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.UpdateWebhookRequest request =
+            com.getaxonflow.sdk.types.webhook.WebhookTypes.UpdateWebhookRequest.builder()
+                .url("https://new-url.com/hook")
+                .events(List.of("step.approved"))
+                .active(false)
+                .build();
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription subscription =
+            axonflow.updateWebhook("wh-123", request);
+
+        assertThat(subscription.getId()).isEqualTo("wh-123");
+        assertThat(subscription.getUrl()).isEqualTo("https://new-url.com/hook");
+        assertThat(subscription.isActive()).isFalse();
+    }
+
+    @Test
+    @DisplayName("updateWebhookAsync should return future")
+    void updateWebhookAsyncShouldReturnFuture() throws Exception {
+        stubFor(put(urlEqualTo("/api/v1/webhooks/wh-456"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"id\":\"wh-456\",\"url\":\"https://example.com\","
+                    + "\"events\":[],\"active\":true}")));
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.UpdateWebhookRequest request =
+            com.getaxonflow.sdk.types.webhook.WebhookTypes.UpdateWebhookRequest.builder()
+                .active(true)
+                .build();
+
+        CompletableFuture<com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription> future =
+            axonflow.updateWebhookAsync("wh-456", request);
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.WebhookSubscription subscription = future.get();
+
+        assertThat(subscription.getId()).isEqualTo("wh-456");
+    }
+
+    @Test
+    @DisplayName("deleteWebhook should require non-null webhookId")
+    void deleteWebhookShouldRequireWebhookId() {
+        assertThatThrownBy(() -> axonflow.deleteWebhook(null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("deleteWebhook should call delete endpoint")
+    void deleteWebhookShouldCallDeleteEndpoint() {
+        stubFor(delete(urlEqualTo("/api/v1/webhooks/wh-123"))
+            .willReturn(aResponse()
+                .withStatus(204)));
+
+        axonflow.deleteWebhook("wh-123");
+
+        verify(deleteRequestedFor(urlEqualTo("/api/v1/webhooks/wh-123")));
+    }
+
+    @Test
+    @DisplayName("deleteWebhookAsync should return future")
+    void deleteWebhookAsyncShouldReturnFuture() throws Exception {
+        stubFor(delete(urlEqualTo("/api/v1/webhooks/wh-456"))
+            .willReturn(aResponse()
+                .withStatus(204)));
+
+        CompletableFuture<Void> future = axonflow.deleteWebhookAsync("wh-456");
+        future.get();
+
+        verify(deleteRequestedFor(urlEqualTo("/api/v1/webhooks/wh-456")));
+    }
+
+    @Test
+    @DisplayName("listWebhooks should return list of subscriptions")
+    void listWebhooksShouldReturnList() {
+        stubFor(get(urlEqualTo("/api/v1/webhooks"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"webhooks\":[{\"id\":\"wh-1\",\"url\":\"https://example.com\","
+                    + "\"events\":[\"step.blocked\"],\"active\":true},"
+                    + "{\"id\":\"wh-2\",\"url\":\"https://other.com\","
+                    + "\"events\":[\"workflow.completed\"],\"active\":false}],\"total\":2}")));
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.ListWebhooksResponse response =
+            axonflow.listWebhooks();
+
+        assertThat(response.getTotal()).isEqualTo(2);
+        assertThat(response.getWebhooks()).hasSize(2);
+        assertThat(response.getWebhooks().get(0).getId()).isEqualTo("wh-1");
+        assertThat(response.getWebhooks().get(1).getId()).isEqualTo("wh-2");
+    }
+
+    @Test
+    @DisplayName("listWebhooksAsync should return future")
+    void listWebhooksAsyncShouldReturnFuture() throws Exception {
+        stubFor(get(urlEqualTo("/api/v1/webhooks"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"webhooks\":[],\"total\":0}")));
+
+        CompletableFuture<com.getaxonflow.sdk.types.webhook.WebhookTypes.ListWebhooksResponse> future =
+            axonflow.listWebhooksAsync();
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.ListWebhooksResponse response = future.get();
+
+        assertThat(response.getTotal()).isEqualTo(0);
+        assertThat(response.getWebhooks()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("listWebhooks should return empty list when no webhooks exist")
+    void listWebhooksShouldReturnEmptyList() {
+        stubFor(get(urlEqualTo("/api/v1/webhooks"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"webhooks\":[],\"total\":0}")));
+
+        com.getaxonflow.sdk.types.webhook.WebhookTypes.ListWebhooksResponse response =
+            axonflow.listWebhooks();
+
+        assertThat(response.getTotal()).isEqualTo(0);
+        assertThat(response.getWebhooks()).isEmpty();
+    }
 }
