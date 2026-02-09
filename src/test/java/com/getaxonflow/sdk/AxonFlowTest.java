@@ -2051,7 +2051,7 @@ class AxonFlowTest {
             + "\"completed_at\":\"2026-02-07T10:01:00Z\",\"steps\":[],"
             + "\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
 
-        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        stubFor(get(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "text/event-stream")
@@ -2083,7 +2083,7 @@ class AxonFlowTest {
             + "\"total_steps\":3,\"progress_percent\":66.0,\"started_at\":\"2026-02-07T10:00:00Z\","
             + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:00:45Z\"}\n\n";
 
-        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        stubFor(get(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "text/event-stream")
@@ -2107,7 +2107,7 @@ class AxonFlowTest {
             + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
         String doneEvent = "data: [DONE]\n\n";
 
-        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        stubFor(get(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "text/event-stream")
@@ -2124,7 +2124,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("streamExecutionStatus should throw on 401")
     void streamExecutionStatusShouldThrowOn401() {
-        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        stubFor(get(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .willReturn(aResponse()
                 .withStatus(401)
                 .withBody("Unauthorized")));
@@ -2136,7 +2136,7 @@ class AxonFlowTest {
     @Test
     @DisplayName("streamExecutionStatus should throw on 404")
     void streamExecutionStatusShouldThrowOn404() {
-        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        stubFor(get(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .willReturn(aResponse()
                 .withStatus(404)
                 .withBody("{\"error\":\"Execution not found\"}")));
@@ -2154,7 +2154,7 @@ class AxonFlowTest {
             + "\"total_steps\":1,\"progress_percent\":100.0,\"started_at\":\"2026-02-07T10:00:00Z\","
             + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
 
-        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        stubFor(get(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "text/event-stream")
@@ -2177,7 +2177,7 @@ class AxonFlowTest {
             + "\"total_steps\":1,\"progress_percent\":100.0,\"started_at\":\"2026-02-07T10:00:00Z\","
             + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
 
-        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        stubFor(get(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "text/event-stream")
@@ -2185,7 +2185,7 @@ class AxonFlowTest {
 
         axonflow.streamExecutionStatus("exec_123", status -> {});
 
-        verify(getRequestedFor(urlEqualTo("/api/v1/executions/exec_123/stream"))
+        verify(getRequestedFor(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .withHeader("Accept", equalTo("text/event-stream")));
     }
 }

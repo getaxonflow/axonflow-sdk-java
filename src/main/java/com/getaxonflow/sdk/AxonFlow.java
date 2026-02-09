@@ -1998,10 +1998,10 @@ public final class AxonFlow implements Closeable {
 
         logger.debug("Streaming execution status for {}", executionId);
 
-        HttpUrl url = HttpUrl.parse(config.getEndpoint() + "/api/v1/executions/" + executionId + "/stream");
+        HttpUrl url = HttpUrl.parse(config.getEndpoint() + "/api/v1/unified/executions/" + executionId + "/stream");
         if (url == null) {
             throw new ConfigurationException("Invalid URL: " + config.getEndpoint()
-                + "/api/v1/executions/" + executionId + "/stream");
+                + "/api/v1/unified/executions/" + executionId + "/stream");
         }
 
         Request.Builder builder = new Request.Builder()
