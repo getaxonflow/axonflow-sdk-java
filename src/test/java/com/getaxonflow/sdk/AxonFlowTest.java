@@ -2019,4 +2019,173 @@ class AxonFlowTest {
         assertThat(response.getTotal()).isEqualTo(0);
         assertThat(response.getWebhooks()).isEmpty();
     }
+
+    // ========================================================================
+    // Unified Execution Streaming (SSE)
+    // ========================================================================
+
+    @Test
+    @DisplayName("streamExecutionStatus should throw NullPointerException for null executionId")
+    void streamExecutionStatusShouldRejectNullId() {
+        assertThatThrownBy(() -> axonflow.streamExecutionStatus(null, status -> {}))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should throw NullPointerException for null callback")
+    void streamExecutionStatusShouldRejectNullCallback() {
+        assertThatThrownBy(() -> axonflow.streamExecutionStatus("exec_123", null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should invoke callback for each SSE event")
+    void streamExecutionStatusShouldInvokeCallback() {
+        String runningEvent = "data: {\"execution_id\":\"exec_123\",\"execution_type\":\"map_plan\","
+            + "\"name\":\"Test\",\"status\":\"running\",\"current_step_index\":0,"
+            + "\"total_steps\":3,\"progress_percent\":33.0,\"started_at\":\"2026-02-07T10:00:00Z\","
+            + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:00:00Z\"}\n\n";
+        String completedEvent = "data: {\"execution_id\":\"exec_123\",\"execution_type\":\"map_plan\","
+            + "\"name\":\"Test\",\"status\":\"completed\",\"current_step_index\":2,"
+            + "\"total_steps\":3,\"progress_percent\":100.0,\"started_at\":\"2026-02-07T10:00:00Z\","
+            + "\"completed_at\":\"2026-02-07T10:01:00Z\",\"steps\":[],"
+            + "\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "text/event-stream")
+                .withBody(runningEvent + completedEvent)));
+
+        java.util.List<com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus> updates =
+            new java.util.ArrayList<>();
+        axonflow.streamExecutionStatus("exec_123", updates::add);
+
+        assertThat(updates).hasSize(2);
+        assertThat(updates.get(0).getStatus().getValue()).isEqualTo("running");
+        assertThat(updates.get(0).getProgressPercent()).isEqualTo(33.0);
+        assertThat(updates.get(1).getStatus().getValue()).isEqualTo("completed");
+        assertThat(updates.get(1).getProgressPercent()).isEqualTo(100.0);
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should stop on failed terminal status")
+    void streamExecutionStatusShouldStopOnFailed() {
+        String failedEvent = "data: {\"execution_id\":\"exec_123\",\"execution_type\":\"wcp_workflow\","
+            + "\"name\":\"Test\",\"status\":\"failed\",\"current_step_index\":1,"
+            + "\"total_steps\":3,\"progress_percent\":33.0,\"started_at\":\"2026-02-07T10:00:00Z\","
+            + "\"error\":\"Step 2 timed out\",\"steps\":[],"
+            + "\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:00:30Z\"}\n\n";
+
+        // Add extra data after failed - should not be consumed
+        String extraEvent = "data: {\"execution_id\":\"exec_123\",\"execution_type\":\"wcp_workflow\","
+            + "\"name\":\"Test\",\"status\":\"running\",\"current_step_index\":2,"
+            + "\"total_steps\":3,\"progress_percent\":66.0,\"started_at\":\"2026-02-07T10:00:00Z\","
+            + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:00:45Z\"}\n\n";
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "text/event-stream")
+                .withBody(failedEvent + extraEvent)));
+
+        java.util.List<com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus> updates =
+            new java.util.ArrayList<>();
+        axonflow.streamExecutionStatus("exec_123", updates::add);
+
+        assertThat(updates).hasSize(1);
+        assertThat(updates.get(0).getStatus().getValue()).isEqualTo("failed");
+        assertThat(updates.get(0).getError()).isEqualTo("Step 2 timed out");
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should skip [DONE] sentinel")
+    void streamExecutionStatusShouldSkipDone() {
+        String completedEvent = "data: {\"execution_id\":\"exec_123\",\"execution_type\":\"map_plan\","
+            + "\"name\":\"Test\",\"status\":\"completed\",\"current_step_index\":2,"
+            + "\"total_steps\":2,\"progress_percent\":100.0,\"started_at\":\"2026-02-07T10:00:00Z\","
+            + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
+        String doneEvent = "data: [DONE]\n\n";
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "text/event-stream")
+                .withBody(completedEvent + doneEvent)));
+
+        java.util.List<com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus> updates =
+            new java.util.ArrayList<>();
+        axonflow.streamExecutionStatus("exec_123", updates::add);
+
+        assertThat(updates).hasSize(1);
+        assertThat(updates.get(0).getStatus().getValue()).isEqualTo("completed");
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should throw on 401")
+    void streamExecutionStatusShouldThrowOn401() {
+        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .willReturn(aResponse()
+                .withStatus(401)
+                .withBody("Unauthorized")));
+
+        assertThatThrownBy(() -> axonflow.streamExecutionStatus("exec_123", status -> {}))
+            .isInstanceOf(AuthenticationException.class);
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should throw on 404")
+    void streamExecutionStatusShouldThrowOn404() {
+        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .willReturn(aResponse()
+                .withStatus(404)
+                .withBody("{\"error\":\"Execution not found\"}")));
+
+        assertThatThrownBy(() -> axonflow.streamExecutionStatus("exec_123", status -> {}))
+            .isInstanceOf(AxonFlowException.class);
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should handle malformed JSON gracefully")
+    void streamExecutionStatusShouldHandleMalformedJson() {
+        String malformedEvent = "data: {invalid json}\n\n";
+        String completedEvent = "data: {\"execution_id\":\"exec_123\",\"execution_type\":\"map_plan\","
+            + "\"name\":\"Test\",\"status\":\"completed\",\"current_step_index\":1,"
+            + "\"total_steps\":1,\"progress_percent\":100.0,\"started_at\":\"2026-02-07T10:00:00Z\","
+            + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "text/event-stream")
+                .withBody(malformedEvent + completedEvent)));
+
+        java.util.List<com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus> updates =
+            new java.util.ArrayList<>();
+        axonflow.streamExecutionStatus("exec_123", updates::add);
+
+        // Should skip malformed event and get the completed one
+        assertThat(updates).hasSize(1);
+        assertThat(updates.get(0).getStatus().getValue()).isEqualTo("completed");
+    }
+
+    @Test
+    @DisplayName("streamExecutionStatus should send correct request headers")
+    void streamExecutionStatusShouldSendCorrectHeaders() {
+        String completedEvent = "data: {\"execution_id\":\"exec_123\",\"execution_type\":\"map_plan\","
+            + "\"name\":\"Test\",\"status\":\"completed\",\"current_step_index\":0,"
+            + "\"total_steps\":1,\"progress_percent\":100.0,\"started_at\":\"2026-02-07T10:00:00Z\","
+            + "\"steps\":[],\"created_at\":\"2026-02-07T10:00:00Z\",\"updated_at\":\"2026-02-07T10:01:00Z\"}\n\n";
+
+        stubFor(get(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "text/event-stream")
+                .withBody(completedEvent)));
+
+        axonflow.streamExecutionStatus("exec_123", status -> {});
+
+        verify(getRequestedFor(urlEqualTo("/api/v1/executions/exec_123/stream"))
+            .withHeader("Accept", equalTo("text/event-stream")));
+    }
 }

@@ -35,8 +35,10 @@ import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -49,6 +51,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Consumer;
 
 /**
  * Main client for interacting with the AxonFlow API.
@@ -1961,6 +1964,117 @@ public final class AxonFlow implements Closeable {
      */
     public void cancelExecution(String executionId) {
         cancelExecution(executionId, null);
+    }
+
+    /**
+     * Streams real-time execution status updates via Server-Sent Events (SSE).
+     *
+     * <p>Connects to the SSE streaming endpoint and invokes the callback with each
+     * {@link com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus} update
+     * as it arrives. The stream automatically closes when the execution reaches a
+     * terminal state (completed, failed, cancelled, aborted, or expired).
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * axonflow.streamExecutionStatus("exec_123", status -> {
+     *     System.out.printf("Progress: %.0f%% - Status: %s%n",
+     *         status.getProgressPercent(), status.getStatus().getValue());
+     *     if (status.getCurrentStep() != null) {
+     *         System.out.println("  Current step: " + status.getCurrentStep().getStepName());
+     *     }
+     * });
+     * }</pre>
+     *
+     * @param executionId the execution ID (plan ID or workflow ID)
+     * @param callback consumer invoked with each ExecutionStatus update
+     * @throws AxonFlowException if the connection fails or an I/O error occurs
+     * @throws AuthenticationException if authentication fails (401/403)
+     */
+    public void streamExecutionStatus(
+            String executionId,
+            Consumer<com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus> callback) {
+        Objects.requireNonNull(executionId, "executionId cannot be null");
+        Objects.requireNonNull(callback, "callback cannot be null");
+
+        logger.debug("Streaming execution status for {}", executionId);
+
+        HttpUrl url = HttpUrl.parse(config.getEndpoint() + "/api/v1/executions/" + executionId + "/stream");
+        if (url == null) {
+            throw new ConfigurationException("Invalid URL: " + config.getEndpoint()
+                + "/api/v1/executions/" + executionId + "/stream");
+        }
+
+        Request.Builder builder = new Request.Builder()
+            .url(url)
+            .header("User-Agent", config.getUserAgent())
+            .header("Accept", "text/event-stream")
+            .get();
+
+        addAuthHeaders(builder);
+        addTenantIdHeader(builder);
+
+        Request httpRequest = builder.build();
+
+        try {
+            Response response = httpClient.newCall(httpRequest).execute();
+            try {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+
+                ResponseBody body = response.body();
+                if (body == null) {
+                    throw new AxonFlowException("SSE response has no body", 0, null);
+                }
+
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(body.byteStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder eventBuffer = new StringBuilder();
+                    String line;
+
+                    while ((line = reader.readLine()) != null) {
+                        if (line.isEmpty()) {
+                            // Empty line = end of SSE event
+                            String event = eventBuffer.toString().trim();
+                            eventBuffer.setLength(0);
+
+                            if (event.isEmpty()) {
+                                continue;
+                            }
+
+                            // Parse SSE data lines
+                            for (String eventLine : event.split("\n")) {
+                                if (eventLine.startsWith("data: ")) {
+                                    String jsonStr = eventLine.substring(6);
+                                    if (jsonStr.isEmpty() || "[DONE]".equals(jsonStr)) {
+                                        continue;
+                                    }
+                                    try {
+                                        com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus status =
+                                            objectMapper.readValue(jsonStr,
+                                                com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus.class);
+                                        callback.accept(status);
+
+                                        // Check for terminal status
+                                        if (status.getStatus() != null && status.getStatus().isTerminal()) {
+                                            return;
+                                        }
+                                    } catch (JsonProcessingException e) {
+                                        logger.warn("Failed to parse SSE data: {}", jsonStr, e);
+                                    }
+                                }
+                            }
+                        } else {
+                            eventBuffer.append(line).append("\n");
+                        }
+                    }
+                }
+            } finally {
+                response.close();
+            }
+        } catch (IOException e) {
+            throw new AxonFlowException("SSE stream failed: " + e.getMessage(), e);
+        }
     }
 
     // ========================================================================
