@@ -14,7 +14,11 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 >
 > No commitment required. We reply within 48 hours.
 
-> **AxonFlow Feedback Week (Feb 5–12, 2026)** — We're shipping 3 improvements from user feedback.
+> **Need higher limits for a real PoC?** Get a free 90-day Evaluation license:
+>
+> https://getaxonflow.com/evaluation-license?utm_source=readme_sdk_java
+
+> **AxonFlow Feedback Week (Feb 6–12, 2026)** — We're shipping 3 improvements from user feedback.
 >
 > [Share feedback](https://github.com/getaxonflow/axonflow/discussions/239) or email [hello@getaxonflow.com](mailto:hello@getaxonflow.com) for private feedback.
 
