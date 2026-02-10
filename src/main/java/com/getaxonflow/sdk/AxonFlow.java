@@ -832,6 +832,7 @@ public final class AxonFlow implements Closeable {
         String result = (String) agentResponse.get("result");
 
         // Read status from response data (e.g., "awaiting_approval" for confirm mode)
+        // Precedence: data.status > metadata.status > top-level status > "completed"
         String status = "completed";
         Object dataObj2 = agentResponse.get("data");
         if (dataObj2 instanceof Map) {
@@ -840,6 +841,17 @@ public final class AxonFlow implements Closeable {
             Object dataStatus = dm.get("status");
             if (dataStatus instanceof String && !((String) dataStatus).isEmpty()) {
                 status = (String) dataStatus;
+            }
+        }
+        if ("completed".equals(status)) {
+            Object metaObj = agentResponse.get("metadata");
+            if (metaObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> metaMap = (Map<String, Object>) metaObj;
+                Object metaStatus = metaMap.get("status");
+                if (metaStatus instanceof String && !((String) metaStatus).isEmpty()) {
+                    status = (String) metaStatus;
+                }
             }
         }
         if ("completed".equals(status)) {

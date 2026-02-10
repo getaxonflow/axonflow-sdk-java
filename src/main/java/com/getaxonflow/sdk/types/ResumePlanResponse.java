@@ -99,10 +99,10 @@ public final class ResumePlanResponse {
     /**
      * Returns whether the plan was approved to continue.
      *
-     * @return true if the plan was approved, null if not applicable
+     * @return true if the plan was approved, false if not approved or not applicable
      */
-    public Boolean isApproved() {
-        return approved;
+    public boolean isApproved() {
+        return Boolean.TRUE.equals(approved);
     }
 
     /**
