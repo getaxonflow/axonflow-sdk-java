@@ -765,7 +765,8 @@ public final class AxonFlow implements Closeable {
     public PlanResponse executePlan(String planId, String userToken) {
         Objects.requireNonNull(planId, "planId cannot be null");
 
-        return retryExecutor.execute(() -> {
+        // executePlan is a mutation — do NOT retry (retrying causes 409 "Plan has already been executed")
+        try {
             // Build agent request format - like generatePlan but with request_type "execute-plan"
             String token = userToken != null ? userToken : (config.getClientId() != null ? config.getClientId() : "default");
             String clientId = config.getClientId() != null ? config.getClientId() : "default";
@@ -781,7 +782,11 @@ public final class AxonFlow implements Closeable {
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseExecutePlanResponse(response, planId);
             }
-        }, "executePlan");
+        } catch (AxonFlowException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlanExecutionException("executePlan failed: " + e.getMessage(), planId, null, e);
+        }
     }
 
     /**
@@ -826,9 +831,39 @@ public final class AxonFlow implements Closeable {
         // Extract result - this is the completed plan output
         String result = (String) agentResponse.get("result");
 
+        // Read status from response data (e.g., "awaiting_approval" for confirm mode)
+        // Precedence: data.status > metadata.status > top-level status > "completed"
+        String status = "completed";
+        Object dataObj2 = agentResponse.get("data");
+        if (dataObj2 instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> dm = (Map<String, Object>) dataObj2;
+            Object dataStatus = dm.get("status");
+            if (dataStatus instanceof String && !((String) dataStatus).isEmpty()) {
+                status = (String) dataStatus;
+            }
+        }
+        if ("completed".equals(status)) {
+            Object metaObj = agentResponse.get("metadata");
+            if (metaObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> metaMap = (Map<String, Object>) metaObj;
+                Object metaStatus = metaMap.get("status");
+                if (metaStatus instanceof String && !((String) metaStatus).isEmpty()) {
+                    status = (String) metaStatus;
+                }
+            }
+        }
+        if ("completed".equals(status)) {
+            Object topStatus = agentResponse.get("status");
+            if (topStatus instanceof String && !((String) topStatus).isEmpty()) {
+                status = (String) topStatus;
+            }
+        }
+
         // Build response with execution status
         return new PlanResponse(planId, Collections.emptyList(), null, null, null,
-            null, null, "completed", result);
+            null, null, status, result);
     }
 
     /**

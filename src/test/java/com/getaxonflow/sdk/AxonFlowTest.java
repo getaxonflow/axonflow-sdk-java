@@ -418,6 +418,46 @@ class AxonFlowTest {
         assertThat(response.getStatus()).isEqualTo("pending");
     }
 
+    @Test
+    @DisplayName("executePlan should throw when nested data.success is false")
+    void executePlanShouldThrowOnNestedDataFailure() {
+        stubFor(post(urlEqualTo("/api/request"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"data\":{\"success\":false,\"error\":\"Step 2 timed out\"}}")));
+
+        assertThatThrownBy(() -> axonflow.executePlan("plan_fail"))
+            .isInstanceOf(PlanExecutionException.class)
+            .hasMessageContaining("Step 2 timed out");
+    }
+
+    @Test
+    @DisplayName("executePlan should use metadata.status when data.status is absent")
+    void executePlanShouldFallbackToMetadataStatus() {
+        // No data.status, but metadata.status is present — should use metadata.status
+        stubFor(post(urlEqualTo("/api/request"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"result\":\"done\",\"metadata\":{\"status\":\"awaiting_approval\"}}")));
+
+        PlanResponse response = axonflow.executePlan("plan_meta");
+
+        assertThat(response.getStatus()).isEqualTo("awaiting_approval");
+    }
+
+    @Test
+    @DisplayName("isApproved should return false when approved field is null")
+    void isApprovedShouldReturnFalseWhenNull() {
+        // Construct a ResumePlanResponse with null approved field
+        ResumePlanResponse response = new ResumePlanResponse(
+            "plan_123", "wf_456", "in_progress", null, "Pending review", 2, "Step 2", 5);
+
+        // Must return false (not throw NPE)
+        assertThat(response.isApproved()).isFalse();
+    }
+
     // ========================================================================
     // Orchestrator Health Check
     // ========================================================================
