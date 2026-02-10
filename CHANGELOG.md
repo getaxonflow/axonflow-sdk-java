@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`executePlan` status hardcoded**: `executePlan()` always returned `status: "completed"` regardless of actual server response. Now reads status from response (`data.status` > `metadata.status` > default), correctly surfacing `awaiting_approval` for WCP confirm mode.
 - **Unified execution API URLs** (EPIC #1074): `getExecutionStatus()` and `listUnifiedExecutions()` now use correct `/api/v1/unified/executions` path (was incorrectly pointing to `/api/v1/executions` which is the Execution Replay API)
 - **`rejectStep` reason parameter**: Added `reason` parameter to `rejectStep()` and `rejectStepAsync()` with backward-compatible 2-arg overloads
 
