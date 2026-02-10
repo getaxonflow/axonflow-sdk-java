@@ -765,7 +765,8 @@ public final class AxonFlow implements Closeable {
     public PlanResponse executePlan(String planId, String userToken) {
         Objects.requireNonNull(planId, "planId cannot be null");
 
-        return retryExecutor.execute(() -> {
+        // executePlan is a mutation — do NOT retry (retrying causes 409 "Plan has already been executed")
+        try {
             // Build agent request format - like generatePlan but with request_type "execute-plan"
             String token = userToken != null ? userToken : (config.getClientId() != null ? config.getClientId() : "default");
             String clientId = config.getClientId() != null ? config.getClientId() : "default";
@@ -781,7 +782,11 @@ public final class AxonFlow implements Closeable {
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 return parseExecutePlanResponse(response, planId);
             }
-        }, "executePlan");
+        } catch (AxonFlowException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PlanExecutionException("executePlan failed: " + e.getMessage(), planId, null, e);
+        }
     }
 
     /**
