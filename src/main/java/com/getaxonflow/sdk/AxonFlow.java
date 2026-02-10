@@ -826,9 +826,27 @@ public final class AxonFlow implements Closeable {
         // Extract result - this is the completed plan output
         String result = (String) agentResponse.get("result");
 
+        // Read status from response data (e.g., "awaiting_approval" for confirm mode)
+        String status = "completed";
+        Object dataObj2 = agentResponse.get("data");
+        if (dataObj2 instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> dm = (Map<String, Object>) dataObj2;
+            Object dataStatus = dm.get("status");
+            if (dataStatus instanceof String && !((String) dataStatus).isEmpty()) {
+                status = (String) dataStatus;
+            }
+        }
+        if ("completed".equals(status)) {
+            Object topStatus = agentResponse.get("status");
+            if (topStatus instanceof String && !((String) topStatus).isEmpty()) {
+                status = (String) topStatus;
+            }
+        }
+
         // Build response with execution status
         return new PlanResponse(planId, Collections.emptyList(), null, null, null,
-            null, null, "completed", result);
+            null, null, status, result);
     }
 
     /**
