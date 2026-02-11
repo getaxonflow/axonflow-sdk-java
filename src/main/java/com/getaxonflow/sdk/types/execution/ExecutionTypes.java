@@ -698,8 +698,13 @@ public final class ExecutionTypes {
         private final int offset;
         private final boolean hasMore;
 
+        @JsonCreator
         public UnifiedListExecutionsResponse(
-                List<ExecutionStatus> executions, int total, int limit, int offset, boolean hasMore) {
+                @JsonProperty("executions") List<ExecutionStatus> executions,
+                @JsonProperty("total") int total,
+                @JsonProperty("limit") int limit,
+                @JsonProperty("offset") int offset,
+                @JsonProperty("has_more") boolean hasMore) {
             this.executions = executions;
             this.total = total;
             this.limit = limit;
