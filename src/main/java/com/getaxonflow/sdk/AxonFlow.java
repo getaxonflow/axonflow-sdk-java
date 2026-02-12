@@ -4410,12 +4410,17 @@ public final class AxonFlow implements Closeable {
                 }
                 if (node.has("meta")) {
                     JsonNode meta = node.get("meta");
+                    long total = 0;
+                    long offset = 0;
                     if (meta.has("total")) {
-                        result.setTotal(meta.get("total").asLong());
+                        total = meta.get("total").asLong();
+                        result.setTotal(total);
                     }
-                    if (meta.has("has_more")) {
-                        result.setHasMore(meta.get("has_more").asBoolean());
+                    if (meta.has("offset")) {
+                        offset = meta.get("offset").asLong();
                     }
+                    // Compute hasMore from total/offset/items (consistent with Go/TS SDKs)
+                    result.setHasMore((offset + result.getItems().size()) < total);
                 }
                 return result;
             }
