@@ -20,6 +20,7 @@ import com.getaxonflow.sdk.types.*;
 import com.getaxonflow.sdk.types.codegovernance.*;
 import com.getaxonflow.sdk.types.costcontrols.CostControlTypes.*;
 import com.getaxonflow.sdk.types.executionreplay.ExecutionReplayTypes.*;
+import com.getaxonflow.sdk.types.hitl.HITLTypes.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
 import com.getaxonflow.sdk.masfeat.MASFEATTypes.*;
 import com.getaxonflow.sdk.types.webhook.WebhookTypes.*;
@@ -3905,6 +3906,55 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
+     * Fails a workflow.
+     *
+     * <p>Call this when a workflow has encountered an unrecoverable error and should
+     * be marked as failed.
+     *
+     * @param workflowId workflow ID
+     * @param reason optional reason for failing
+     */
+    public void failWorkflow(String workflowId, String reason) {
+        Objects.requireNonNull(workflowId, "workflowId cannot be null");
+
+        retryExecutor.execute(() -> {
+            Map<String, String> body = reason != null ?
+                Collections.singletonMap("reason", reason) : Collections.emptyMap();
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/workflows/" + workflowId + "/fail", body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "failWorkflow");
+    }
+
+    /**
+     * Fails a workflow with no reason.
+     *
+     * @param workflowId workflow ID
+     */
+    public void failWorkflow(String workflowId) {
+        failWorkflow(workflowId, null);
+    }
+
+    /**
+     * Asynchronously fails a workflow.
+     *
+     * @param workflowId workflow ID
+     * @param reason optional reason for failing
+     * @return a future that completes when the workflow has been failed
+     */
+    public CompletableFuture<Void> failWorkflowAsync(String workflowId, String reason) {
+        return CompletableFuture.supplyAsync(() -> {
+            failWorkflow(workflowId, reason);
+            return null;
+        }, asyncExecutor);
+    }
+
+    /**
      * Resumes a workflow after approval.
      *
      * <p>Call this after a step has been approved to continue the workflow.
@@ -4305,6 +4355,242 @@ public final class AxonFlow implements Closeable {
      */
     public CompletableFuture<ListWebhooksResponse> listWebhooksAsync() {
         return CompletableFuture.supplyAsync(this::listWebhooks, asyncExecutor);
+    }
+
+    // ========================================================================
+    // HITL (Human-in-the-Loop) Queue
+    // ========================================================================
+
+    /**
+     * Lists pending HITL approval requests.
+     *
+     * <p>Returns approval requests from the HITL queue, optionally filtered
+     * by status and severity.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     *
+     * @param opts filtering and pagination options (may be null)
+     * @return the list response containing approval requests
+     * @throws AxonFlowException if the request fails
+     */
+    public HITLQueueListResponse listHITLQueue(HITLQueueListOptions opts) {
+        return retryExecutor.execute(() -> {
+            StringBuilder path = new StringBuilder("/api/v1/hitl/queue");
+            StringBuilder query = new StringBuilder();
+
+            if (opts != null) {
+                if (opts.getStatus() != null) {
+                    appendQueryParam(query, "status", opts.getStatus());
+                }
+                if (opts.getSeverity() != null) {
+                    appendQueryParam(query, "severity", opts.getSeverity());
+                }
+                if (opts.getLimit() != null) {
+                    appendQueryParam(query, "limit", opts.getLimit().toString());
+                }
+                if (opts.getOffset() != null) {
+                    appendQueryParam(query, "offset", opts.getOffset().toString());
+                }
+            }
+
+            if (query.length() > 0) {
+                path.append("?").append(query);
+            }
+
+            Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+
+                // Server wraps response: {"success": true, "data": [...], "meta": {...}}
+                HITLQueueListResponse result = new HITLQueueListResponse();
+                if (node.has("data") && node.get("data").isArray()) {
+                    List<HITLApprovalRequest> items = objectMapper.convertValue(
+                        node.get("data"), new TypeReference<List<HITLApprovalRequest>>() {});
+                    result.setItems(items);
+                }
+                if (node.has("meta")) {
+                    JsonNode meta = node.get("meta");
+                    long total = 0;
+                    long offset = 0;
+                    if (meta.has("total")) {
+                        total = meta.get("total").asLong();
+                        result.setTotal(total);
+                    }
+                    if (meta.has("offset")) {
+                        offset = meta.get("offset").asLong();
+                    }
+                    // Compute hasMore from total/offset/items (consistent with Go/TS SDKs)
+                    result.setHasMore((offset + result.getItems().size()) < total);
+                }
+                return result;
+            }
+        }, "listHITLQueue");
+    }
+
+    /**
+     * Lists pending HITL approval requests with default options.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     *
+     * @return the list response containing approval requests
+     * @throws AxonFlowException if the request fails
+     */
+    public HITLQueueListResponse listHITLQueue() {
+        return listHITLQueue(null);
+    }
+
+    /**
+     * Asynchronously lists pending HITL approval requests.
+     *
+     * @param opts filtering and pagination options (may be null)
+     * @return a future containing the list response
+     */
+    public CompletableFuture<HITLQueueListResponse> listHITLQueueAsync(HITLQueueListOptions opts) {
+        return CompletableFuture.supplyAsync(() -> listHITLQueue(opts), asyncExecutor);
+    }
+
+    /**
+     * Gets a specific HITL approval request by ID.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     *
+     * @param requestId the approval request ID
+     * @return the approval request
+     * @throws AxonFlowException if the request is not found or the call fails
+     */
+    public HITLApprovalRequest getHITLRequest(String requestId) {
+        Objects.requireNonNull(requestId, "requestId cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET",
+                "/api/v1/hitl/queue/" + requestId, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+
+                // Server wraps response: {"success": true, "data": {...}}
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), HITLApprovalRequest.class);
+                }
+                return objectMapper.treeToValue(node, HITLApprovalRequest.class);
+            }
+        }, "getHITLRequest");
+    }
+
+    /**
+     * Asynchronously gets a specific HITL approval request by ID.
+     *
+     * @param requestId the approval request ID
+     * @return a future containing the approval request
+     */
+    public CompletableFuture<HITLApprovalRequest> getHITLRequestAsync(String requestId) {
+        return CompletableFuture.supplyAsync(() -> getHITLRequest(requestId), asyncExecutor);
+    }
+
+    /**
+     * Approves a HITL approval request.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     *
+     * @param requestId the approval request ID
+     * @param review    the review input containing reviewer details
+     * @throws AxonFlowException if the approval fails
+     */
+    public void approveHITLRequest(String requestId, HITLReviewInput review) {
+        Objects.requireNonNull(requestId, "requestId cannot be null");
+        Objects.requireNonNull(review, "review cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/hitl/queue/" + requestId + "/approve", review);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "approveHITLRequest");
+    }
+
+    /**
+     * Asynchronously approves a HITL approval request.
+     *
+     * @param requestId the approval request ID
+     * @param review    the review input containing reviewer details
+     * @return a future that completes when the request has been approved
+     */
+    public CompletableFuture<Void> approveHITLRequestAsync(String requestId, HITLReviewInput review) {
+        return CompletableFuture.runAsync(() -> approveHITLRequest(requestId, review), asyncExecutor);
+    }
+
+    /**
+     * Rejects a HITL approval request.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     *
+     * @param requestId the approval request ID
+     * @param review    the review input containing reviewer details
+     * @throws AxonFlowException if the rejection fails
+     */
+    public void rejectHITLRequest(String requestId, HITLReviewInput review) {
+        Objects.requireNonNull(requestId, "requestId cannot be null");
+        Objects.requireNonNull(review, "review cannot be null");
+
+        retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST",
+                "/api/v1/hitl/queue/" + requestId + "/reject", review);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                if (!response.isSuccessful()) {
+                    handleErrorResponse(response);
+                }
+                return null;
+            }
+        }, "rejectHITLRequest");
+    }
+
+    /**
+     * Asynchronously rejects a HITL approval request.
+     *
+     * @param requestId the approval request ID
+     * @param review    the review input containing reviewer details
+     * @return a future that completes when the request has been rejected
+     */
+    public CompletableFuture<Void> rejectHITLRequestAsync(String requestId, HITLReviewInput review) {
+        return CompletableFuture.runAsync(() -> rejectHITLRequest(requestId, review), asyncExecutor);
+    }
+
+    /**
+     * Gets HITL dashboard statistics.
+     *
+     * <p>Returns aggregate statistics about the HITL queue including
+     * total pending requests, priority breakdowns, and age metrics.
+     *
+     * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
+     *
+     * @return the dashboard statistics
+     * @throws AxonFlowException if the request fails
+     */
+    public HITLStats getHITLStats() {
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/hitl/stats", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+
+                // Server wraps response: {"success": true, "data": {...}}
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), HITLStats.class);
+                }
+                return objectMapper.treeToValue(node, HITLStats.class);
+            }
+        }, "getHITLStats");
+    }
+
+    /**
+     * Asynchronously gets HITL dashboard statistics.
+     *
+     * @return a future containing the dashboard statistics
+     */
+    public CompletableFuture<HITLStats> getHITLStatsAsync() {
+        return CompletableFuture.supplyAsync(this::getHITLStats, asyncExecutor);
     }
 
     // ========================================================================
