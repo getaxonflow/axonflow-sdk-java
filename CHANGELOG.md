@@ -13,18 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `failWorkflow(workflowId, reason)` + async variant + overload without reason
   - Sends `POST /api/v1/workflows/{id}/fail`
 - **HITL Queue API** (Enterprise): Human-in-the-loop approval queue management
-  - `listHITLQueue(opts)` — list pending approvals with filtering
-  - `getHITLRequest(requestId)` — get approval details
-  - `approveHITLRequest(requestId, review)` — approve a request
-  - `rejectHITLRequest(requestId, review)` — reject a request
-  - `getHITLStats()` — dashboard statistics
+  - `listHITLQueue(opts)`: list pending approvals with filtering
+  - `getHITLRequest(requestId)`: get approval details
+  - `approveHITLRequest(requestId, review)`: approve a request
+  - `rejectHITLRequest(requestId, review)`: reject a request
+  - `getHITLStats()`: dashboard statistics
   - New types: `HITLApprovalRequest`, `HITLQueueListOptions`, `HITLQueueListResponse`, `HITLReviewInput`, `HITLStats`
 
 ## [3.3.1] - 2026-02-12
 
 ### Fixed
 
-- **`listUnifiedExecutions` deserialization**: Fixed Jackson deserialization failure on `UnifiedListExecutionsResponse` — added `@JsonCreator` and `@JsonProperty` annotations to constructor. Without this, `listUnifiedExecutions()` threw "no Creators, like default constructor, exist" error.
+- **`listUnifiedExecutions` deserialization**: Fixed Jackson deserialization failure on `UnifiedListExecutionsResponse`. Added `@JsonCreator` and `@JsonProperty` annotations to constructor. Without this, `listUnifiedExecutions()` threw "no Creators, like default constructor, exist" error.
 - **SSE streaming endpoint path**: `streamExecutionStatus()` now uses correct `/api/v1/unified/executions/{id}/stream` path (was incorrectly pointing to `/api/v1/executions/{id}/stream` which is the Execution Replay API)
 
 ---
