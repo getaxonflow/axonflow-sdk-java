@@ -593,40 +593,48 @@ public final class AxonFlow implements Closeable {
 
         final ClientRequest finalRequest = effectiveRequest;
 
-        // Check cache first
+        // Media requests must not be cached — binary content makes cache keys unreliable
+        boolean hasMedia = finalRequest.getMedia() != null && !finalRequest.getMedia().isEmpty();
+
+        // Check cache first (skip for media requests)
         String cacheKey = ResponseCache.generateKey(
             finalRequest.getRequestType(),
             finalRequest.getQuery(),
             finalRequest.getUserToken()
         );
 
-        return cache.get(cacheKey, ClientResponse.class).orElseGet(() -> {
-            ClientResponse response = retryExecutor.execute(() -> {
-                Request httpRequest = buildRequest("POST", "/api/request", finalRequest);
-                try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
-                    ClientResponse result = parseResponse(httpResponse, ClientResponse.class);
-
-                    if (result.isBlocked()) {
-                        throw new PolicyViolationException(
-                            result.getBlockReason(),
-                            result.getBlockingPolicyName(),
-                            result.getPolicyInfo() != null
-                                ? result.getPolicyInfo().getPoliciesEvaluated()
-                                : null
-                        );
-                    }
-
-                    return result;
-                }
-            }, "proxyLLMCall");
-
-            // Cache successful responses
-            if (response.isSuccess() && !response.isBlocked()) {
-                cache.put(cacheKey, response);
+        if (!hasMedia) {
+            java.util.Optional<ClientResponse> cached = cache.get(cacheKey, ClientResponse.class);
+            if (cached.isPresent()) {
+                return cached.get();
             }
+        }
 
-            return response;
-        });
+        ClientResponse response = retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("POST", "/api/request", finalRequest);
+            try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
+                ClientResponse result = parseResponse(httpResponse, ClientResponse.class);
+
+                if (result.isBlocked()) {
+                    throw new PolicyViolationException(
+                        result.getBlockReason(),
+                        result.getBlockingPolicyName(),
+                        result.getPolicyInfo() != null
+                            ? result.getPolicyInfo().getPoliciesEvaluated()
+                            : null
+                    );
+                }
+
+                return result;
+            }
+        }, "proxyLLMCall");
+
+        // Cache successful responses (skip for media requests)
+        if (!hasMedia && response.isSuccess() && !response.isBlocked()) {
+            cache.put(cacheKey, response);
+        }
+
+        return response;
     }
 
     /**

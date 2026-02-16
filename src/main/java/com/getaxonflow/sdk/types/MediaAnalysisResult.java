@@ -64,8 +64,11 @@ public final class MediaAnalysisResult {
     @JsonProperty("pii_types")
     private final List<String> piiTypes;
 
-    @JsonProperty("extracted_text")
-    private final String extractedText;
+    @JsonProperty("has_extracted_text")
+    private final boolean hasExtractedText;
+
+    @JsonProperty("extracted_text_length")
+    private final int extractedTextLength;
 
     @JsonProperty("estimated_cost_usd")
     private final double estimatedCostUsd;
@@ -86,7 +89,8 @@ public final class MediaAnalysisResult {
             @JsonProperty("is_sensitive_document") boolean isSensitiveDocument,
             @JsonProperty("has_pii") boolean hasPII,
             @JsonProperty("pii_types") List<String> piiTypes,
-            @JsonProperty("extracted_text") String extractedText,
+            @JsonProperty("has_extracted_text") boolean hasExtractedText,
+            @JsonProperty("extracted_text_length") int extractedTextLength,
             @JsonProperty("estimated_cost_usd") double estimatedCostUsd,
             @JsonProperty("warnings") List<String> warnings) {
         this.mediaIndex = mediaIndex;
@@ -101,7 +105,8 @@ public final class MediaAnalysisResult {
         this.isSensitiveDocument = isSensitiveDocument;
         this.hasPII = hasPII;
         this.piiTypes = piiTypes != null ? Collections.unmodifiableList(piiTypes) : Collections.emptyList();
-        this.extractedText = extractedText;
+        this.hasExtractedText = hasExtractedText;
+        this.extractedTextLength = extractedTextLength;
         this.estimatedCostUsd = estimatedCostUsd;
         this.warnings = warnings != null ? Collections.unmodifiableList(warnings) : Collections.emptyList();
     }
@@ -118,7 +123,8 @@ public final class MediaAnalysisResult {
     public boolean isSensitiveDocument() { return isSensitiveDocument; }
     public boolean isHasPII() { return hasPII; }
     public List<String> getPiiTypes() { return piiTypes; }
-    public String getExtractedText() { return extractedText; }
+    public boolean isHasExtractedText() { return hasExtractedText; }
+    public int getExtractedTextLength() { return extractedTextLength; }
     public double getEstimatedCostUsd() { return estimatedCostUsd; }
     public List<String> getWarnings() { return warnings; }
 
@@ -136,11 +142,12 @@ public final class MediaAnalysisResult {
                contentSafe == that.contentSafe &&
                isSensitiveDocument == that.isSensitiveDocument &&
                hasPII == that.hasPII &&
+               hasExtractedText == that.hasExtractedText &&
+               extractedTextLength == that.extractedTextLength &&
                Double.compare(estimatedCostUsd, that.estimatedCostUsd) == 0 &&
                Objects.equals(sha256Hash, that.sha256Hash) &&
                Objects.equals(documentType, that.documentType) &&
                Objects.equals(piiTypes, that.piiTypes) &&
-               Objects.equals(extractedText, that.extractedText) &&
                Objects.equals(warnings, that.warnings);
     }
 
@@ -149,7 +156,7 @@ public final class MediaAnalysisResult {
         return Objects.hash(mediaIndex, sha256Hash, hasFaces, faceCount,
             hasBiometricData, nsfwScore, violenceScore, contentSafe,
             documentType, isSensitiveDocument, hasPII, piiTypes,
-            extractedText, estimatedCostUsd, warnings);
+            hasExtractedText, extractedTextLength, estimatedCostUsd, warnings);
     }
 
     @Override
@@ -158,6 +165,7 @@ public final class MediaAnalysisResult {
                ", contentSafe=" + contentSafe +
                ", hasPII=" + hasPII +
                ", hasFaces=" + hasFaces +
-               ", extractedText='" + extractedText + '\'' + '}';
+               ", hasExtractedText=" + hasExtractedText +
+               ", extractedTextLength=" + extractedTextLength + '}';
     }
 }
