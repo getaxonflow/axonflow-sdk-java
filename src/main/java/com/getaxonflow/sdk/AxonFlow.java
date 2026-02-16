@@ -587,6 +587,7 @@ public final class AxonFlow implements Closeable {
                 .context(request.getContext())
                 .llmProvider(request.getLlmProvider())
                 .model(request.getModel())
+                .media(request.getMedia())
                 .build();
         }
 

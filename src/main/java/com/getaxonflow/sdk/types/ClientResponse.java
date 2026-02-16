@@ -60,6 +60,9 @@ public final class ClientResponse {
     @JsonProperty("budget_info")
     private final BudgetInfo budgetInfo;
 
+    @JsonProperty("media_analysis")
+    private final MediaAnalysisResponse mediaAnalysis;
+
     public ClientResponse(
             @JsonProperty("success") boolean success,
             @JsonProperty("data") Object data,
@@ -69,7 +72,8 @@ public final class ClientResponse {
             @JsonProperty("block_reason") String blockReason,
             @JsonProperty("policy_info") PolicyInfo policyInfo,
             @JsonProperty("error") String error,
-            @JsonProperty("budget_info") BudgetInfo budgetInfo) {
+            @JsonProperty("budget_info") BudgetInfo budgetInfo,
+            @JsonProperty("media_analysis") MediaAnalysisResponse mediaAnalysis) {
         this.success = success;
         this.data = data;
         this.result = result;
@@ -79,6 +83,7 @@ public final class ClientResponse {
         this.policyInfo = policyInfo;
         this.error = error;
         this.budgetInfo = budgetInfo;
+        this.mediaAnalysis = mediaAnalysis;
     }
 
     /**
@@ -193,6 +198,15 @@ public final class ClientResponse {
         return budgetInfo;
     }
 
+    /**
+     * Returns media analysis results if media was submitted.
+     *
+     * @return the media analysis response, may be null
+     */
+    public MediaAnalysisResponse getMediaAnalysis() {
+        return mediaAnalysis;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -206,12 +220,13 @@ public final class ClientResponse {
                Objects.equals(blockReason, that.blockReason) &&
                Objects.equals(policyInfo, that.policyInfo) &&
                Objects.equals(error, that.error) &&
-               Objects.equals(budgetInfo, that.budgetInfo);
+               Objects.equals(budgetInfo, that.budgetInfo) &&
+               Objects.equals(mediaAnalysis, that.mediaAnalysis);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(success, data, result, planId, blocked, blockReason, policyInfo, error, budgetInfo);
+        return Objects.hash(success, data, result, planId, blocked, blockReason, policyInfo, error, budgetInfo, mediaAnalysis);
     }
 
     @Override
@@ -223,6 +238,7 @@ public final class ClientResponse {
                ", policyInfo=" + policyInfo +
                ", error='" + error + '\'' +
                ", budgetInfo=" + budgetInfo +
+               ", mediaAnalysis=" + mediaAnalysis +
                '}';
     }
 }
