@@ -18,6 +18,7 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -63,6 +64,9 @@ public final class MediaAnalysisResult {
     @JsonProperty("pii_types")
     private final List<String> piiTypes;
 
+    @JsonProperty("extracted_text")
+    private final String extractedText;
+
     @JsonProperty("estimated_cost_usd")
     private final double estimatedCostUsd;
 
@@ -82,6 +86,7 @@ public final class MediaAnalysisResult {
             @JsonProperty("is_sensitive_document") boolean isSensitiveDocument,
             @JsonProperty("has_pii") boolean hasPII,
             @JsonProperty("pii_types") List<String> piiTypes,
+            @JsonProperty("extracted_text") String extractedText,
             @JsonProperty("estimated_cost_usd") double estimatedCostUsd,
             @JsonProperty("warnings") List<String> warnings) {
         this.mediaIndex = mediaIndex;
@@ -95,9 +100,10 @@ public final class MediaAnalysisResult {
         this.documentType = documentType;
         this.isSensitiveDocument = isSensitiveDocument;
         this.hasPII = hasPII;
-        this.piiTypes = piiTypes;
+        this.piiTypes = piiTypes != null ? Collections.unmodifiableList(piiTypes) : Collections.emptyList();
+        this.extractedText = extractedText;
         this.estimatedCostUsd = estimatedCostUsd;
-        this.warnings = warnings;
+        this.warnings = warnings != null ? Collections.unmodifiableList(warnings) : Collections.emptyList();
     }
 
     public int getMediaIndex() { return mediaIndex; }
@@ -112,6 +118,7 @@ public final class MediaAnalysisResult {
     public boolean isSensitiveDocument() { return isSensitiveDocument; }
     public boolean isHasPII() { return hasPII; }
     public List<String> getPiiTypes() { return piiTypes; }
+    public String getExtractedText() { return extractedText; }
     public double getEstimatedCostUsd() { return estimatedCostUsd; }
     public List<String> getWarnings() { return warnings; }
 
@@ -133,6 +140,7 @@ public final class MediaAnalysisResult {
                Objects.equals(sha256Hash, that.sha256Hash) &&
                Objects.equals(documentType, that.documentType) &&
                Objects.equals(piiTypes, that.piiTypes) &&
+               Objects.equals(extractedText, that.extractedText) &&
                Objects.equals(warnings, that.warnings);
     }
 
@@ -141,7 +149,7 @@ public final class MediaAnalysisResult {
         return Objects.hash(mediaIndex, sha256Hash, hasFaces, faceCount,
             hasBiometricData, nsfwScore, violenceScore, contentSafe,
             documentType, isSensitiveDocument, hasPII, piiTypes,
-            estimatedCostUsd, warnings);
+            extractedText, estimatedCostUsd, warnings);
     }
 
     @Override
@@ -149,6 +157,7 @@ public final class MediaAnalysisResult {
         return "MediaAnalysisResult{mediaIndex=" + mediaIndex +
                ", contentSafe=" + contentSafe +
                ", hasPII=" + hasPII +
-               ", hasFaces=" + hasFaces + '}';
+               ", hasFaces=" + hasFaces +
+               ", extractedText='" + extractedText + '\'' + '}';
     }
 }

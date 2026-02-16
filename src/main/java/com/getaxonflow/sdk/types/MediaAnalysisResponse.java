@@ -18,6 +18,7 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -40,7 +41,7 @@ public final class MediaAnalysisResponse {
             @JsonProperty("results") List<MediaAnalysisResult> results,
             @JsonProperty("total_cost_usd") double totalCostUsd,
             @JsonProperty("analysis_time_ms") long analysisTimeMs) {
-        this.results = results;
+        this.results = results != null ? Collections.unmodifiableList(results) : Collections.emptyList();
         this.totalCostUsd = totalCostUsd;
         this.analysisTimeMs = analysisTimeMs;
     }

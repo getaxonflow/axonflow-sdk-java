@@ -18,6 +18,7 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -75,7 +76,7 @@ public final class ClientRequest {
         this.context = builder.context != null ? Collections.unmodifiableMap(new HashMap<>(builder.context)) : null;
         this.llmProvider = builder.llmProvider;
         this.model = builder.model;
-        this.media = builder.media;
+        this.media = builder.media != null ? Collections.unmodifiableList(new ArrayList<>(builder.media)) : null;
     }
 
     public String getQuery() {
