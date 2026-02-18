@@ -18,8 +18,10 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -62,6 +64,9 @@ public final class ClientRequest {
     @JsonProperty("model")
     private final String model;
 
+    @JsonProperty("media")
+    private final List<MediaContent> media;
+
     private ClientRequest(Builder builder) {
         this.query = Objects.requireNonNull(builder.query, "query cannot be null");
         // Default to "anonymous" if userToken is null or empty (community mode)
@@ -71,6 +76,7 @@ public final class ClientRequest {
         this.context = builder.context != null ? Collections.unmodifiableMap(new HashMap<>(builder.context)) : null;
         this.llmProvider = builder.llmProvider;
         this.model = builder.model;
+        this.media = builder.media != null ? Collections.unmodifiableList(new ArrayList<>(builder.media)) : null;
     }
 
     public String getQuery() {
@@ -101,6 +107,10 @@ public final class ClientRequest {
         return model;
     }
 
+    public List<MediaContent> getMedia() {
+        return media;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -116,12 +126,13 @@ public final class ClientRequest {
                Objects.equals(requestType, that.requestType) &&
                Objects.equals(context, that.context) &&
                Objects.equals(llmProvider, that.llmProvider) &&
-               Objects.equals(model, that.model);
+               Objects.equals(model, that.model) &&
+               Objects.equals(media, that.media);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(query, userToken, clientId, requestType, context, llmProvider, model);
+        return Objects.hash(query, userToken, clientId, requestType, context, llmProvider, model, media);
     }
 
     @Override
@@ -133,6 +144,7 @@ public final class ClientRequest {
                ", requestType='" + requestType + '\'' +
                ", llmProvider='" + llmProvider + '\'' +
                ", model='" + model + '\'' +
+               ", media=" + media +
                '}';
     }
 
@@ -147,6 +159,7 @@ public final class ClientRequest {
         private Map<String, Object> context;
         private String llmProvider;
         private String model;
+        private List<MediaContent> media;
 
         private Builder() {}
 
@@ -240,6 +253,17 @@ public final class ClientRequest {
          */
         public Builder model(String model) {
             this.model = model;
+            return this;
+        }
+
+        /**
+         * Sets optional media content (images) for multimodal governance.
+         *
+         * @param media list of media content items
+         * @return this builder
+         */
+        public Builder media(List<MediaContent> media) {
+            this.media = media;
             return this;
         }
 

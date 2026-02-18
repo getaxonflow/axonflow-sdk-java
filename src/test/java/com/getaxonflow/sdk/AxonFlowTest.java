@@ -2228,4 +2228,63 @@ class AxonFlowTest {
         verify(getRequestedFor(urlEqualTo("/api/v1/unified/executions/exec_123/stream"))
             .withHeader("Accept", equalTo("text/event-stream")));
     }
+
+    // ========================================================================
+    // Media Cache Skip
+    // ========================================================================
+
+    @Test
+    @DisplayName("proxyLLMCall should skip cache with media")
+    void proxyLLMCallShouldSkipCacheWithMedia() {
+        stubFor(post(urlEqualTo("/api/request"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"blocked\":false}")));
+
+        MediaContent mediaItem = MediaContent.builder()
+            .source("base64")
+            .mimeType("image/png")
+            .base64Data("dGVzdC1pbWFnZQ==")
+            .build();
+
+        ClientRequest request = ClientRequest.builder()
+            .query("describe image")
+            .userToken("user-123")
+            .requestType(RequestType.CHAT)
+            .media(List.of(mediaItem))
+            .build();
+
+        // First call
+        axonflow.proxyLLMCall(request);
+        // Second call — should NOT use cache
+        axonflow.proxyLLMCall(request);
+
+        // Both calls should hit the server (no caching for media)
+        verify(exactly(2), postRequestedFor(urlEqualTo("/api/request")));
+    }
+
+    @Test
+    @DisplayName("proxyLLMCall should use cache without media")
+    void proxyLLMCallShouldUseCacheWithoutMedia() {
+        stubFor(post(urlEqualTo("/api/request"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"blocked\":false}")));
+
+        ClientRequest request = ClientRequest.builder()
+            .query("hello")
+            .userToken("user-123")
+            .requestType(RequestType.CHAT)
+            .build();
+
+        // First call
+        axonflow.proxyLLMCall(request);
+        // Second call — should use cache
+        axonflow.proxyLLMCall(request);
+
+        // Only one call should hit the server (second cached)
+        verify(exactly(1), postRequestedFor(urlEqualTo("/api/request")));
+    }
 }
