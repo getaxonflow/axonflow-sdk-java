@@ -30,6 +30,22 @@ public final class PolicyTypes {
     private PolicyTypes() {}
 
     // ========================================================================
+    // Media Governance Policy Category Constants
+    // ========================================================================
+
+    /** Policy category for media safety (NSFW, violence). */
+    public static final String CATEGORY_MEDIA_SAFETY = "media-safety";
+
+    /** Policy category for media biometric detection (faces, fingerprints). */
+    public static final String CATEGORY_MEDIA_BIOMETRIC = "media-biometric";
+
+    /** Policy category for sensitive document detection. */
+    public static final String CATEGORY_MEDIA_DOCUMENT = "media-document";
+
+    /** Policy category for PII detected in media (OCR text extraction). */
+    public static final String CATEGORY_MEDIA_PII = "media-pii";
+
+    // ========================================================================
     // Enums
     // ========================================================================
 
