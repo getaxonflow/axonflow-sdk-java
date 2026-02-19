@@ -72,6 +72,12 @@ public final class PolicyTypes {
         // Sensitive data category
         SENSITIVE_DATA("sensitive-data"),
 
+        // Media governance categories
+        MEDIA_SAFETY("media-safety"),
+        MEDIA_BIOMETRIC("media-biometric"),
+        MEDIA_PII("media-pii"),
+        MEDIA_DOCUMENT("media-document"),
+
         // Dynamic policy categories
         DYNAMIC_RISK("dynamic-risk"),
         DYNAMIC_COMPLIANCE("dynamic-compliance"),
