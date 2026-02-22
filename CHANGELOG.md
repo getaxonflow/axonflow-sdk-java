@@ -5,6 +5,18 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-02-22
+
+### Added
+
+- Media governance configuration methods: `getMediaGovernanceConfig()`, `updateMediaGovernanceConfig()`, `getMediaGovernanceStatus()`
+- Media governance types: `MediaGovernanceConfig`, `MediaGovernanceStatus`
+- Media policy category constants: `CATEGORY_MEDIA_SAFETY`, `CATEGORY_MEDIA_BIOMETRIC`, `CATEGORY_MEDIA_PII`, `CATEGORY_MEDIA_DOCUMENT`
+- `PolicyCategory` enum values: `MEDIA_SAFETY`, `MEDIA_BIOMETRIC`, `MEDIA_PII`, `MEDIA_DOCUMENT`
+- `MarkStepCompletedRequest` now accepts post-execution metrics (`tokens_in`, `tokens_out`, `cost_usd`)
+
+---
+
 ## [3.5.0] - 2026-02-18
 
 ### Added

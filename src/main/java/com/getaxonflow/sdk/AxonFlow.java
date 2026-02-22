@@ -2123,6 +2123,95 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // Media Governance Config
+    // ========================================================================
+
+    /**
+     * Gets the media governance configuration for the current tenant.
+     *
+     * <p>Returns per-tenant settings controlling whether media analysis is
+     * enabled and which analyzers are allowed.
+     *
+     * @return the media governance configuration
+     * @throws AxonFlowException if the request fails
+     */
+    public MediaGovernanceConfig getMediaGovernanceConfig() {
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("GET", "/api/v1/media-governance/config", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, MediaGovernanceConfig.class);
+            }
+        }, "getMediaGovernanceConfig");
+    }
+
+    /**
+     * Asynchronously gets the media governance configuration for the current tenant.
+     *
+     * @return a future containing the media governance configuration
+     */
+    public CompletableFuture<MediaGovernanceConfig> getMediaGovernanceConfigAsync() {
+        return CompletableFuture.supplyAsync(this::getMediaGovernanceConfig, asyncExecutor);
+    }
+
+    /**
+     * Updates the media governance configuration for the current tenant.
+     *
+     * <p>Allows enabling/disabling media analysis and controlling which
+     * analyzers are permitted.
+     *
+     * @param request the update request
+     * @return the updated media governance configuration
+     * @throws AxonFlowException if the request fails
+     */
+    public MediaGovernanceConfig updateMediaGovernanceConfig(UpdateMediaGovernanceConfigRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("PUT", "/api/v1/media-governance/config", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, MediaGovernanceConfig.class);
+            }
+        }, "updateMediaGovernanceConfig");
+    }
+
+    /**
+     * Asynchronously updates the media governance configuration for the current tenant.
+     *
+     * @param request the update request
+     * @return a future containing the updated media governance configuration
+     */
+    public CompletableFuture<MediaGovernanceConfig> updateMediaGovernanceConfigAsync(UpdateMediaGovernanceConfigRequest request) {
+        return CompletableFuture.supplyAsync(() -> updateMediaGovernanceConfig(request), asyncExecutor);
+    }
+
+    /**
+     * Gets the platform-level media governance status.
+     *
+     * <p>Returns whether media governance is available, default enablement,
+     * and the required license tier.
+     *
+     * @return the media governance status
+     * @throws AxonFlowException if the request fails
+     */
+    public MediaGovernanceStatus getMediaGovernanceStatus() {
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildRequest("GET", "/api/v1/media-governance/status", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, MediaGovernanceStatus.class);
+            }
+        }, "getMediaGovernanceStatus");
+    }
+
+    /**
+     * Asynchronously gets the platform-level media governance status.
+     *
+     * @return a future containing the media governance status
+     */
+    public CompletableFuture<MediaGovernanceStatus> getMediaGovernanceStatusAsync() {
+        return CompletableFuture.supplyAsync(this::getMediaGovernanceStatus, asyncExecutor);
+    }
+
+    // ========================================================================
     // Configuration Access
     // ========================================================================
 
