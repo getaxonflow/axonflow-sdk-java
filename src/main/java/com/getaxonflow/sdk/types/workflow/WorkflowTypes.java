@@ -17,6 +17,7 @@ package com.getaxonflow.sdk.types.workflow;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -845,6 +846,7 @@ public final class WorkflowTypes {
      * Request to mark a step as completed.
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static final class MarkStepCompletedRequest {
 
         @JsonProperty("output")
