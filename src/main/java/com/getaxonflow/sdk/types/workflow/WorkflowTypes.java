@@ -853,12 +853,27 @@ public final class WorkflowTypes {
         @JsonProperty("metadata")
         private final Map<String, Object> metadata;
 
+        @JsonProperty("tokens_in")
+        private final Integer tokensIn;
+
+        @JsonProperty("tokens_out")
+        private final Integer tokensOut;
+
+        @JsonProperty("cost_usd")
+        private final Double costUsd;
+
         @JsonCreator
         public MarkStepCompletedRequest(
                 @JsonProperty("output") Map<String, Object> output,
-                @JsonProperty("metadata") Map<String, Object> metadata) {
+                @JsonProperty("metadata") Map<String, Object> metadata,
+                @JsonProperty("tokens_in") Integer tokensIn,
+                @JsonProperty("tokens_out") Integer tokensOut,
+                @JsonProperty("cost_usd") Double costUsd) {
             this.output = output != null ? Collections.unmodifiableMap(output) : Collections.emptyMap();
             this.metadata = metadata != null ? Collections.unmodifiableMap(metadata) : Collections.emptyMap();
+            this.tokensIn = tokensIn;
+            this.tokensOut = tokensOut;
+            this.costUsd = costUsd;
         }
 
         public Map<String, Object> getOutput() {
@@ -869,6 +884,36 @@ public final class WorkflowTypes {
             return metadata;
         }
 
+        /**
+         * Returns the number of input tokens consumed by the step.
+         *
+         * @return input token count, or null if not provided
+         * @since 3.6.0
+         */
+        public Integer getTokensIn() {
+            return tokensIn;
+        }
+
+        /**
+         * Returns the number of output tokens produced by the step.
+         *
+         * @return output token count, or null if not provided
+         * @since 3.6.0
+         */
+        public Integer getTokensOut() {
+            return tokensOut;
+        }
+
+        /**
+         * Returns the cost in USD incurred by the step.
+         *
+         * @return cost in USD, or null if not provided
+         * @since 3.6.0
+         */
+        public Double getCostUsd() {
+            return costUsd;
+        }
+
         public static Builder builder() {
             return new Builder();
         }
@@ -876,6 +921,9 @@ public final class WorkflowTypes {
         public static final class Builder {
             private Map<String, Object> output;
             private Map<String, Object> metadata;
+            private Integer tokensIn;
+            private Integer tokensOut;
+            private Double costUsd;
 
             public Builder output(Map<String, Object> output) {
                 this.output = output;
@@ -887,8 +935,23 @@ public final class WorkflowTypes {
                 return this;
             }
 
+            public Builder tokensIn(Integer tokensIn) {
+                this.tokensIn = tokensIn;
+                return this;
+            }
+
+            public Builder tokensOut(Integer tokensOut) {
+                this.tokensOut = tokensOut;
+                return this;
+            }
+
+            public Builder costUsd(Double costUsd) {
+                this.costUsd = costUsd;
+                return this;
+            }
+
             public MarkStepCompletedRequest build() {
-                return new MarkStepCompletedRequest(output, metadata);
+                return new MarkStepCompletedRequest(output, metadata, tokensIn, tokensOut, costUsd);
             }
         }
     }
