@@ -5,6 +5,18 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MCP Policy-Check Endpoints**: Standalone policy validation for external orchestrators (LangGraph, CrewAI)
+  - `mcpCheckInput(connectorType, statement)`: Validate MCP queries/commands against input policies (SQLi, PII, dynamic) before execution
+  - `mcpCheckOutput(connectorType, responseData)`: Validate MCP response data against output policies (PII redaction, exfiltration limits) after execution
+  - New types: `MCPCheckInputRequest`, `MCPCheckInputResponse`, `MCPCheckOutputRequest`, `MCPCheckOutputResponse`
+  - Sync + async variants with overloads for additional options
+
+---
+
 ## [3.6.0] - 2026-02-22
 
 ### Added
