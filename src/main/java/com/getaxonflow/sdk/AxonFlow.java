@@ -1549,7 +1549,7 @@ public final class AxonFlow implements Closeable {
      */
     public MCPCheckOutputResponse mcpCheckOutput(String connectorType, List<Map<String, Object>> responseData, Map<String, Object> options) {
         Objects.requireNonNull(connectorType, "connectorType cannot be null");
-        Objects.requireNonNull(responseData, "responseData cannot be null");
+        // responseData can be null for execute-style requests that use message instead
 
         return retryExecutor.execute(() -> {
             String message = options != null ? (String) options.get("message") : null;

@@ -1851,10 +1851,21 @@ class AxonFlowTest {
     }
 
     @Test
-    @DisplayName("mcpCheckOutput should require non-null responseData")
-    void mcpCheckOutputShouldRequireResponseData() {
-        assertThatThrownBy(() -> axonflow.mcpCheckOutput("postgres", null))
-            .isInstanceOf(NullPointerException.class);
+    @DisplayName("mcpCheckOutput should allow null responseData for execute-style requests")
+    void mcpCheckOutputShouldAllowNullResponseData() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 1, " +
+                    "\"policy_info\": {\"policies_evaluated\": 1, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 1}}")));
+
+        Map<String, Object> options = new HashMap<>();
+        options.put("message", "3 rows updated");
+
+        MCPCheckOutputResponse resp = axonflow.mcpCheckOutput("postgres", null, options);
+        assertThat(resp.isAllowed()).isTrue();
     }
 
     @Test
