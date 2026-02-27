@@ -1406,6 +1406,210 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // MCP Policy Check (Standalone)
+    // ========================================================================
+
+    /**
+     * Validates an MCP input statement against configured policies without executing it.
+     *
+     * <p>This method calls the agent's {@code /api/v1/mcp/check-input} endpoint to pre-validate
+     * a statement before sending it to the connector. Useful for checking SQL injection
+     * patterns, blocked operations, and input policy violations.</p>
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * MCPCheckInputResponse result = axonflow.mcpCheckInput("postgres", "SELECT * FROM users");
+     * if (!result.isAllowed()) {
+     *     System.out.println("Blocked: " + result.getBlockReason());
+     * }
+     * }</pre>
+     *
+     * @param connectorType name of the MCP connector type (e.g., "postgres")
+     * @param statement     the statement to validate
+     * @return MCPCheckInputResponse with allowed status, block reason, and policy info
+     * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+     */
+    public MCPCheckInputResponse mcpCheckInput(String connectorType, String statement) {
+        return mcpCheckInput(connectorType, statement, null);
+    }
+
+    /**
+     * Validates an MCP input statement against configured policies with options.
+     *
+     * @param connectorType name of the MCP connector type (e.g., "postgres")
+     * @param statement     the statement to validate
+     * @param options       optional parameters: "operation" (String), "parameters" (Map)
+     * @return MCPCheckInputResponse with allowed status, block reason, and policy info
+     * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+     */
+    public MCPCheckInputResponse mcpCheckInput(String connectorType, String statement, Map<String, Object> options) {
+        Objects.requireNonNull(connectorType, "connectorType cannot be null");
+        Objects.requireNonNull(statement, "statement cannot be null");
+
+        return retryExecutor.execute(() -> {
+            MCPCheckInputRequest request;
+            if (options != null) {
+                String operation = (String) options.getOrDefault("operation", "query");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> parameters = (Map<String, Object>) options.get("parameters");
+                request = new MCPCheckInputRequest(connectorType, statement, parameters, operation);
+            } else {
+                request = new MCPCheckInputRequest(connectorType, statement);
+            }
+
+            Request httpRequest = buildRequest("POST", "/api/v1/mcp/check-input", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                ResponseBody responseBody = response.body();
+                if (responseBody == null) {
+                    throw new ConnectorException("Empty response from MCP check-input", connectorType, "mcpCheckInput");
+                }
+                String responseJson = responseBody.string();
+
+                // 403 means policy blocked — the body is still a valid response
+                if (!response.isSuccessful() && response.code() != 403) {
+                    try {
+                        Map<String, Object> errorData = objectMapper.readValue(responseJson,
+                            new TypeReference<Map<String, Object>>() {});
+                        String errorMsg = errorData.get("error") != null ?
+                            errorData.get("error").toString() :
+                            "MCP check-input failed: " + response.code();
+                        throw new ConnectorException(errorMsg, connectorType, "mcpCheckInput");
+                    } catch (JsonProcessingException e) {
+                        throw new ConnectorException("MCP check-input failed: " + response.code(), connectorType, "mcpCheckInput");
+                    }
+                }
+
+                return objectMapper.readValue(responseJson, MCPCheckInputResponse.class);
+            }
+        }, "mcpCheckInput");
+    }
+
+    /**
+     * Asynchronously validates an MCP input statement against configured policies.
+     *
+     * @param connectorType name of the MCP connector type
+     * @param statement     the statement to validate
+     * @return a future containing the check result
+     */
+    public CompletableFuture<MCPCheckInputResponse> mcpCheckInputAsync(String connectorType, String statement) {
+        return CompletableFuture.supplyAsync(() -> mcpCheckInput(connectorType, statement), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously validates an MCP input statement against configured policies with options.
+     *
+     * @param connectorType name of the MCP connector type
+     * @param statement     the statement to validate
+     * @param options       optional parameters
+     * @return a future containing the check result
+     */
+    public CompletableFuture<MCPCheckInputResponse> mcpCheckInputAsync(String connectorType, String statement, Map<String, Object> options) {
+        return CompletableFuture.supplyAsync(() -> mcpCheckInput(connectorType, statement, options), asyncExecutor);
+    }
+
+    /**
+     * Validates MCP response data against configured policies.
+     *
+     * <p>This method calls the agent's {@code /api/v1/mcp/check-output} endpoint to check
+     * response data for PII content, exfiltration limit violations, and other output
+     * policy violations. If PII redaction is active, {@code redactedData} contains the
+     * sanitized version.</p>
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * List<Map<String, Object>> rows = List.of(
+     *     Map.of("name", "John", "ssn", "123-45-6789")
+     * );
+     * MCPCheckOutputResponse result = axonflow.mcpCheckOutput("postgres", rows);
+     * if (!result.isAllowed()) {
+     *     System.out.println("Blocked: " + result.getBlockReason());
+     * }
+     * if (result.getRedactedData() != null) {
+     *     System.out.println("Redacted: " + result.getRedactedData());
+     * }
+     * }</pre>
+     *
+     * @param connectorType name of the MCP connector type (e.g., "postgres")
+     * @param responseData  the response data rows to validate
+     * @return MCPCheckOutputResponse with allowed status, redacted data, and policy info
+     * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+     */
+    public MCPCheckOutputResponse mcpCheckOutput(String connectorType, List<Map<String, Object>> responseData) {
+        return mcpCheckOutput(connectorType, responseData, null);
+    }
+
+    /**
+     * Validates MCP response data against configured policies with options.
+     *
+     * @param connectorType name of the MCP connector type (e.g., "postgres")
+     * @param responseData  the response data rows to validate
+     * @param options       optional parameters: "message" (String), "metadata" (Map), "row_count" (int)
+     * @return MCPCheckOutputResponse with allowed status, redacted data, and policy info
+     * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+     */
+    public MCPCheckOutputResponse mcpCheckOutput(String connectorType, List<Map<String, Object>> responseData, Map<String, Object> options) {
+        Objects.requireNonNull(connectorType, "connectorType cannot be null");
+        Objects.requireNonNull(responseData, "responseData cannot be null");
+
+        return retryExecutor.execute(() -> {
+            String message = options != null ? (String) options.get("message") : null;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> metadata = options != null ? (Map<String, Object>) options.get("metadata") : null;
+            int rowCount = options != null ? (int) options.getOrDefault("row_count", 0) : 0;
+
+            MCPCheckOutputRequest request = new MCPCheckOutputRequest(connectorType, responseData, message, metadata, rowCount);
+
+            Request httpRequest = buildRequest("POST", "/api/v1/mcp/check-output", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                ResponseBody responseBody = response.body();
+                if (responseBody == null) {
+                    throw new ConnectorException("Empty response from MCP check-output", connectorType, "mcpCheckOutput");
+                }
+                String responseJson = responseBody.string();
+
+                // 403 means policy blocked — the body is still a valid response
+                if (!response.isSuccessful() && response.code() != 403) {
+                    try {
+                        Map<String, Object> errorData = objectMapper.readValue(responseJson,
+                            new TypeReference<Map<String, Object>>() {});
+                        String errorMsg = errorData.get("error") != null ?
+                            errorData.get("error").toString() :
+                            "MCP check-output failed: " + response.code();
+                        throw new ConnectorException(errorMsg, connectorType, "mcpCheckOutput");
+                    } catch (JsonProcessingException e) {
+                        throw new ConnectorException("MCP check-output failed: " + response.code(), connectorType, "mcpCheckOutput");
+                    }
+                }
+
+                return objectMapper.readValue(responseJson, MCPCheckOutputResponse.class);
+            }
+        }, "mcpCheckOutput");
+    }
+
+    /**
+     * Asynchronously validates MCP response data against configured policies.
+     *
+     * @param connectorType name of the MCP connector type
+     * @param responseData  the response data rows to validate
+     * @return a future containing the check result
+     */
+    public CompletableFuture<MCPCheckOutputResponse> mcpCheckOutputAsync(String connectorType, List<Map<String, Object>> responseData) {
+        return CompletableFuture.supplyAsync(() -> mcpCheckOutput(connectorType, responseData), asyncExecutor);
+    }
+
+    /**
+     * Asynchronously validates MCP response data against configured policies with options.
+     *
+     * @param connectorType name of the MCP connector type
+     * @param responseData  the response data rows to validate
+     * @param options       optional parameters
+     * @return a future containing the check result
+     */
+    public CompletableFuture<MCPCheckOutputResponse> mcpCheckOutputAsync(String connectorType, List<Map<String, Object>> responseData, Map<String, Object> options) {
+        return CompletableFuture.supplyAsync(() -> mcpCheckOutput(connectorType, responseData, options), asyncExecutor);
+    }
+
+    // ========================================================================
     // Policy CRUD - Static Policies
     // ========================================================================
 
