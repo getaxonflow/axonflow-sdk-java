@@ -1515,4 +1515,371 @@ class MoreTypesTest {
             assertThat(response.toString()).contains("ClientResponse");
         }
     }
+
+    @Nested
+    @DisplayName("MCPCheckInputRequest")
+    class MCPCheckInputRequestTests {
+
+        @Test
+        @DisplayName("should create instance with connector type and statement only")
+        void shouldCreateWithBasicFields() {
+            MCPCheckInputRequest request = new MCPCheckInputRequest("postgres", "SELECT * FROM users");
+
+            assertThat(request.getConnectorType()).isEqualTo("postgres");
+            assertThat(request.getStatement()).isEqualTo("SELECT * FROM users");
+            assertThat(request.getOperation()).isEqualTo("query");
+            assertThat(request.getParameters()).isNull();
+        }
+
+        @Test
+        @DisplayName("should create instance with all fields")
+        void shouldCreateWithAllFields() {
+            Map<String, Object> params = Map.of("limit", 100);
+            MCPCheckInputRequest request = new MCPCheckInputRequest(
+                "postgres", "UPDATE users SET name = $1", params, "execute"
+            );
+
+            assertThat(request.getConnectorType()).isEqualTo("postgres");
+            assertThat(request.getStatement()).isEqualTo("UPDATE users SET name = $1");
+            assertThat(request.getOperation()).isEqualTo("execute");
+            assertThat(request.getParameters()).containsEntry("limit", 100);
+        }
+
+        @Test
+        @DisplayName("should serialize to JSON")
+        void shouldSerializeToJson() throws Exception {
+            MCPCheckInputRequest request = new MCPCheckInputRequest(
+                "postgres", "SELECT 1", Map.of("timeout", 30), "query"
+            );
+
+            String json = objectMapper.writeValueAsString(request);
+
+            assertThat(json).contains("\"connector_type\":\"postgres\"");
+            assertThat(json).contains("\"statement\":\"SELECT 1\"");
+            assertThat(json).contains("\"operation\":\"query\"");
+            assertThat(json).contains("\"parameters\"");
+        }
+
+        @Test
+        @DisplayName("should omit null parameters in JSON")
+        void shouldOmitNullParametersInJson() throws Exception {
+            MCPCheckInputRequest request = new MCPCheckInputRequest("postgres", "SELECT 1");
+
+            String json = objectMapper.writeValueAsString(request);
+
+            assertThat(json).doesNotContain("\"parameters\"");
+        }
+
+        @Test
+        @DisplayName("should implement equals and hashCode")
+        void shouldImplementEqualsAndHashCode() {
+            MCPCheckInputRequest r1 = new MCPCheckInputRequest("postgres", "SELECT 1");
+            MCPCheckInputRequest r2 = new MCPCheckInputRequest("postgres", "SELECT 1");
+            MCPCheckInputRequest r3 = new MCPCheckInputRequest("mysql", "SELECT 1");
+
+            assertThat(r1).isEqualTo(r2);
+            assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
+            assertThat(r1).isNotEqualTo(r3);
+        }
+
+        @Test
+        @DisplayName("should have toString")
+        void shouldHaveToString() {
+            MCPCheckInputRequest request = new MCPCheckInputRequest("postgres", "SELECT 1");
+            assertThat(request.toString()).contains("MCPCheckInputRequest");
+            assertThat(request.toString()).contains("postgres");
+        }
+    }
+
+    @Nested
+    @DisplayName("MCPCheckInputResponse")
+    class MCPCheckInputResponseTests {
+
+        @Test
+        @DisplayName("should create allowed response")
+        void shouldCreateAllowedResponse() {
+            MCPCheckInputResponse response = new MCPCheckInputResponse(true, null, 3, null);
+
+            assertThat(response.isAllowed()).isTrue();
+            assertThat(response.getBlockReason()).isNull();
+            assertThat(response.getPoliciesEvaluated()).isEqualTo(3);
+            assertThat(response.getPolicyInfo()).isNull();
+        }
+
+        @Test
+        @DisplayName("should create blocked response")
+        void shouldCreateBlockedResponse() {
+            ConnectorPolicyInfo policyInfo = new ConnectorPolicyInfo(
+                3, true, "SQL injection detected", 0, 1, null
+            );
+            MCPCheckInputResponse response = new MCPCheckInputResponse(
+                false, "SQL injection detected", 3, policyInfo
+            );
+
+            assertThat(response.isAllowed()).isFalse();
+            assertThat(response.getBlockReason()).isEqualTo("SQL injection detected");
+            assertThat(response.getPolicyInfo()).isNotNull();
+            assertThat(response.getPolicyInfo().isBlocked()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should deserialize from JSON")
+        void shouldDeserializeFromJson() throws Exception {
+            String json = "{" +
+                "\"allowed\":true," +
+                "\"policies_evaluated\":5," +
+                "\"policy_info\":{\"policies_evaluated\":5,\"blocked\":false," +
+                "\"redactions_applied\":0,\"processing_time_ms\":2}" +
+                "}";
+
+            MCPCheckInputResponse response = objectMapper.readValue(json, MCPCheckInputResponse.class);
+
+            assertThat(response.isAllowed()).isTrue();
+            assertThat(response.getPoliciesEvaluated()).isEqualTo(5);
+            assertThat(response.getPolicyInfo()).isNotNull();
+            assertThat(response.getPolicyInfo().getPoliciesEvaluated()).isEqualTo(5);
+        }
+
+        @Test
+        @DisplayName("should deserialize blocked response from JSON")
+        void shouldDeserializeBlockedResponseFromJson() throws Exception {
+            String json = "{" +
+                "\"allowed\":false," +
+                "\"block_reason\":\"DROP TABLE not allowed\"," +
+                "\"policies_evaluated\":3," +
+                "\"policy_info\":{\"policies_evaluated\":3,\"blocked\":true," +
+                "\"block_reason\":\"DROP TABLE not allowed\"," +
+                "\"redactions_applied\":0,\"processing_time_ms\":1}" +
+                "}";
+
+            MCPCheckInputResponse response = objectMapper.readValue(json, MCPCheckInputResponse.class);
+
+            assertThat(response.isAllowed()).isFalse();
+            assertThat(response.getBlockReason()).isEqualTo("DROP TABLE not allowed");
+        }
+
+        @Test
+        @DisplayName("should implement equals and hashCode")
+        void shouldImplementEqualsAndHashCode() {
+            MCPCheckInputResponse r1 = new MCPCheckInputResponse(true, null, 3, null);
+            MCPCheckInputResponse r2 = new MCPCheckInputResponse(true, null, 3, null);
+            MCPCheckInputResponse r3 = new MCPCheckInputResponse(false, "blocked", 3, null);
+
+            assertThat(r1).isEqualTo(r2);
+            assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
+            assertThat(r1).isNotEqualTo(r3);
+        }
+
+        @Test
+        @DisplayName("should have toString")
+        void shouldHaveToString() {
+            MCPCheckInputResponse response = new MCPCheckInputResponse(true, null, 3, null);
+            assertThat(response.toString()).contains("MCPCheckInputResponse");
+        }
+    }
+
+    @Nested
+    @DisplayName("MCPCheckOutputRequest")
+    class MCPCheckOutputRequestTests {
+
+        @Test
+        @DisplayName("should create instance with connector type and response data only")
+        void shouldCreateWithBasicFields() {
+            List<Map<String, Object>> data = List.of(Map.of("id", 1, "name", "Alice"));
+            MCPCheckOutputRequest request = new MCPCheckOutputRequest("postgres", data);
+
+            assertThat(request.getConnectorType()).isEqualTo("postgres");
+            assertThat(request.getResponseData()).hasSize(1);
+            assertThat(request.getMessage()).isNull();
+            assertThat(request.getMetadata()).isNull();
+            assertThat(request.getRowCount()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("should create instance with all fields")
+        void shouldCreateWithAllFields() {
+            List<Map<String, Object>> data = List.of(
+                Map.of("id", 1, "name", "Alice"),
+                Map.of("id", 2, "name", "Bob")
+            );
+            Map<String, Object> metadata = Map.of("source", "analytics");
+            MCPCheckOutputRequest request = new MCPCheckOutputRequest(
+                "postgres", data, "Query completed", metadata, 2
+            );
+
+            assertThat(request.getConnectorType()).isEqualTo("postgres");
+            assertThat(request.getResponseData()).hasSize(2);
+            assertThat(request.getMessage()).isEqualTo("Query completed");
+            assertThat(request.getMetadata()).containsEntry("source", "analytics");
+            assertThat(request.getRowCount()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("should serialize to JSON")
+        void shouldSerializeToJson() throws Exception {
+            List<Map<String, Object>> data = List.of(Map.of("id", 1));
+            MCPCheckOutputRequest request = new MCPCheckOutputRequest(
+                "postgres", data, "done", Map.of("key", "val"), 1
+            );
+
+            String json = objectMapper.writeValueAsString(request);
+
+            assertThat(json).contains("\"connector_type\":\"postgres\"");
+            assertThat(json).contains("\"response_data\"");
+            assertThat(json).contains("\"message\":\"done\"");
+            assertThat(json).contains("\"row_count\":1");
+        }
+
+        @Test
+        @DisplayName("should omit null fields in JSON")
+        void shouldOmitNullFieldsInJson() throws Exception {
+            List<Map<String, Object>> data = List.of(Map.of("id", 1));
+            MCPCheckOutputRequest request = new MCPCheckOutputRequest("postgres", data);
+
+            String json = objectMapper.writeValueAsString(request);
+
+            assertThat(json).doesNotContain("\"message\"");
+            assertThat(json).doesNotContain("\"metadata\"");
+        }
+
+        @Test
+        @DisplayName("should implement equals and hashCode")
+        void shouldImplementEqualsAndHashCode() {
+            List<Map<String, Object>> data = List.of(Map.of("id", 1));
+            MCPCheckOutputRequest r1 = new MCPCheckOutputRequest("postgres", data);
+            MCPCheckOutputRequest r2 = new MCPCheckOutputRequest("postgres", data);
+            MCPCheckOutputRequest r3 = new MCPCheckOutputRequest("mysql", data);
+
+            assertThat(r1).isEqualTo(r2);
+            assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
+            assertThat(r1).isNotEqualTo(r3);
+        }
+
+        @Test
+        @DisplayName("should have toString")
+        void shouldHaveToString() {
+            List<Map<String, Object>> data = List.of(Map.of("id", 1));
+            MCPCheckOutputRequest request = new MCPCheckOutputRequest("postgres", data);
+            assertThat(request.toString()).contains("MCPCheckOutputRequest");
+            assertThat(request.toString()).contains("postgres");
+        }
+    }
+
+    @Nested
+    @DisplayName("MCPCheckOutputResponse")
+    class MCPCheckOutputResponseTests {
+
+        @Test
+        @DisplayName("should create allowed response")
+        void shouldCreateAllowedResponse() {
+            MCPCheckOutputResponse response = new MCPCheckOutputResponse(
+                true, null, null, 4, null, null
+            );
+
+            assertThat(response.isAllowed()).isTrue();
+            assertThat(response.getBlockReason()).isNull();
+            assertThat(response.getRedactedData()).isNull();
+            assertThat(response.getPoliciesEvaluated()).isEqualTo(4);
+            assertThat(response.getExfiltrationInfo()).isNull();
+            assertThat(response.getPolicyInfo()).isNull();
+        }
+
+        @Test
+        @DisplayName("should create blocked response with redacted data")
+        void shouldCreateBlockedResponseWithRedactedData() {
+            ConnectorPolicyInfo policyInfo = new ConnectorPolicyInfo(
+                4, true, "PII detected", 1, 5, null
+            );
+            List<Map<String, Object>> redacted = List.of(
+                Map.of("id", 1, "ssn", "***REDACTED***")
+            );
+            MCPCheckOutputResponse response = new MCPCheckOutputResponse(
+                false, "PII detected", redacted, 4, null, policyInfo
+            );
+
+            assertThat(response.isAllowed()).isFalse();
+            assertThat(response.getBlockReason()).isEqualTo("PII detected");
+            assertThat(response.getRedactedData()).isNotNull();
+            assertThat(response.getPolicyInfo().getRedactionsApplied()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("should create response with exfiltration info")
+        void shouldCreateResponseWithExfiltrationInfo() {
+            ExfiltrationCheckInfo exfilInfo = new ExfiltrationCheckInfo(
+                10, 1000, 2048, 1048576, true
+            );
+            MCPCheckOutputResponse response = new MCPCheckOutputResponse(
+                true, null, null, 3, exfilInfo, null
+            );
+
+            assertThat(response.isAllowed()).isTrue();
+            assertThat(response.getExfiltrationInfo()).isNotNull();
+            assertThat(response.getExfiltrationInfo().getRowsReturned()).isEqualTo(10);
+            assertThat(response.getExfiltrationInfo().getRowLimit()).isEqualTo(1000);
+            assertThat(response.getExfiltrationInfo().isWithinLimits()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should deserialize from JSON")
+        void shouldDeserializeFromJson() throws Exception {
+            String json = "{" +
+                "\"allowed\":true," +
+                "\"policies_evaluated\":3," +
+                "\"exfiltration_info\":{\"rows_returned\":5,\"row_limit\":500," +
+                "\"bytes_returned\":1024,\"byte_limit\":524288,\"within_limits\":true}," +
+                "\"policy_info\":{\"policies_evaluated\":3,\"blocked\":false," +
+                "\"redactions_applied\":0,\"processing_time_ms\":2}" +
+                "}";
+
+            MCPCheckOutputResponse response = objectMapper.readValue(json, MCPCheckOutputResponse.class);
+
+            assertThat(response.isAllowed()).isTrue();
+            assertThat(response.getPoliciesEvaluated()).isEqualTo(3);
+            assertThat(response.getExfiltrationInfo()).isNotNull();
+            assertThat(response.getExfiltrationInfo().getRowsReturned()).isEqualTo(5);
+            assertThat(response.getPolicyInfo()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should deserialize blocked response with redacted data from JSON")
+        void shouldDeserializeBlockedResponseFromJson() throws Exception {
+            String json = "{" +
+                "\"allowed\":false," +
+                "\"block_reason\":\"PII content detected\"," +
+                "\"redacted_data\":[{\"id\":1,\"ssn\":\"***REDACTED***\"}]," +
+                "\"policies_evaluated\":4," +
+                "\"policy_info\":{\"policies_evaluated\":4,\"blocked\":true," +
+                "\"block_reason\":\"PII content detected\"," +
+                "\"redactions_applied\":1,\"processing_time_ms\":3}" +
+                "}";
+
+            MCPCheckOutputResponse response = objectMapper.readValue(json, MCPCheckOutputResponse.class);
+
+            assertThat(response.isAllowed()).isFalse();
+            assertThat(response.getBlockReason()).isEqualTo("PII content detected");
+            assertThat(response.getRedactedData()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should implement equals and hashCode")
+        void shouldImplementEqualsAndHashCode() {
+            MCPCheckOutputResponse r1 = new MCPCheckOutputResponse(true, null, null, 3, null, null);
+            MCPCheckOutputResponse r2 = new MCPCheckOutputResponse(true, null, null, 3, null, null);
+            MCPCheckOutputResponse r3 = new MCPCheckOutputResponse(false, "blocked", null, 3, null, null);
+
+            assertThat(r1).isEqualTo(r2);
+            assertThat(r1.hashCode()).isEqualTo(r2.hashCode());
+            assertThat(r1).isNotEqualTo(r3);
+        }
+
+        @Test
+        @DisplayName("should have toString")
+        void shouldHaveToString() {
+            MCPCheckOutputResponse response = new MCPCheckOutputResponse(
+                true, null, null, 3, null, null
+            );
+            assertThat(response.toString()).contains("MCPCheckOutputResponse");
+        }
+    }
 }

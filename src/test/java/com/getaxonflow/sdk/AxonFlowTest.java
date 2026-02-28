@@ -23,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -1609,6 +1610,282 @@ class AxonFlowTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getPolicyInfo()).isNotNull();
         assertThat(response.getPolicyInfo().getPoliciesEvaluated()).isEqualTo(3);
+    }
+
+    // ========================================================================
+    // MCP Check Input/Output Tests (Policy Pre-validation)
+    // ========================================================================
+
+    @Test
+    @DisplayName("mcpCheckInput should return allowed response")
+    void mcpCheckInputShouldReturnAllowedResponse() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-input"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 3, " +
+                    "\"policy_info\": {\"policies_evaluated\": 3, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 1}}")));
+
+        MCPCheckInputResponse response = axonflow.mcpCheckInput("postgres", "SELECT * FROM users");
+
+        assertThat(response.isAllowed()).isTrue();
+        assertThat(response.getPoliciesEvaluated()).isEqualTo(3);
+        assertThat(response.getBlockReason()).isNull();
+        assertThat(response.getPolicyInfo()).isNotNull();
+        assertThat(response.getPolicyInfo().getPoliciesEvaluated()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("mcpCheckInput with options should send operation and parameters")
+    void mcpCheckInputWithOptionsShouldSendOperationAndParameters() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-input"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 5, " +
+                    "\"policy_info\": {\"policies_evaluated\": 5, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 2}}")));
+
+        Map<String, Object> options = Map.of(
+            "operation", "execute",
+            "parameters", Map.of("limit", 100)
+        );
+        MCPCheckInputResponse response = axonflow.mcpCheckInput("postgres", "UPDATE users SET name = $1", options);
+
+        assertThat(response.isAllowed()).isTrue();
+        assertThat(response.getPoliciesEvaluated()).isEqualTo(5);
+
+        verify(postRequestedFor(urlEqualTo("/api/v1/mcp/check-input"))
+            .withRequestBody(containing("\"connector_type\":\"postgres\""))
+            .withRequestBody(containing("\"statement\":\"UPDATE users SET name = $1\""))
+            .withRequestBody(containing("\"operation\":\"execute\"")));
+    }
+
+    @Test
+    @DisplayName("mcpCheckInput should handle 403 as blocked result")
+    void mcpCheckInputShouldHandle403AsBlockedResult() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-input"))
+            .willReturn(aResponse()
+                .withStatus(403)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": false, \"block_reason\": \"SQL injection detected\", " +
+                    "\"policies_evaluated\": 3, " +
+                    "\"policy_info\": {\"policies_evaluated\": 3, \"blocked\": true, " +
+                    "\"block_reason\": \"SQL injection detected\", " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 1}}")));
+
+        MCPCheckInputResponse response = axonflow.mcpCheckInput("postgres", "SELECT * FROM users; DROP TABLE users;--");
+
+        assertThat(response.isAllowed()).isFalse();
+        assertThat(response.getBlockReason()).isEqualTo("SQL injection detected");
+        assertThat(response.getPolicyInfo()).isNotNull();
+        assertThat(response.getPolicyInfo().isBlocked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("mcpCheckInput should throw on 500 error")
+    void mcpCheckInputShouldThrowOn500Error() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-input"))
+            .willReturn(aResponse()
+                .withStatus(500)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": \"Internal server error\"}")));
+
+        assertThatThrownBy(() -> axonflow.mcpCheckInput("postgres", "SELECT 1"))
+            .isInstanceOf(ConnectorException.class)
+            .hasMessageContaining("Internal server error");
+    }
+
+    @Test
+    @DisplayName("mcpCheckInput should require non-null connectorType")
+    void mcpCheckInputShouldRequireConnectorType() {
+        assertThatThrownBy(() -> axonflow.mcpCheckInput(null, "SELECT 1"))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("mcpCheckInput should require non-null statement")
+    void mcpCheckInputShouldRequireStatement() {
+        assertThatThrownBy(() -> axonflow.mcpCheckInput("postgres", null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("mcpCheckInputAsync should return future")
+    void mcpCheckInputAsyncShouldReturnFuture() throws Exception {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-input"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 2, " +
+                    "\"policy_info\": {\"policies_evaluated\": 2, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 1}}")));
+
+        CompletableFuture<MCPCheckInputResponse> future = axonflow.mcpCheckInputAsync("postgres", "SELECT 1");
+        MCPCheckInputResponse response = future.get();
+
+        assertThat(response.isAllowed()).isTrue();
+        assertThat(response.getPoliciesEvaluated()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutput should return allowed response")
+    void mcpCheckOutputShouldReturnAllowedResponse() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 4, " +
+                    "\"policy_info\": {\"policies_evaluated\": 4, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 3}}")));
+
+        List<Map<String, Object>> responseData = List.of(
+            Map.of("id", 1, "name", "Alice"),
+            Map.of("id", 2, "name", "Bob")
+        );
+        MCPCheckOutputResponse response = axonflow.mcpCheckOutput("postgres", responseData);
+
+        assertThat(response.isAllowed()).isTrue();
+        assertThat(response.getPoliciesEvaluated()).isEqualTo(4);
+        assertThat(response.getBlockReason()).isNull();
+        assertThat(response.getPolicyInfo()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutput with options should send message, metadata, and row_count")
+    void mcpCheckOutputWithOptionsShouldSendOptions() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 6, " +
+                    "\"policy_info\": {\"policies_evaluated\": 6, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 2}}")));
+
+        List<Map<String, Object>> responseData = List.of(
+            Map.of("id", 1, "name", "Alice")
+        );
+        Map<String, Object> options = Map.of(
+            "message", "Query completed",
+            "metadata", Map.of("source", "analytics"),
+            "row_count", 1
+        );
+        MCPCheckOutputResponse response = axonflow.mcpCheckOutput("postgres", responseData, options);
+
+        assertThat(response.isAllowed()).isTrue();
+        assertThat(response.getPoliciesEvaluated()).isEqualTo(6);
+
+        verify(postRequestedFor(urlEqualTo("/api/v1/mcp/check-output"))
+            .withRequestBody(containing("\"connector_type\":\"postgres\""))
+            .withRequestBody(containing("\"message\":\"Query completed\""))
+            .withRequestBody(containing("\"row_count\":1")));
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutput should handle 403 as blocked result")
+    void mcpCheckOutputShouldHandle403AsBlockedResult() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(403)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": false, \"block_reason\": \"PII detected in output\", " +
+                    "\"policies_evaluated\": 4, " +
+                    "\"redacted_data\": [{\"id\": 1, \"ssn\": \"***REDACTED***\"}], " +
+                    "\"policy_info\": {\"policies_evaluated\": 4, \"blocked\": true, " +
+                    "\"block_reason\": \"PII detected in output\", " +
+                    "\"redactions_applied\": 1, \"processing_time_ms\": 5}}")));
+
+        List<Map<String, Object>> responseData = List.of(
+            Map.of("id", 1, "ssn", "123-45-6789")
+        );
+        MCPCheckOutputResponse response = axonflow.mcpCheckOutput("postgres", responseData);
+
+        assertThat(response.isAllowed()).isFalse();
+        assertThat(response.getBlockReason()).isEqualTo("PII detected in output");
+        assertThat(response.getRedactedData()).isNotNull();
+        assertThat(response.getPolicyInfo()).isNotNull();
+        assertThat(response.getPolicyInfo().isBlocked()).isTrue();
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutput should handle response with exfiltration info")
+    void mcpCheckOutputShouldHandleExfiltrationInfo() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 3, " +
+                    "\"exfiltration_info\": {\"rows_returned\": 10, \"row_limit\": 1000, " +
+                    "\"bytes_returned\": 2048, \"byte_limit\": 1048576, \"within_limits\": true}, " +
+                    "\"policy_info\": {\"policies_evaluated\": 3, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 2}}")));
+
+        List<Map<String, Object>> responseData = List.of(Map.of("id", 1));
+        MCPCheckOutputResponse response = axonflow.mcpCheckOutput("postgres", responseData);
+
+        assertThat(response.isAllowed()).isTrue();
+        assertThat(response.getExfiltrationInfo()).isNotNull();
+        assertThat(response.getExfiltrationInfo().getRowsReturned()).isEqualTo(10);
+        assertThat(response.getExfiltrationInfo().isWithinLimits()).isTrue();
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutput should throw on 500 error")
+    void mcpCheckOutputShouldThrowOn500Error() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(500)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"error\": \"Internal server error\"}")));
+
+        assertThatThrownBy(() -> axonflow.mcpCheckOutput("postgres", List.of(Map.of("id", 1))))
+            .isInstanceOf(ConnectorException.class)
+            .hasMessageContaining("Internal server error");
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutput should require non-null connectorType")
+    void mcpCheckOutputShouldRequireConnectorType() {
+        assertThatThrownBy(() -> axonflow.mcpCheckOutput(null, List.of()))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutput should allow null responseData for execute-style requests")
+    void mcpCheckOutputShouldAllowNullResponseData() {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 1, " +
+                    "\"policy_info\": {\"policies_evaluated\": 1, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 1}}")));
+
+        Map<String, Object> options = new HashMap<>();
+        options.put("message", "3 rows updated");
+
+        MCPCheckOutputResponse resp = axonflow.mcpCheckOutput("postgres", null, options);
+        assertThat(resp.isAllowed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("mcpCheckOutputAsync should return future")
+    void mcpCheckOutputAsyncShouldReturnFuture() throws Exception {
+        stubFor(post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"allowed\": true, \"policies_evaluated\": 2, " +
+                    "\"policy_info\": {\"policies_evaluated\": 2, \"blocked\": false, " +
+                    "\"redactions_applied\": 0, \"processing_time_ms\": 1}}")));
+
+        CompletableFuture<MCPCheckOutputResponse> future = axonflow.mcpCheckOutputAsync(
+            "postgres", List.of(Map.of("id", 1)));
+        MCPCheckOutputResponse response = future.get();
+
+        assertThat(response.isAllowed()).isTrue();
+        assertThat(response.getPoliciesEvaluated()).isEqualTo(2);
     }
 
     // ========================================================================
