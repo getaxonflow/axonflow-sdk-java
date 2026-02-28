@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **MCP Policy-Check Endpoints**: Standalone policy validation for external orchestrators (LangGraph, CrewAI)
-  - `mcpCheckInput(connectorType, statement)`: Validate MCP queries/commands against input policies (SQLi, PII, dynamic) before execution
-  - `mcpCheckOutput(connectorType, responseData)`: Validate MCP response data against output policies (PII redaction, exfiltration limits) after execution
+- **MCP Policy-Check Endpoints** (Platform v4.6.0+): Standalone policy validation for external orchestrators (LangGraph, CrewAI) to enforce AxonFlow policies without executing connector queries
+  - `mcpCheckInput(connectorType, statement)`: Validate SQL/commands against input policies (SQLi detection, dangerous query blocking, PII in queries, dynamic policies). Returns `MCPCheckInputResponse` with `isAllowed()` or `getBlockReason()`
+  - `mcpCheckOutput(connectorType, responseData)`: Validate MCP response data against output policies (PII redaction, exfiltration limits, dynamic policies). Returns original or redacted data with `PolicyInfo`
   - New types: `MCPCheckInputRequest`, `MCPCheckInputResponse`, `MCPCheckOutputRequest`, `MCPCheckOutputResponse`
-  - Sync + async variants with overloads for additional options
+  - Sync + async variants with overloads for additional options (`parameters`, `operation`)
+  - Supports both query-style (`responseData`) and execute-style (`message` + `metadata`) output validation
 
 ---
 
