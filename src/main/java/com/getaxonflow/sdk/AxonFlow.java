@@ -149,6 +149,38 @@ public final class AxonFlow implements Closeable {
         return mapper;
     }
 
+    /**
+     * Compares two semantic version strings numerically (major.minor.patch).
+     * Returns negative if a < b, zero if equal, positive if a > b.
+     */
+    private static int compareSemver(String a, String b) {
+        String[] partsA = a.split("\\.");
+        String[] partsB = b.split("\\.");
+        int length = Math.max(partsA.length, partsB.length);
+        for (int i = 0; i < length; i++) {
+            int numA = 0;
+            int numB = 0;
+            if (i < partsA.length) {
+                try {
+                    numA = Integer.parseInt(partsA[i]);
+                } catch (NumberFormatException ignored) {
+                    // default to 0
+                }
+            }
+            if (i < partsB.length) {
+                try {
+                    numB = Integer.parseInt(partsB[i]);
+                } catch (NumberFormatException ignored) {
+                    // default to 0
+                }
+            }
+            if (numA != numB) {
+                return Integer.compare(numA, numB);
+            }
+        }
+        return 0;
+    }
+
     // ========================================================================
     // Factory Methods
     // ========================================================================
@@ -215,7 +247,7 @@ public final class AxonFlow implements Closeable {
 
         if (status.getSdkCompatibility() != null
                 && status.getSdkCompatibility().getMinSdkVersion() != null
-                && AxonFlowConfig.SDK_VERSION.compareTo(status.getSdkCompatibility().getMinSdkVersion()) < 0) {
+                && compareSemver(AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion()) < 0) {
             logger.warn("SDK version {} is below minimum supported version {}. Please upgrade.",
                     AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion());
         }
