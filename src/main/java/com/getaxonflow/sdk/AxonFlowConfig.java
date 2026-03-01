@@ -42,6 +42,9 @@ import java.util.Objects;
  */
 public final class AxonFlowConfig {
 
+    /** SDK version string. */
+    public static final String SDK_VERSION = "3.8.0";
+
     /** Default timeout for HTTP requests. */
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
 
@@ -69,7 +72,7 @@ public final class AxonFlowConfig {
         this.insecureSkipVerify = builder.insecureSkipVerify;
         this.retryConfig = builder.retryConfig != null ? builder.retryConfig : RetryConfig.defaults();
         this.cacheConfig = builder.cacheConfig != null ? builder.cacheConfig : CacheConfig.defaults();
-        this.userAgent = builder.userAgent != null ? builder.userAgent : "axonflow-java-sdk/1.0.0";
+        this.userAgent = builder.userAgent != null ? builder.userAgent : "axonflow-sdk-java/" + SDK_VERSION;
 
         validate();
     }

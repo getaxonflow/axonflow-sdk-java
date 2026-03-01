@@ -193,7 +193,9 @@ class AdditionalTypesTest {
                 "healthy",
                 "1.0.0",
                 "24h30m",
-                components
+                components,
+                null,
+                null
             );
 
             assertThat(status.getStatus()).isEqualTo("healthy");
@@ -205,7 +207,7 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("Should handle null components")
         void testHealthStatusNullComponents() {
-            HealthStatus status = new HealthStatus("healthy", "1.0.0", "1h", null);
+            HealthStatus status = new HealthStatus("healthy", "1.0.0", "1h", null, null, null);
 
             assertThat(status.getComponents()).isEmpty();
         }
@@ -213,38 +215,38 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("isHealthy should return true for healthy status")
         void testIsHealthyTrue() {
-            HealthStatus status1 = new HealthStatus("healthy", null, null, null);
+            HealthStatus status1 = new HealthStatus("healthy", null, null, null, null, null);
             assertThat(status1.isHealthy()).isTrue();
 
-            HealthStatus status2 = new HealthStatus("HEALTHY", null, null, null);
+            HealthStatus status2 = new HealthStatus("HEALTHY", null, null, null, null, null);
             assertThat(status2.isHealthy()).isTrue();
 
-            HealthStatus status3 = new HealthStatus("ok", null, null, null);
+            HealthStatus status3 = new HealthStatus("ok", null, null, null, null, null);
             assertThat(status3.isHealthy()).isTrue();
 
-            HealthStatus status4 = new HealthStatus("OK", null, null, null);
+            HealthStatus status4 = new HealthStatus("OK", null, null, null, null, null);
             assertThat(status4.isHealthy()).isTrue();
         }
 
         @Test
         @DisplayName("isHealthy should return false for unhealthy status")
         void testIsHealthyFalse() {
-            HealthStatus status1 = new HealthStatus("unhealthy", null, null, null);
+            HealthStatus status1 = new HealthStatus("unhealthy", null, null, null, null, null);
             assertThat(status1.isHealthy()).isFalse();
 
-            HealthStatus status2 = new HealthStatus("degraded", null, null, null);
+            HealthStatus status2 = new HealthStatus("degraded", null, null, null, null, null);
             assertThat(status2.isHealthy()).isFalse();
 
-            HealthStatus status3 = new HealthStatus(null, null, null, null);
+            HealthStatus status3 = new HealthStatus(null, null, null, null, null, null);
             assertThat(status3.isHealthy()).isFalse();
         }
 
         @Test
         @DisplayName("equals and hashCode should work correctly")
         void testHealthStatusEqualsHashCode() {
-            HealthStatus status1 = new HealthStatus("healthy", "1.0.0", "1h", null);
-            HealthStatus status2 = new HealthStatus("healthy", "1.0.0", "1h", null);
-            HealthStatus status3 = new HealthStatus("unhealthy", "1.0.0", "1h", null);
+            HealthStatus status1 = new HealthStatus("healthy", "1.0.0", "1h", null, null, null);
+            HealthStatus status2 = new HealthStatus("healthy", "1.0.0", "1h", null, null, null);
+            HealthStatus status3 = new HealthStatus("unhealthy", "1.0.0", "1h", null, null, null);
 
             assertThat(status1).isEqualTo(status2);
             assertThat(status1.hashCode()).isEqualTo(status2.hashCode());
@@ -257,7 +259,7 @@ class AdditionalTypesTest {
         @Test
         @DisplayName("toString should include relevant fields")
         void testHealthStatusToString() {
-            HealthStatus status = new HealthStatus("healthy", "1.0.0", "1h", null);
+            HealthStatus status = new HealthStatus("healthy", "1.0.0", "1h", null, null, null);
 
             String str = status.toString();
             assertThat(str).contains("healthy");

@@ -978,7 +978,7 @@ class MoreTypesTest {
             components.put("database", "healthy");
             components.put("cache", "healthy");
 
-            HealthStatus status = new HealthStatus("healthy", "2.6.0", "24h5m", components);
+            HealthStatus status = new HealthStatus("healthy", "2.6.0", "24h5m", components, null, null);
 
             assertThat(status.getStatus()).isEqualTo("healthy");
             assertThat(status.getVersion()).isEqualTo("2.6.0");
@@ -989,17 +989,17 @@ class MoreTypesTest {
         @Test
         @DisplayName("should handle null components")
         void shouldHandleNullComponents() {
-            HealthStatus status = new HealthStatus("healthy", "1.0.0", "1h", null);
+            HealthStatus status = new HealthStatus("healthy", "1.0.0", "1h", null, null, null);
             assertThat(status.getComponents()).isEmpty();
         }
 
         @Test
         @DisplayName("should detect healthy status")
         void shouldDetectHealthyStatus() {
-            HealthStatus healthy = new HealthStatus("healthy", "1.0", "1h", null);
-            HealthStatus ok = new HealthStatus("ok", "1.0", "1h", null);
-            HealthStatus degraded = new HealthStatus("degraded", "1.0", "1h", null);
-            HealthStatus unhealthy = new HealthStatus("unhealthy", "1.0", "1h", null);
+            HealthStatus healthy = new HealthStatus("healthy", "1.0", "1h", null, null, null);
+            HealthStatus ok = new HealthStatus("ok", "1.0", "1h", null, null, null);
+            HealthStatus degraded = new HealthStatus("degraded", "1.0", "1h", null, null, null);
+            HealthStatus unhealthy = new HealthStatus("unhealthy", "1.0", "1h", null, null, null);
 
             assertThat(healthy.isHealthy()).isTrue();
             assertThat(ok.isHealthy()).isTrue();
@@ -1026,9 +1026,9 @@ class MoreTypesTest {
         @Test
         @DisplayName("should implement equals and hashCode")
         void shouldImplementEqualsAndHashCode() {
-            HealthStatus s1 = new HealthStatus("healthy", "1.0", "1h", null);
-            HealthStatus s2 = new HealthStatus("healthy", "1.0", "1h", null);
-            HealthStatus s3 = new HealthStatus("degraded", "1.0", "1h", null);
+            HealthStatus s1 = new HealthStatus("healthy", "1.0", "1h", null, null, null);
+            HealthStatus s2 = new HealthStatus("healthy", "1.0", "1h", null, null, null);
+            HealthStatus s3 = new HealthStatus("degraded", "1.0", "1h", null, null, null);
 
             assertThat(s1).isEqualTo(s2);
             assertThat(s1.hashCode()).isEqualTo(s2.hashCode());
@@ -1038,7 +1038,7 @@ class MoreTypesTest {
         @Test
         @DisplayName("should have toString")
         void shouldHaveToString() {
-            HealthStatus status = new HealthStatus("healthy", "2.0.0", "5h", null);
+            HealthStatus status = new HealthStatus("healthy", "2.0.0", "5h", null, null, null);
             assertThat(status.toString()).contains("HealthStatus").contains("healthy");
         }
     }

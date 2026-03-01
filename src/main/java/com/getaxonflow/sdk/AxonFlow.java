@@ -206,12 +206,21 @@ public final class AxonFlow implements Closeable {
      * @throws ConnectionException if the Agent cannot be reached
      */
     public HealthStatus healthCheck() {
-        return retryExecutor.execute(() -> {
+        HealthStatus status = retryExecutor.execute(() -> {
             Request request = buildRequest("GET", "/health", null);
             try (Response response = httpClient.newCall(request).execute()) {
                 return parseResponse(response, HealthStatus.class);
             }
         }, "healthCheck");
+
+        if (status.getSdkCompatibility() != null
+                && status.getSdkCompatibility().getMinSdkVersion() != null
+                && AxonFlowConfig.SDK_VERSION.compareTo(status.getSdkCompatibility().getMinSdkVersion()) < 0) {
+            logger.warn("SDK version {} is below minimum supported version {}. Please upgrade.",
+                    AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion());
+        }
+
+        return status;
     }
 
     /**
@@ -265,7 +274,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest = buildOrchestratorRequest("GET", "/health", null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 if (!response.isSuccessful()) {
-                    return new HealthStatus("unhealthy", null, null, null);
+                    return new HealthStatus("unhealthy", null, null, null, null, null);
                 }
                 return parseResponse(response, HealthStatus.class);
             }

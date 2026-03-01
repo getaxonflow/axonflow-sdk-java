@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -40,15 +41,25 @@ public final class HealthStatus {
     @JsonProperty("components")
     private final Map<String, Object> components;
 
+    @JsonProperty("capabilities")
+    private final List<PlatformCapability> capabilities;
+
+    @JsonProperty("sdk_compatibility")
+    private final SDKCompatibility sdkCompatibility;
+
     public HealthStatus(
             @JsonProperty("status") String status,
             @JsonProperty("version") String version,
             @JsonProperty("uptime") String uptime,
-            @JsonProperty("components") Map<String, Object> components) {
+            @JsonProperty("components") Map<String, Object> components,
+            @JsonProperty("capabilities") List<PlatformCapability> capabilities,
+            @JsonProperty("sdk_compatibility") SDKCompatibility sdkCompatibility) {
         this.status = status;
         this.version = version;
         this.uptime = uptime;
         this.components = components != null ? Collections.unmodifiableMap(components) : Collections.emptyMap();
+        this.capabilities = capabilities;
+        this.sdkCompatibility = sdkCompatibility;
     }
 
     /**
@@ -88,12 +99,41 @@ public final class HealthStatus {
     }
 
     /**
+     * Returns the list of capabilities advertised by the platform.
+     *
+     * @return the capabilities list, or null if not provided
+     */
+    public List<PlatformCapability> getCapabilities() {
+        return capabilities;
+    }
+
+    /**
+     * Returns SDK compatibility information from the platform.
+     *
+     * @return the SDK compatibility info, or null if not provided
+     */
+    public SDKCompatibility getSdkCompatibility() {
+        return sdkCompatibility;
+    }
+
+    /**
      * Checks if the Agent is healthy.
      *
      * @return true if status is "healthy"
      */
     public boolean isHealthy() {
         return "healthy".equalsIgnoreCase(status) || "ok".equalsIgnoreCase(status);
+    }
+
+    /**
+     * Checks if the platform advertises a given capability by name.
+     *
+     * @param name the capability name to check
+     * @return true if the capability is present
+     */
+    public boolean hasCapability(String name) {
+        if (capabilities == null) return false;
+        return capabilities.stream().anyMatch(c -> name.equals(c.getName()));
     }
 
     @Override
