@@ -162,14 +162,16 @@ public final class AxonFlow implements Closeable {
             int numB = 0;
             if (i < partsA.length) {
                 try {
-                    numA = Integer.parseInt(partsA[i]);
+                    String cleanA = partsA[i].contains("-") ? partsA[i].substring(0, partsA[i].indexOf("-")) : partsA[i];
+                    numA = Integer.parseInt(cleanA);
                 } catch (NumberFormatException ignored) {
                     // default to 0
                 }
             }
             if (i < partsB.length) {
                 try {
-                    numB = Integer.parseInt(partsB[i]);
+                    String cleanB = partsB[i].contains("-") ? partsB[i].substring(0, partsB[i].indexOf("-")) : partsB[i];
+                    numB = Integer.parseInt(cleanB);
                 } catch (NumberFormatException ignored) {
                     // default to 0
                 }

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - User-Agent header corrected from `axonflow-java-sdk/1.0.0` to `axonflow-sdk-java/{version}`
 - Version mismatch warning logged when SDK version is below platform's `min_sdk_version`
 - `PlatformCapability` and `SDKCompatibility` types
+- `traceId` field on `CreateWorkflowRequest`, `CreateWorkflowResponse`, `WorkflowStatusResponse`, and `ListWorkflowsOptions` for distributed tracing correlation
+- `ToolContext` type for per-tool governance within workflow steps
+- `toolContext` field on `StepGateRequest` for tool-level policy enforcement
+- `listWorkflows()` now supports `traceId` filter parameter
 
 ### Fixed
 

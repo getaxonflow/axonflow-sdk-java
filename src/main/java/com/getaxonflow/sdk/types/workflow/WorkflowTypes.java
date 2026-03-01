@@ -234,6 +234,14 @@ public final class WorkflowTypes {
         @JsonProperty("trace_id")
         private final String traceId;
 
+        /**
+         * Backward-compatible constructor without traceId.
+         */
+        public CreateWorkflowRequest(String workflowName, WorkflowSource source,
+                                     Integer totalSteps, Map<String, Object> metadata) {
+            this(workflowName, source, totalSteps, metadata, null);
+        }
+
         @JsonCreator
         public CreateWorkflowRequest(
                 @JsonProperty("workflow_name") String workflowName,
@@ -333,6 +341,15 @@ public final class WorkflowTypes {
 
         @JsonProperty("trace_id")
         private final String traceId;
+
+        /**
+         * Backward-compatible constructor without traceId.
+         */
+        public CreateWorkflowResponse(String workflowId, String workflowName,
+                                      WorkflowSource source, WorkflowStatus status,
+                                      Instant createdAt) {
+            this(workflowId, workflowName, source, status, createdAt, null);
+        }
 
         @JsonCreator
         public CreateWorkflowResponse(
@@ -452,6 +469,15 @@ public final class WorkflowTypes {
 
         @JsonProperty("tool_context")
         private final ToolContext toolContext;
+
+        /**
+         * Backward-compatible constructor without toolContext.
+         */
+        public StepGateRequest(String stepName, StepType stepType,
+                               Map<String, Object> stepInput, String model,
+                               String provider) {
+            this(stepName, stepType, stepInput, model, provider, null);
+        }
 
         @JsonCreator
         public StepGateRequest(
@@ -776,6 +802,18 @@ public final class WorkflowTypes {
         @JsonProperty("trace_id")
         private final String traceId;
 
+        /**
+         * Backward-compatible constructor without traceId.
+         */
+        public WorkflowStatusResponse(String workflowId, String workflowName,
+                                      WorkflowSource source, WorkflowStatus status,
+                                      int currentStepIndex, Integer totalSteps,
+                                      Instant startedAt, Instant completedAt,
+                                      List<WorkflowStepInfo> steps) {
+            this(workflowId, workflowName, source, status, currentStepIndex,
+                 totalSteps, startedAt, completedAt, steps, null);
+        }
+
         @JsonCreator
         public WorkflowStatusResponse(
                 @JsonProperty("workflow_id") String workflowId,
@@ -857,6 +895,13 @@ public final class WorkflowTypes {
         private final int limit;
         private final int offset;
         private final String traceId;
+
+        /**
+         * Backward-compatible constructor without traceId.
+         */
+        public ListWorkflowsOptions(WorkflowStatus status, WorkflowSource source, int limit, int offset) {
+            this(status, source, limit, offset, null);
+        }
 
         public ListWorkflowsOptions(WorkflowStatus status, WorkflowSource source, int limit, int offset, String traceId) {
             this.status = status;

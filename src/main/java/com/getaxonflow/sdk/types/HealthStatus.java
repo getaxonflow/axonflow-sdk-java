@@ -47,6 +47,13 @@ public final class HealthStatus {
     @JsonProperty("sdk_compatibility")
     private final SDKCompatibility sdkCompatibility;
 
+    /**
+     * Backward-compatible constructor without capabilities and sdkCompatibility.
+     */
+    public HealthStatus(String status, String version, String uptime, Map<String, Object> components) {
+        this(status, version, uptime, components, null, null);
+    }
+
     public HealthStatus(
             @JsonProperty("status") String status,
             @JsonProperty("version") String version,
@@ -58,7 +65,7 @@ public final class HealthStatus {
         this.version = version;
         this.uptime = uptime;
         this.components = components != null ? Collections.unmodifiableMap(components) : Collections.emptyMap();
-        this.capabilities = capabilities;
+        this.capabilities = capabilities != null ? Collections.unmodifiableList(capabilities) : Collections.emptyList();
         this.sdkCompatibility = sdkCompatibility;
     }
 
@@ -101,7 +108,7 @@ public final class HealthStatus {
     /**
      * Returns the list of capabilities advertised by the platform.
      *
-     * @return the capabilities list, or null if not provided
+     * @return immutable list of capabilities (never null)
      */
     public List<PlatformCapability> getCapabilities() {
         return capabilities;
@@ -132,7 +139,7 @@ public final class HealthStatus {
      * @return true if the capability is present
      */
     public boolean hasCapability(String name) {
-        if (capabilities == null) return false;
+        if (name == null) return false;
         return capabilities.stream().anyMatch(c -> name.equals(c.getName()));
     }
 
@@ -143,12 +150,14 @@ public final class HealthStatus {
         HealthStatus that = (HealthStatus) o;
         return Objects.equals(status, that.status) &&
                Objects.equals(version, that.version) &&
-               Objects.equals(uptime, that.uptime);
+               Objects.equals(uptime, that.uptime) &&
+               Objects.equals(capabilities, that.capabilities) &&
+               Objects.equals(sdkCompatibility, that.sdkCompatibility);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(status, version, uptime);
+        return Objects.hash(status, version, uptime, capabilities, sdkCompatibility);
     }
 
     @Override
@@ -157,6 +166,8 @@ public final class HealthStatus {
                "status='" + status + '\'' +
                ", version='" + version + '\'' +
                ", uptime='" + uptime + '\'' +
+               ", capabilities=" + capabilities +
+               ", sdkCompatibility=" + sdkCompatibility +
                '}';
     }
 }
