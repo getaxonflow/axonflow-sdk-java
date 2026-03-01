@@ -4344,6 +4344,9 @@ public final class AxonFlow implements Closeable {
                 if (options.getOffset() > 0) {
                     appendQueryParam(query, "offset", String.valueOf(options.getOffset()));
                 }
+                if (options.getTraceId() != null) {
+                    appendQueryParam(query, "trace_id", options.getTraceId());
+                }
             }
 
             if (query.length() > 0) {
