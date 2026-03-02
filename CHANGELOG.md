@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ToolContext` type for per-tool governance within workflow steps
 - `toolContext` field on `StepGateRequest` for tool-level policy enforcement
 - `listWorkflows()` now supports `traceId` filter parameter
+- Anonymous runtime telemetry for version adoption tracking and feature usage signals
+- `TelemetryEnabled` / `telemetry` configuration option to explicitly control telemetry
+- `AXONFLOW_TELEMETRY=off` and `DO_NOT_TRACK=1` environment variable opt-out support
 
 ### Fixed
 

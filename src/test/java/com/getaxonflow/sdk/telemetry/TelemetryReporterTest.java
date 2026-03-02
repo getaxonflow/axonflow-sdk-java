@@ -1,0 +1,250 @@
+/*
+ * Copyright 2025 AxonFlow
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.getaxonflow.sdk.telemetry;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import com.getaxonflow.sdk.AxonFlowConfig;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.assertj.core.api.Assertions.*;
+
+@DisplayName("TelemetryReporter")
+@WireMockTest
+class TelemetryReporterTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    // --- isEnabled tests (using the 4-arg package-private method) ---
+
+    @Test
+    @DisplayName("should disable telemetry when DO_NOT_TRACK=1")
+    void testTelemetryDisabledByDoNotTrack() {
+        assertThat(TelemetryReporter.isEnabled("production", null, "1", null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, "1", null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("sandbox", null, "1", null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should disable telemetry when AXONFLOW_TELEMETRY=off")
+    void testTelemetryDisabledByAxonflowEnv() {
+        assertThat(TelemetryReporter.isEnabled("production", null, null, "off")).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", null, null, "OFF")).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, null, "off")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should default telemetry OFF for sandbox mode")
+    void testTelemetryDefaultOffForSandbox() {
+        assertThat(TelemetryReporter.isEnabled("sandbox", null, null, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should default telemetry ON for production mode")
+    void testTelemetryDefaultOnForProduction() {
+        assertThat(TelemetryReporter.isEnabled("production", null, null, null)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should default telemetry ON for enterprise mode")
+    void testTelemetryDefaultOnForEnterprise() {
+        assertThat(TelemetryReporter.isEnabled("enterprise", null, null, null)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should allow config override to enable telemetry in sandbox")
+    void testTelemetryConfigOverrideEnable() {
+        assertThat(TelemetryReporter.isEnabled("sandbox", Boolean.TRUE, null, null)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should allow config override to disable telemetry in production")
+    void testTelemetryConfigOverrideDisable() {
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.FALSE, null, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("DO_NOT_TRACK takes precedence over config override")
+    void testDoNotTrackPrecedence() {
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, "1", null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("AXONFLOW_TELEMETRY=off takes precedence over config override")
+    void testAxonflowTelemetryPrecedence() {
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, null, "off")).isFalse();
+    }
+
+    // --- Payload format test ---
+
+    @Test
+    @DisplayName("should produce correct payload JSON format")
+    void testPayloadFormat() throws Exception {
+        String payload = TelemetryReporter.buildPayload("production");
+        JsonNode root = objectMapper.readTree(payload);
+
+        assertThat(root.get("sdk").asText()).isEqualTo("java");
+        assertThat(root.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
+        assertThat(root.get("platform_version").isNull()).isTrue();
+        assertThat(root.get("os").asText()).isEqualTo(System.getProperty("os.name"));
+        assertThat(root.get("arch").asText()).isEqualTo(System.getProperty("os.arch"));
+        assertThat(root.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
+        assertThat(root.get("deployment_mode").asText()).isEqualTo("production");
+        assertThat(root.get("features").isArray()).isTrue();
+        assertThat(root.get("features").size()).isEqualTo(0);
+        assertThat(root.get("instance_id").asText()).isNotEmpty();
+        // instance_id should be a valid UUID format
+        assertThat(root.get("instance_id").asText()).matches(
+                "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+    }
+
+    @Test
+    @DisplayName("payload should reflect the given mode")
+    void testPayloadModeReflection() throws Exception {
+        String payload = TelemetryReporter.buildPayload("sandbox");
+        JsonNode root = objectMapper.readTree(payload);
+        assertThat(root.get("deployment_mode").asText()).isEqualTo("sandbox");
+    }
+
+    // --- HTTP integration tests ---
+
+    @Test
+    @DisplayName("should send telemetry ping to custom endpoint")
+    void testCustomEndpoint(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        // Call sendPing with custom checkpoint URL, no env opt-outs
+        TelemetryReporter.sendPing(
+                "production",
+                "http://localhost:8080",
+                null,
+                false,
+                null,   // doNotTrack
+                null,   // axonflowTelemetry
+                customUrl  // checkpointUrl
+        );
+
+        // Give the async call time to complete
+        Thread.sleep(2000);
+
+        verify(postRequestedFor(urlEqualTo("/v1/ping"))
+                .withHeader("Content-Type", containing("application/json")));
+
+        // Verify the request body has expected fields
+        var requests = WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping")));
+        assertThat(requests).hasSize(1);
+
+        JsonNode body = objectMapper.readTree(requests.get(0).getBodyAsString());
+        assertThat(body.get("sdk").asText()).isEqualTo("java");
+        assertThat(body.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
+        assertThat(body.get("deployment_mode").asText()).isEqualTo("production");
+        assertThat(body.get("instance_id").asText()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("should not send ping when telemetry is disabled")
+    void testNoRequestWhenDisabled(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        // Disable via DO_NOT_TRACK
+        TelemetryReporter.sendPing(
+                "production",
+                "http://localhost:8080",
+                null,
+                false,
+                "1",    // doNotTrack = disabled
+                null,
+                customUrl
+        );
+
+        Thread.sleep(1000);
+
+        verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
+    }
+
+    @Test
+    @DisplayName("should silently handle connection failure")
+    void testSilentFailure() {
+        // Point to a port that is almost certainly not listening
+        assertThatCode(() -> {
+            TelemetryReporter.sendPing(
+                    "production",
+                    "http://localhost:8080",
+                    null,
+                    false,
+                    null,
+                    null,
+                    "http://127.0.0.1:1" // port 1 - connection refused
+            );
+
+            // Give the async call time to run and fail
+            Thread.sleep(4000);
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should not send ping in sandbox mode without explicit enable")
+    void testSandboxModeDefaultOff(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        TelemetryReporter.sendPing(
+                "sandbox",
+                "http://localhost:8080",
+                null,   // no override
+                false,
+                null,
+                null,
+                customUrl
+        );
+
+        Thread.sleep(1000);
+
+        verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
+    }
+
+    @Test
+    @DisplayName("should send ping in sandbox mode when explicitly enabled via config")
+    void testSandboxModeExplicitEnable(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        TelemetryReporter.sendPing(
+                "sandbox",
+                "http://localhost:8080",
+                Boolean.TRUE,   // explicit enable
+                false,
+                null,
+                null,
+                customUrl
+        );
+
+        Thread.sleep(2000);
+
+        verify(exactly(1), postRequestedFor(urlEqualTo("/v1/ping")));
+    }
+}

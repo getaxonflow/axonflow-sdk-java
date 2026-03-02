@@ -576,6 +576,12 @@ MCPQueryResponse resp = client.queryConnector(query);
 
 For enterprise features, contact [sales@getaxonflow.com](mailto:sales@getaxonflow.com).
 
+## Telemetry
+
+This SDK sends anonymous usage telemetry (SDK version, OS, enabled features) to help improve AxonFlow.
+No prompts, payloads, or PII are ever collected. Opt out: `AXONFLOW_TELEMETRY=off` or `DO_NOT_TRACK=1`.
+See [Telemetry Documentation](https://getaxonflow.com/docs/telemetry) for full details.
+
 ## Contributing
 
 We welcome contributions. Please see our [Contributing Guide](CONTRIBUTING.md) for details.

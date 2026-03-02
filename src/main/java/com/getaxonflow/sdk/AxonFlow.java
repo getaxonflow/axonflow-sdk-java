@@ -16,6 +16,7 @@
 package com.getaxonflow.sdk;
 
 import com.getaxonflow.sdk.exceptions.*;
+import com.getaxonflow.sdk.telemetry.TelemetryReporter;
 import com.getaxonflow.sdk.types.*;
 import com.getaxonflow.sdk.types.codegovernance.*;
 import com.getaxonflow.sdk.types.costcontrols.CostControlTypes.*;
@@ -138,6 +139,14 @@ public final class AxonFlow implements Closeable {
         this.masfeatNamespace = new MASFEATNamespace();
 
         logger.info("AxonFlow client initialized for {}", config.getEndpoint());
+
+        // Send telemetry ping (fire-and-forget).
+        TelemetryReporter.sendPing(
+            config.getMode() != null ? config.getMode().getValue() : "production",
+            config.getEndpoint(),
+            config.getTelemetry(),
+            config.isDebug()
+        );
     }
 
     private static ObjectMapper createObjectMapper() {
