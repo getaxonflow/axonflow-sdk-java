@@ -16,6 +16,7 @@
 package com.getaxonflow.sdk;
 
 import com.getaxonflow.sdk.exceptions.*;
+import com.getaxonflow.sdk.telemetry.TelemetryReporter;
 import com.getaxonflow.sdk.types.*;
 import com.getaxonflow.sdk.types.codegovernance.*;
 import com.getaxonflow.sdk.types.costcontrols.CostControlTypes.*;
@@ -138,6 +139,17 @@ public final class AxonFlow implements Closeable {
         this.masfeatNamespace = new MASFEATNamespace();
 
         logger.info("AxonFlow client initialized for {}", config.getEndpoint());
+
+        // Send telemetry ping (fire-and-forget).
+        boolean hasCredentials = config.getClientId() != null && !config.getClientId().isEmpty()
+                && config.getClientSecret() != null && !config.getClientSecret().isEmpty();
+        TelemetryReporter.sendPing(
+            config.getMode() != null ? config.getMode().getValue() : "production",
+            config.getEndpoint(),
+            config.getTelemetry(),
+            config.isDebug(),
+            hasCredentials
+        );
     }
 
     private static ObjectMapper createObjectMapper() {
@@ -147,6 +159,40 @@ public final class AxonFlow implements Closeable {
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.configure(DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS, false);
         return mapper;
+    }
+
+    /**
+     * Compares two semantic version strings numerically (major.minor.patch).
+     * Returns negative if a < b, zero if equal, positive if a > b.
+     */
+    private static int compareSemver(String a, String b) {
+        String[] partsA = a.split("\\.");
+        String[] partsB = b.split("\\.");
+        int length = Math.max(partsA.length, partsB.length);
+        for (int i = 0; i < length; i++) {
+            int numA = 0;
+            int numB = 0;
+            if (i < partsA.length) {
+                try {
+                    String cleanA = partsA[i].contains("-") ? partsA[i].substring(0, partsA[i].indexOf("-")) : partsA[i];
+                    numA = Integer.parseInt(cleanA);
+                } catch (NumberFormatException ignored) {
+                    // default to 0
+                }
+            }
+            if (i < partsB.length) {
+                try {
+                    String cleanB = partsB[i].contains("-") ? partsB[i].substring(0, partsB[i].indexOf("-")) : partsB[i];
+                    numB = Integer.parseInt(cleanB);
+                } catch (NumberFormatException ignored) {
+                    // default to 0
+                }
+            }
+            if (numA != numB) {
+                return Integer.compare(numA, numB);
+            }
+        }
+        return 0;
     }
 
     // ========================================================================
@@ -206,12 +252,21 @@ public final class AxonFlow implements Closeable {
      * @throws ConnectionException if the Agent cannot be reached
      */
     public HealthStatus healthCheck() {
-        return retryExecutor.execute(() -> {
+        HealthStatus status = retryExecutor.execute(() -> {
             Request request = buildRequest("GET", "/health", null);
             try (Response response = httpClient.newCall(request).execute()) {
                 return parseResponse(response, HealthStatus.class);
             }
         }, "healthCheck");
+
+        if (status.getSdkCompatibility() != null
+                && status.getSdkCompatibility().getMinSdkVersion() != null
+                && compareSemver(AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion()) < 0) {
+            logger.warn("SDK version {} is below minimum supported version {}. Please upgrade.",
+                    AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion());
+        }
+
+        return status;
     }
 
     /**
@@ -265,7 +320,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest = buildOrchestratorRequest("GET", "/health", null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 if (!response.isSuccessful()) {
-                    return new HealthStatus("unhealthy", null, null, null);
+                    return new HealthStatus("unhealthy", null, null, null, null, null);
                 }
                 return parseResponse(response, HealthStatus.class);
             }
@@ -4302,6 +4357,9 @@ public final class AxonFlow implements Closeable {
                 }
                 if (options.getOffset() > 0) {
                     appendQueryParam(query, "offset", String.valueOf(options.getOffset()));
+                }
+                if (options.getTraceId() != null) {
+                    appendQueryParam(query, "trace_id", options.getTraceId());
                 }
             }
 

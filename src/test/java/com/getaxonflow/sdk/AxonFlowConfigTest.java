@@ -171,7 +171,7 @@ class AxonFlowConfigTest {
             .endpoint("http://localhost:8080")
             .build();
 
-        assertThat(config.getUserAgent()).startsWith("axonflow-java-sdk/");
+        assertThat(config.getUserAgent()).startsWith("axonflow-sdk-java/");
     }
 
     @Test

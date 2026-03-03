@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.time.Instant;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -230,16 +231,29 @@ public final class WorkflowTypes {
         @JsonProperty("metadata")
         private final Map<String, Object> metadata;
 
+        @JsonProperty("trace_id")
+        private final String traceId;
+
+        /**
+         * Backward-compatible constructor without traceId.
+         */
+        public CreateWorkflowRequest(String workflowName, WorkflowSource source,
+                                     Integer totalSteps, Map<String, Object> metadata) {
+            this(workflowName, source, totalSteps, metadata, null);
+        }
+
         @JsonCreator
         public CreateWorkflowRequest(
                 @JsonProperty("workflow_name") String workflowName,
                 @JsonProperty("source") WorkflowSource source,
                 @JsonProperty("total_steps") Integer totalSteps,
-                @JsonProperty("metadata") Map<String, Object> metadata) {
+                @JsonProperty("metadata") Map<String, Object> metadata,
+                @JsonProperty("trace_id") String traceId) {
             this.workflowName = Objects.requireNonNull(workflowName, "workflowName is required");
             this.source = source != null ? source : WorkflowSource.EXTERNAL;
             this.totalSteps = totalSteps;
             this.metadata = metadata != null ? Collections.unmodifiableMap(metadata) : Collections.emptyMap();
+            this.traceId = traceId;
         }
 
         public String getWorkflowName() {
@@ -258,6 +272,10 @@ public final class WorkflowTypes {
             return metadata;
         }
 
+        public String getTraceId() {
+            return traceId;
+        }
+
         public static Builder builder() {
             return new Builder();
         }
@@ -267,6 +285,7 @@ public final class WorkflowTypes {
             private WorkflowSource source = WorkflowSource.EXTERNAL;
             private Integer totalSteps;
             private Map<String, Object> metadata;
+            private String traceId;
 
             public Builder workflowName(String workflowName) {
                 this.workflowName = workflowName;
@@ -288,8 +307,13 @@ public final class WorkflowTypes {
                 return this;
             }
 
+            public Builder traceId(String traceId) {
+                this.traceId = traceId;
+                return this;
+            }
+
             public CreateWorkflowRequest build() {
-                return new CreateWorkflowRequest(workflowName, source, totalSteps, metadata);
+                return new CreateWorkflowRequest(workflowName, source, totalSteps, metadata, traceId);
             }
         }
     }
@@ -315,18 +339,32 @@ public final class WorkflowTypes {
         @JsonProperty("created_at")
         private final Instant createdAt;
 
+        @JsonProperty("trace_id")
+        private final String traceId;
+
+        /**
+         * Backward-compatible constructor without traceId.
+         */
+        public CreateWorkflowResponse(String workflowId, String workflowName,
+                                      WorkflowSource source, WorkflowStatus status,
+                                      Instant createdAt) {
+            this(workflowId, workflowName, source, status, createdAt, null);
+        }
+
         @JsonCreator
         public CreateWorkflowResponse(
                 @JsonProperty("workflow_id") String workflowId,
                 @JsonProperty("workflow_name") String workflowName,
                 @JsonProperty("source") WorkflowSource source,
                 @JsonProperty("status") WorkflowStatus status,
-                @JsonProperty("created_at") Instant createdAt) {
+                @JsonProperty("created_at") Instant createdAt,
+                @JsonProperty("trace_id") String traceId) {
             this.workflowId = workflowId;
             this.workflowName = workflowName;
             this.source = source;
             this.status = status;
             this.createdAt = createdAt;
+            this.traceId = traceId;
         }
 
         public String getWorkflowId() {
@@ -347,6 +385,64 @@ public final class WorkflowTypes {
 
         public Instant getCreatedAt() {
             return createdAt;
+        }
+
+        public String getTraceId() {
+            return traceId;
+        }
+    }
+
+    /**
+     * Tool-level context for per-tool governance within tool_call steps.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static final class ToolContext {
+
+        @JsonProperty("tool_name")
+        private final String toolName;
+
+        @JsonProperty("tool_type")
+        private final String toolType;
+
+        @JsonProperty("tool_input")
+        private final Map<String, Object> toolInput;
+
+        private ToolContext(Builder builder) {
+            this.toolName = builder.toolName;
+            this.toolType = builder.toolType;
+            this.toolInput = builder.toolInput != null ? Collections.unmodifiableMap(new HashMap<>(builder.toolInput)) : null;
+        }
+
+        @JsonCreator
+        public ToolContext(
+                @JsonProperty("tool_name") String toolName,
+                @JsonProperty("tool_type") String toolType,
+                @JsonProperty("tool_input") Map<String, Object> toolInput) {
+            this.toolName = toolName;
+            this.toolType = toolType;
+            this.toolInput = toolInput != null ? Collections.unmodifiableMap(new HashMap<>(toolInput)) : null;
+        }
+
+        public String getToolName() { return toolName; }
+        public String getToolType() { return toolType; }
+        public Map<String, Object> getToolInput() { return toolInput; }
+
+        public static Builder builder(String toolName) {
+            return new Builder(toolName);
+        }
+
+        public static final class Builder {
+            private final String toolName;
+            private String toolType;
+            private Map<String, Object> toolInput;
+
+            public Builder(String toolName) {
+                this.toolName = Objects.requireNonNull(toolName, "toolName must not be null");
+            }
+
+            public Builder toolType(String toolType) { this.toolType = toolType; return this; }
+            public Builder toolInput(Map<String, Object> toolInput) { this.toolInput = toolInput; return this; }
+            public ToolContext build() { return new ToolContext(this); }
         }
     }
 
@@ -371,18 +467,32 @@ public final class WorkflowTypes {
         @JsonProperty("provider")
         private final String provider;
 
+        @JsonProperty("tool_context")
+        private final ToolContext toolContext;
+
+        /**
+         * Backward-compatible constructor without toolContext.
+         */
+        public StepGateRequest(String stepName, StepType stepType,
+                               Map<String, Object> stepInput, String model,
+                               String provider) {
+            this(stepName, stepType, stepInput, model, provider, null);
+        }
+
         @JsonCreator
         public StepGateRequest(
                 @JsonProperty("step_name") String stepName,
                 @JsonProperty("step_type") StepType stepType,
                 @JsonProperty("step_input") Map<String, Object> stepInput,
                 @JsonProperty("model") String model,
-                @JsonProperty("provider") String provider) {
+                @JsonProperty("provider") String provider,
+                @JsonProperty("tool_context") ToolContext toolContext) {
             this.stepName = stepName;
             this.stepType = Objects.requireNonNull(stepType, "stepType is required");
             this.stepInput = stepInput != null ? Collections.unmodifiableMap(stepInput) : Collections.emptyMap();
             this.model = model;
             this.provider = provider;
+            this.toolContext = toolContext;
         }
 
         public String getStepName() {
@@ -405,6 +515,10 @@ public final class WorkflowTypes {
             return provider;
         }
 
+        public ToolContext getToolContext() {
+            return toolContext;
+        }
+
         public static Builder builder() {
             return new Builder();
         }
@@ -415,6 +529,7 @@ public final class WorkflowTypes {
             private Map<String, Object> stepInput;
             private String model;
             private String provider;
+            private ToolContext toolContext;
 
             public Builder stepName(String stepName) {
                 this.stepName = stepName;
@@ -441,8 +556,13 @@ public final class WorkflowTypes {
                 return this;
             }
 
+            public Builder toolContext(ToolContext toolContext) {
+                this.toolContext = toolContext;
+                return this;
+            }
+
             public StepGateRequest build() {
-                return new StepGateRequest(stepName, stepType, stepInput, model, provider);
+                return new StepGateRequest(stepName, stepType, stepInput, model, provider, toolContext);
             }
         }
     }
@@ -679,6 +799,21 @@ public final class WorkflowTypes {
         @JsonProperty("steps")
         private final List<WorkflowStepInfo> steps;
 
+        @JsonProperty("trace_id")
+        private final String traceId;
+
+        /**
+         * Backward-compatible constructor without traceId.
+         */
+        public WorkflowStatusResponse(String workflowId, String workflowName,
+                                      WorkflowSource source, WorkflowStatus status,
+                                      int currentStepIndex, Integer totalSteps,
+                                      Instant startedAt, Instant completedAt,
+                                      List<WorkflowStepInfo> steps) {
+            this(workflowId, workflowName, source, status, currentStepIndex,
+                 totalSteps, startedAt, completedAt, steps, null);
+        }
+
         @JsonCreator
         public WorkflowStatusResponse(
                 @JsonProperty("workflow_id") String workflowId,
@@ -689,7 +824,8 @@ public final class WorkflowTypes {
                 @JsonProperty("total_steps") Integer totalSteps,
                 @JsonProperty("started_at") Instant startedAt,
                 @JsonProperty("completed_at") Instant completedAt,
-                @JsonProperty("steps") List<WorkflowStepInfo> steps) {
+                @JsonProperty("steps") List<WorkflowStepInfo> steps,
+                @JsonProperty("trace_id") String traceId) {
             this.workflowId = workflowId;
             this.workflowName = workflowName;
             this.source = source;
@@ -699,6 +835,7 @@ public final class WorkflowTypes {
             this.startedAt = startedAt;
             this.completedAt = completedAt;
             this.steps = steps != null ? Collections.unmodifiableList(steps) : Collections.emptyList();
+            this.traceId = traceId;
         }
 
         public String getWorkflowId() {
@@ -737,6 +874,10 @@ public final class WorkflowTypes {
             return steps;
         }
 
+        public String getTraceId() {
+            return traceId;
+        }
+
         public boolean isTerminal() {
             return status == WorkflowStatus.COMPLETED ||
                    status == WorkflowStatus.ABORTED ||
@@ -753,12 +894,21 @@ public final class WorkflowTypes {
         private final WorkflowSource source;
         private final int limit;
         private final int offset;
+        private final String traceId;
 
+        /**
+         * Backward-compatible constructor without traceId.
+         */
         public ListWorkflowsOptions(WorkflowStatus status, WorkflowSource source, int limit, int offset) {
+            this(status, source, limit, offset, null);
+        }
+
+        public ListWorkflowsOptions(WorkflowStatus status, WorkflowSource source, int limit, int offset, String traceId) {
             this.status = status;
             this.source = source;
             this.limit = limit > 0 ? limit : 50;
             this.offset = Math.max(offset, 0);
+            this.traceId = traceId;
         }
 
         public WorkflowStatus getStatus() {
@@ -777,6 +927,10 @@ public final class WorkflowTypes {
             return offset;
         }
 
+        public String getTraceId() {
+            return traceId;
+        }
+
         public static Builder builder() {
             return new Builder();
         }
@@ -786,6 +940,7 @@ public final class WorkflowTypes {
             private WorkflowSource source;
             private int limit = 50;
             private int offset = 0;
+            private String traceId;
 
             public Builder status(WorkflowStatus status) {
                 this.status = status;
@@ -807,8 +962,13 @@ public final class WorkflowTypes {
                 return this;
             }
 
+            public Builder traceId(String traceId) {
+                this.traceId = traceId;
+                return this;
+            }
+
             public ListWorkflowsOptions build() {
-                return new ListWorkflowsOptions(status, source, limit, offset);
+                return new ListWorkflowsOptions(status, source, limit, offset, traceId);
             }
         }
     }

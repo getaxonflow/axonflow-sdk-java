@@ -42,6 +42,9 @@ import java.util.Objects;
  */
 public final class AxonFlowConfig {
 
+    /** SDK version string. */
+    public static final String SDK_VERSION = "3.8.0";
+
     /** Default timeout for HTTP requests. */
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
 
@@ -58,6 +61,7 @@ public final class AxonFlowConfig {
     private final RetryConfig retryConfig;
     private final CacheConfig cacheConfig;
     private final String userAgent;
+    private final Boolean telemetry;
 
     private AxonFlowConfig(Builder builder) {
         this.endpoint = normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
@@ -69,7 +73,8 @@ public final class AxonFlowConfig {
         this.insecureSkipVerify = builder.insecureSkipVerify;
         this.retryConfig = builder.retryConfig != null ? builder.retryConfig : RetryConfig.defaults();
         this.cacheConfig = builder.cacheConfig != null ? builder.cacheConfig : CacheConfig.defaults();
-        this.userAgent = builder.userAgent != null ? builder.userAgent : "axonflow-java-sdk/1.0.0";
+        this.userAgent = builder.userAgent != null ? builder.userAgent : "axonflow-sdk-java/" + SDK_VERSION;
+        this.telemetry = builder.telemetry;
 
         validate();
     }
@@ -208,6 +213,18 @@ public final class AxonFlowConfig {
         return userAgent;
     }
 
+    /**
+     * Returns the telemetry config override.
+     *
+     * <p>{@code null} means use the default behavior (ON for production, OFF for sandbox).
+     * {@code Boolean.TRUE} forces telemetry on, {@code Boolean.FALSE} forces it off.
+     *
+     * @return the telemetry override, or null for default behavior
+     */
+    public Boolean getTelemetry() {
+        return telemetry;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -254,6 +271,7 @@ public final class AxonFlowConfig {
         private RetryConfig retryConfig;
         private CacheConfig cacheConfig;
         private String userAgent;
+        private Boolean telemetry;
 
         private Builder() {}
 
@@ -383,6 +401,23 @@ public final class AxonFlowConfig {
          */
         public Builder userAgent(String userAgent) {
             this.userAgent = userAgent;
+            return this;
+        }
+
+        /**
+         * Sets the telemetry override.
+         *
+         * <p>{@code null} (default) uses the mode-based default: ON for production, OFF for sandbox.
+         * {@code Boolean.TRUE} forces telemetry on, {@code Boolean.FALSE} forces it off.
+         *
+         * <p>Telemetry can also be disabled globally via environment variables:
+         * {@code DO_NOT_TRACK=1} or {@code AXONFLOW_TELEMETRY=off}.
+         *
+         * @param telemetry true to enable, false to disable, null for default behavior
+         * @return this builder
+         */
+        public Builder telemetry(Boolean telemetry) {
+            this.telemetry = telemetry;
             return this;
         }
 
