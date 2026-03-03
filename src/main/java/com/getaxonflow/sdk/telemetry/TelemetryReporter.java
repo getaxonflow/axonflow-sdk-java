@@ -144,10 +144,10 @@ public class TelemetryReporter {
      */
     static boolean isEnabled(String mode, Boolean configOverride, boolean hasCredentials,
                              String doNotTrack, String axonflowTelemetry) {
-        if ("1".equals(doNotTrack)) {
+        if (doNotTrack != null && "1".equals(doNotTrack.trim())) {
             return false;
         }
-        if ("off".equalsIgnoreCase(axonflowTelemetry)) {
+        if (axonflowTelemetry != null && "off".equalsIgnoreCase(axonflowTelemetry.trim())) {
             return false;
         }
         if (configOverride != null) {
