@@ -63,8 +63,9 @@ public class TelemetryReporter {
      * @param telemetryEnabled config override for telemetry (null = use default based on mode)
      * @param debug            whether debug logging is enabled
      */
-    public static void sendPing(String mode, String sdkEndpoint, Boolean telemetryEnabled, boolean debug) {
-        sendPing(mode, sdkEndpoint, telemetryEnabled, debug,
+    public static void sendPing(String mode, String sdkEndpoint, Boolean telemetryEnabled, boolean debug,
+                               boolean hasCredentials) {
+        sendPing(mode, sdkEndpoint, telemetryEnabled, debug, hasCredentials,
                 System.getenv("DO_NOT_TRACK"),
                 System.getenv("AXONFLOW_TELEMETRY"),
                 System.getenv("AXONFLOW_CHECKPOINT_URL"));
@@ -74,8 +75,9 @@ public class TelemetryReporter {
      * Package-private overload for testability, accepting env var values as parameters.
      */
     static void sendPing(String mode, String sdkEndpoint, Boolean telemetryEnabled, boolean debug,
+                         boolean hasCredentials,
                          String doNotTrack, String axonflowTelemetry, String checkpointUrl) {
-        if (!isEnabled(mode, telemetryEnabled, doNotTrack, axonflowTelemetry)) {
+        if (!isEnabled(mode, telemetryEnabled, hasCredentials, doNotTrack, axonflowTelemetry)) {
             if (debug) {
                 logger.debug("Telemetry is disabled, skipping ping");
             }
@@ -124,21 +126,24 @@ public class TelemetryReporter {
      *   <li>{@code DO_NOT_TRACK=1} environment variable disables telemetry</li>
      *   <li>{@code AXONFLOW_TELEMETRY=off} environment variable disables telemetry</li>
      *   <li>Config override ({@code Boolean.TRUE} or {@code Boolean.FALSE}) takes precedence</li>
-     *   <li>Default: ON for production/enterprise, OFF for sandbox</li>
+     *   <li>Default: ON for production/enterprise with credentials, OFF for sandbox or no credentials</li>
      * </ol>
      *
      * @param mode           the deployment mode
      * @param configOverride explicit config override (null = use default)
+     * @param hasCredentials whether the client has credentials (clientId + clientSecret)
      * @return true if telemetry should be sent
      */
-    static boolean isEnabled(String mode, Boolean configOverride) {
-        return isEnabled(mode, configOverride, System.getenv("DO_NOT_TRACK"), System.getenv("AXONFLOW_TELEMETRY"));
+    static boolean isEnabled(String mode, Boolean configOverride, boolean hasCredentials) {
+        return isEnabled(mode, configOverride, hasCredentials,
+                System.getenv("DO_NOT_TRACK"), System.getenv("AXONFLOW_TELEMETRY"));
     }
 
     /**
      * Package-private for testing. Accepts env var values as parameters.
      */
-    static boolean isEnabled(String mode, Boolean configOverride, String doNotTrack, String axonflowTelemetry) {
+    static boolean isEnabled(String mode, Boolean configOverride, boolean hasCredentials,
+                             String doNotTrack, String axonflowTelemetry) {
         if ("1".equals(doNotTrack)) {
             return false;
         }
@@ -148,7 +153,10 @@ public class TelemetryReporter {
         if (configOverride != null) {
             return configOverride;
         }
-        return "production".equals(mode) || "enterprise".equals(mode);
+        if ("sandbox".equals(mode)) {
+            return false;
+        }
+        return hasCredentials;
     }
 
     /**

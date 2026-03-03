@@ -141,11 +141,14 @@ public final class AxonFlow implements Closeable {
         logger.info("AxonFlow client initialized for {}", config.getEndpoint());
 
         // Send telemetry ping (fire-and-forget).
+        boolean hasCredentials = config.getClientId() != null && !config.getClientId().isEmpty()
+                && config.getClientSecret() != null && !config.getClientSecret().isEmpty();
         TelemetryReporter.sendPing(
             config.getMode() != null ? config.getMode().getValue() : "production",
             config.getEndpoint(),
             config.getTelemetry(),
-            config.isDebug()
+            config.isDebug(),
+            hasCredentials
         );
     }
 

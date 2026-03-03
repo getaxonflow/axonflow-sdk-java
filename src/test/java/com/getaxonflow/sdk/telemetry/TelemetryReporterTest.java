@@ -33,64 +33,70 @@ class TelemetryReporterTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // --- isEnabled tests (using the 4-arg package-private method) ---
+    // --- isEnabled tests (using the 5-arg package-private method) ---
 
     @Test
     @DisplayName("should disable telemetry when DO_NOT_TRACK=1")
     void testTelemetryDisabledByDoNotTrack() {
-        assertThat(TelemetryReporter.isEnabled("production", null, "1", null)).isFalse();
-        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, "1", null)).isFalse();
-        assertThat(TelemetryReporter.isEnabled("sandbox", null, "1", null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", null, true, "1", null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, "1", null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("sandbox", null, true, "1", null)).isFalse();
     }
 
     @Test
     @DisplayName("should disable telemetry when AXONFLOW_TELEMETRY=off")
     void testTelemetryDisabledByAxonflowEnv() {
-        assertThat(TelemetryReporter.isEnabled("production", null, null, "off")).isFalse();
-        assertThat(TelemetryReporter.isEnabled("production", null, null, "OFF")).isFalse();
-        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, null, "off")).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", null, true, null, "off")).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", null, true, null, "OFF")).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, null, "off")).isFalse();
     }
 
     @Test
     @DisplayName("should default telemetry OFF for sandbox mode")
     void testTelemetryDefaultOffForSandbox() {
-        assertThat(TelemetryReporter.isEnabled("sandbox", null, null, null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("sandbox", null, true, null, null)).isFalse();
     }
 
     @Test
-    @DisplayName("should default telemetry ON for production mode")
-    void testTelemetryDefaultOnForProduction() {
-        assertThat(TelemetryReporter.isEnabled("production", null, null, null)).isTrue();
+    @DisplayName("should default telemetry ON for production mode with credentials")
+    void testTelemetryDefaultOnForProductionWithCredentials() {
+        assertThat(TelemetryReporter.isEnabled("production", null, true, null, null)).isTrue();
     }
 
     @Test
-    @DisplayName("should default telemetry ON for enterprise mode")
-    void testTelemetryDefaultOnForEnterprise() {
-        assertThat(TelemetryReporter.isEnabled("enterprise", null, null, null)).isTrue();
+    @DisplayName("should default telemetry OFF for production mode without credentials")
+    void testTelemetryDefaultOffForProductionWithoutCredentials() {
+        assertThat(TelemetryReporter.isEnabled("production", null, false, null, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should default telemetry ON for enterprise mode with credentials")
+    void testTelemetryDefaultOnForEnterpriseWithCredentials() {
+        assertThat(TelemetryReporter.isEnabled("enterprise", null, true, null, null)).isTrue();
     }
 
     @Test
     @DisplayName("should allow config override to enable telemetry in sandbox")
     void testTelemetryConfigOverrideEnable() {
-        assertThat(TelemetryReporter.isEnabled("sandbox", Boolean.TRUE, null, null)).isTrue();
+        assertThat(TelemetryReporter.isEnabled("sandbox", Boolean.TRUE, false, null, null)).isTrue();
     }
 
     @Test
     @DisplayName("should allow config override to disable telemetry in production")
     void testTelemetryConfigOverrideDisable() {
-        assertThat(TelemetryReporter.isEnabled("production", Boolean.FALSE, null, null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.FALSE, true, null, null)).isFalse();
     }
 
     @Test
     @DisplayName("DO_NOT_TRACK takes precedence over config override")
     void testDoNotTrackPrecedence() {
-        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, "1", null)).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, "1", null)).isFalse();
     }
 
     @Test
     @DisplayName("AXONFLOW_TELEMETRY=off takes precedence over config override")
     void testAxonflowTelemetryPrecedence() {
-        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, null, "off")).isFalse();
+        assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, null, "off")).isFalse();
     }
 
     // --- Payload format test ---
@@ -133,12 +139,13 @@ class TelemetryReporterTest {
 
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-        // Call sendPing with custom checkpoint URL, no env opt-outs
+        // Call sendPing with custom checkpoint URL, no env opt-outs, with credentials
         TelemetryReporter.sendPing(
                 "production",
                 "http://localhost:8080",
                 null,
                 false,
+                true,   // hasCredentials
                 null,   // doNotTrack
                 null,   // axonflowTelemetry
                 customUrl  // checkpointUrl
@@ -174,6 +181,7 @@ class TelemetryReporterTest {
                 "http://localhost:8080",
                 null,
                 false,
+                true,   // hasCredentials
                 "1",    // doNotTrack = disabled
                 null,
                 customUrl
@@ -194,6 +202,7 @@ class TelemetryReporterTest {
                     "http://localhost:8080",
                     null,
                     false,
+                    true,   // hasCredentials
                     null,
                     null,
                     "http://127.0.0.1:1" // port 1 - connection refused
@@ -216,6 +225,7 @@ class TelemetryReporterTest {
                 "http://localhost:8080",
                 null,   // no override
                 false,
+                true,   // hasCredentials
                 null,
                 null,
                 customUrl
@@ -238,6 +248,7 @@ class TelemetryReporterTest {
                 "http://localhost:8080",
                 Boolean.TRUE,   // explicit enable
                 false,
+                false,  // hasCredentials (doesn't matter with explicit override)
                 null,
                 null,
                 customUrl
@@ -246,5 +257,28 @@ class TelemetryReporterTest {
         Thread.sleep(2000);
 
         verify(exactly(1), postRequestedFor(urlEqualTo("/v1/ping")));
+    }
+
+    @Test
+    @DisplayName("should not send ping in production mode without credentials")
+    void testProductionModeWithoutCredentials(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        TelemetryReporter.sendPing(
+                "production",
+                "http://localhost:8080",
+                null,   // no override
+                false,
+                false,  // no credentials (self-hosted/community)
+                null,
+                null,
+                customUrl
+        );
+
+        Thread.sleep(1000);
+
+        verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
     }
 }
