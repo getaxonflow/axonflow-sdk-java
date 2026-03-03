@@ -64,9 +64,9 @@ class TelemetryReporterTest {
     }
 
     @Test
-    @DisplayName("should default telemetry OFF for production mode without credentials")
-    void testTelemetryDefaultOffForProductionWithoutCredentials() {
-        assertThat(TelemetryReporter.isEnabled("production", null, false, null, null)).isFalse();
+    @DisplayName("should default telemetry ON for production mode even without credentials")
+    void testTelemetryDefaultOnForProductionWithoutCredentials() {
+        assertThat(TelemetryReporter.isEnabled("production", null, false, null, null)).isTrue();
     }
 
     @Test
@@ -260,7 +260,7 @@ class TelemetryReporterTest {
     }
 
     @Test
-    @DisplayName("should not send ping in production mode without credentials")
+    @DisplayName("should send ping in production mode even without credentials")
     void testProductionModeWithoutCredentials(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
         stubFor(post("/v1/ping").willReturn(ok()));
 
@@ -271,15 +271,15 @@ class TelemetryReporterTest {
                 "http://localhost:8080",
                 null,   // no override
                 false,
-                false,  // no credentials (self-hosted/community)
+                false,  // no credentials — no longer affects default
                 null,
                 null,
                 customUrl
         );
 
-        Thread.sleep(1000);
+        Thread.sleep(2000);
 
-        verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
+        verify(exactly(1), postRequestedFor(urlEqualTo("/v1/ping")));
     }
 
     // --- Additional tests for parity with Python SDK ---

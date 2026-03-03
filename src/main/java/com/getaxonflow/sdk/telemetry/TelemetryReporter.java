@@ -126,12 +126,12 @@ public class TelemetryReporter {
      *   <li>{@code DO_NOT_TRACK=1} environment variable disables telemetry</li>
      *   <li>{@code AXONFLOW_TELEMETRY=off} environment variable disables telemetry</li>
      *   <li>Config override ({@code Boolean.TRUE} or {@code Boolean.FALSE}) takes precedence</li>
-     *   <li>Default: ON for production/enterprise with credentials, OFF for sandbox or no credentials</li>
+     *   <li>Default: ON for all modes except sandbox</li>
      * </ol>
      *
      * @param mode           the deployment mode
      * @param configOverride explicit config override (null = use default)
-     * @param hasCredentials whether the client has credentials (clientId + clientSecret)
+     * @param hasCredentials whether the client has credentials (kept for API compat, no longer used in default logic)
      * @return true if telemetry should be sent
      */
     static boolean isEnabled(String mode, Boolean configOverride, boolean hasCredentials) {
@@ -153,10 +153,8 @@ public class TelemetryReporter {
         if (configOverride != null) {
             return configOverride;
         }
-        if ("sandbox".equals(mode)) {
-            return false;
-        }
-        return hasCredentials;
+        // Default: ON everywhere except sandbox mode.
+        return !"sandbox".equals(mode);
     }
 
     /**
