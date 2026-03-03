@@ -281,4 +281,169 @@ class TelemetryReporterTest {
 
         verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
     }
+
+    // --- Additional tests for parity with Python SDK ---
+
+    @Test
+    @DisplayName("each buildPayload call should generate a unique instance_id")
+    void testUniqueInstanceId() throws Exception {
+        String payload1 = TelemetryReporter.buildPayload("production");
+        String payload2 = TelemetryReporter.buildPayload("production");
+        String payload3 = TelemetryReporter.buildPayload("production");
+
+        JsonNode root1 = objectMapper.readTree(payload1);
+        JsonNode root2 = objectMapper.readTree(payload2);
+        JsonNode root3 = objectMapper.readTree(payload3);
+
+        String id1 = root1.get("instance_id").asText();
+        String id2 = root2.get("instance_id").asText();
+        String id3 = root3.get("instance_id").asText();
+
+        // All three should be valid UUIDs
+        assertThat(id1).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(id2).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(id3).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
+        // All three should be distinct
+        assertThat(id1).isNotEqualTo(id2);
+        assertThat(id1).isNotEqualTo(id3);
+        assertThat(id2).isNotEqualTo(id3);
+    }
+
+    @Test
+    @DisplayName("config false in production should skip POST even with credentials")
+    void testConfigDisableInProduction(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        TelemetryReporter.sendPing(
+                "production",
+                "http://localhost:8080",
+                Boolean.FALSE,  // config override disables
+                false,
+                true,   // hasCredentials (would normally enable)
+                null,
+                null,
+                customUrl
+        );
+
+        Thread.sleep(1000);
+
+        verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
+    }
+
+    @Test
+    @DisplayName("should silently handle server timeout without crashing")
+    void testSilentFailureOnTimeout(WireMockRuntimeInfo wmRuntimeInfo) {
+        // Delay response for 5 seconds, exceeding the 3s timeout
+        stubFor(post("/v1/ping").willReturn(ok().withFixedDelay(5000)));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        assertThatCode(() -> {
+            TelemetryReporter.sendPing(
+                    "production",
+                    "http://localhost:8080",
+                    null,
+                    false,
+                    true,   // hasCredentials
+                    null,
+                    null,
+                    customUrl
+            );
+
+            // Wait long enough for the async call to hit the timeout and fail
+            Thread.sleep(5000);
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should not crash when server returns HTTP 500")
+    void testNon200ResponseNoCrash(WireMockRuntimeInfo wmRuntimeInfo) {
+        stubFor(post("/v1/ping").willReturn(serverError().withBody("Internal Server Error")));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        assertThatCode(() -> {
+            TelemetryReporter.sendPing(
+                    "production",
+                    "http://localhost:8080",
+                    null,
+                    false,
+                    true,   // hasCredentials
+                    null,
+                    null,
+                    customUrl
+            );
+
+            // Give the async call time to complete
+            Thread.sleep(2000);
+        }).doesNotThrowAnyException();
+
+        // Verify the request was still made (the server just returned 500)
+        verify(exactly(1), postRequestedFor(urlEqualTo("/v1/ping")));
+    }
+
+    @Test
+    @DisplayName("AXONFLOW_TELEMETRY=off should skip POST even with credentials in production")
+    void testAxonflowTelemetrySkipsPost(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        TelemetryReporter.sendPing(
+                "production",
+                "http://localhost:8080",
+                null,
+                false,
+                true,   // hasCredentials
+                null,
+                "off",  // AXONFLOW_TELEMETRY=off
+                customUrl
+        );
+
+        Thread.sleep(1000);
+
+        verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
+    }
+
+    @Test
+    @DisplayName("should send correct payload fields in enterprise mode via HTTP")
+    void testPayloadDeploymentModeEnterprise(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+        stubFor(post("/v1/ping").willReturn(ok()));
+
+        String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+        TelemetryReporter.sendPing(
+                "enterprise",
+                "http://localhost:8080",
+                null,
+                false,
+                true,   // hasCredentials
+                null,
+                null,
+                customUrl
+        );
+
+        Thread.sleep(2000);
+
+        verify(exactly(1), postRequestedFor(urlEqualTo("/v1/ping"))
+                .withHeader("Content-Type", containing("application/json")));
+
+        var requests = WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping")));
+        assertThat(requests).hasSize(1);
+
+        JsonNode body = objectMapper.readTree(requests.get(0).getBodyAsString());
+        assertThat(body.get("sdk").asText()).isEqualTo("java");
+        assertThat(body.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
+        assertThat(body.get("deployment_mode").asText()).isEqualTo("enterprise");
+        assertThat(body.get("os").asText()).isEqualTo(System.getProperty("os.name"));
+        assertThat(body.get("arch").asText()).isEqualTo(System.getProperty("os.arch"));
+        assertThat(body.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
+        assertThat(body.get("platform_version").isNull()).isTrue();
+        assertThat(body.get("features").isArray()).isTrue();
+        assertThat(body.get("instance_id").asText()).matches(
+                "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+    }
 }
