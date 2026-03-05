@@ -29,6 +29,7 @@ jobs:
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Configure Maven mirror
         run: |
@@ -109,6 +110,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Configure Maven mirror
         run: |
@@ -157,6 +159,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Configure Maven mirror
         run: |
@@ -192,6 +195,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'maven'
 
       - name: Configure Maven mirror
         run: |
