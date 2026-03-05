@@ -1504,7 +1504,7 @@ public final class AxonFlow implements Closeable {
         return retryExecutor.execute(() -> {
             MCPCheckInputRequest request;
             if (options != null) {
-                String operation = (String) options.getOrDefault("operation", "query");
+                String operation = (String) options.getOrDefault("operation", "execute");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> parameters = (Map<String, Object>) options.get("parameters");
                 request = new MCPCheckInputRequest(connectorType, statement, parameters, operation);

@@ -44,13 +44,13 @@ public final class MCPCheckInputRequest {
 
     /**
      * Creates a request with connector type and statement only.
-     * Operation defaults to "query".
+     * Operation defaults to "execute".
      *
      * @param connectorType the MCP connector type (e.g., "postgres")
      * @param statement     the statement to validate
      */
     public MCPCheckInputRequest(String connectorType, String statement) {
-        this(connectorType, statement, null, "query");
+        this(connectorType, statement, null, "execute");
     }
 
     /**
