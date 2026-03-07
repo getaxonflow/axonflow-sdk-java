@@ -1527,7 +1527,7 @@ class MoreTypesTest {
 
             assertThat(request.getConnectorType()).isEqualTo("postgres");
             assertThat(request.getStatement()).isEqualTo("SELECT * FROM users");
-            assertThat(request.getOperation()).isEqualTo("query");
+            assertThat(request.getOperation()).isEqualTo("execute");
             assertThat(request.getParameters()).isNull();
         }
 
