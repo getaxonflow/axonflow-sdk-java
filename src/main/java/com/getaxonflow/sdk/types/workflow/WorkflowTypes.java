@@ -225,9 +225,6 @@ public final class WorkflowTypes {
         @JsonProperty("source")
         private final WorkflowSource source;
 
-        @JsonProperty("total_steps")
-        private final Integer totalSteps;
-
         @JsonProperty("metadata")
         private final Map<String, Object> metadata;
 
@@ -238,20 +235,18 @@ public final class WorkflowTypes {
          * Backward-compatible constructor without traceId.
          */
         public CreateWorkflowRequest(String workflowName, WorkflowSource source,
-                                     Integer totalSteps, Map<String, Object> metadata) {
-            this(workflowName, source, totalSteps, metadata, null);
+                                     Map<String, Object> metadata) {
+            this(workflowName, source, metadata, null);
         }
 
         @JsonCreator
         public CreateWorkflowRequest(
                 @JsonProperty("workflow_name") String workflowName,
                 @JsonProperty("source") WorkflowSource source,
-                @JsonProperty("total_steps") Integer totalSteps,
                 @JsonProperty("metadata") Map<String, Object> metadata,
                 @JsonProperty("trace_id") String traceId) {
             this.workflowName = Objects.requireNonNull(workflowName, "workflowName is required");
             this.source = source != null ? source : WorkflowSource.EXTERNAL;
-            this.totalSteps = totalSteps;
             this.metadata = metadata != null ? Collections.unmodifiableMap(metadata) : Collections.emptyMap();
             this.traceId = traceId;
         }
@@ -262,10 +257,6 @@ public final class WorkflowTypes {
 
         public WorkflowSource getSource() {
             return source;
-        }
-
-        public Integer getTotalSteps() {
-            return totalSteps;
         }
 
         public Map<String, Object> getMetadata() {
@@ -283,7 +274,6 @@ public final class WorkflowTypes {
         public static final class Builder {
             private String workflowName;
             private WorkflowSource source = WorkflowSource.EXTERNAL;
-            private Integer totalSteps;
             private Map<String, Object> metadata;
             private String traceId;
 
@@ -294,11 +284,6 @@ public final class WorkflowTypes {
 
             public Builder source(WorkflowSource source) {
                 this.source = source;
-                return this;
-            }
-
-            public Builder totalSteps(Integer totalSteps) {
-                this.totalSteps = totalSteps;
                 return this;
             }
 
@@ -313,7 +298,7 @@ public final class WorkflowTypes {
             }
 
             public CreateWorkflowRequest build() {
-                return new CreateWorkflowRequest(workflowName, source, totalSteps, metadata, traceId);
+                return new CreateWorkflowRequest(workflowName, source, metadata, traceId);
             }
         }
     }
