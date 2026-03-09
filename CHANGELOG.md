@@ -19,9 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - README install snippets updated from `3.2.0` to `4.0.0` for Maven and Gradle
-- Removed Scarf tracking pixel from README (#107)
-- SDK telemetry suppressed in CI workflows via `DO_NOT_TRACK=1` (#105)
-- Maven dependency caching enabled in CI and release workflows (#106)
 
 ### Note
 
