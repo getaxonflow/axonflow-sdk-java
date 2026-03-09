@@ -38,7 +38,6 @@
  *     CreateWorkflowRequest.builder()
  *         .workflowName("code-review-pipeline")
  *         .source(WorkflowSource.LANGGRAPH)
- *         .totalSteps(5)
  *         .build()
  * );
  *

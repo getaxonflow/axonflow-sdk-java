@@ -4076,7 +4076,6 @@ public final class AxonFlow implements Closeable {
      *     CreateWorkflowRequest.builder()
      *         .workflowName("code-review-pipeline")
      *         .source(WorkflowSource.LANGGRAPH)
-     *         .totalSteps(5)
      *         .build()
      * );
      * System.out.println("Workflow created: " + workflow.getWorkflowId());

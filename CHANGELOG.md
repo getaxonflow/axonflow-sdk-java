@@ -5,6 +5,31 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-03-09
+
+### Breaking Changes
+
+- **Removed `totalSteps` from `CreateWorkflowRequest`**. Requires Platform v4.5.0+ (recommended v5.0.0+).
+  Total steps are auto-computed when the workflow reaches a terminal state.
+- **`mcpCheckInput()` default `operation` changed from `"query"` to `"execute"`** (#104). Callers relying on
+  the implicit `"query"` default must now pass `operation("query")` explicitly. The check-input endpoint is
+  used by external orchestrators managing their own MCP execution, so `"execute"` (conservative) is the
+  correct default over `"query"` (read-only).
+
+### Changed
+
+- README install snippets updated from `3.2.0` to `4.0.0` for Maven and Gradle
+- Removed Scarf tracking pixel from README (#107)
+- SDK telemetry suppressed in CI workflows via `DO_NOT_TRACK=1` (#105)
+- Maven dependency caching enabled in CI and release workflows (#106)
+
+### Note
+
+`MediaAnalysisResult.getExtractedText()` was replaced by `hasExtractedText()` + `getExtractedTextLength()`
+in v3.5.0. This major version formally acknowledges that breaking change.
+
+---
+
 ## [3.8.0] - 2026-03-03
 
 ### Added
