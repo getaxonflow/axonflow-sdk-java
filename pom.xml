@@ -185,6 +185,9 @@
                         <exclude>**/*IT.java</exclude>
                         <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
+                    <environmentVariables>
+                        <DO_NOT_TRACK>1</DO_NOT_TRACK>
+                    </environmentVariables>
                 </configuration>
             </plugin>
 
