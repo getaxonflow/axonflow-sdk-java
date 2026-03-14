@@ -45,7 +45,6 @@ class AuditToolCallTest {
     void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
         axonflow = AxonFlow.create(AxonFlowConfig.builder()
             .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-            .endpoint(wmRuntimeInfo.getHttpBaseUrl())
             .clientId("test-client").clientSecret("test-secret")
             .build());
     }
