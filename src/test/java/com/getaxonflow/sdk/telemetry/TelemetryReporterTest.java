@@ -110,8 +110,8 @@ class TelemetryReporterTest {
         assertThat(root.get("sdk").asText()).isEqualTo("java");
         assertThat(root.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
         assertThat(root.get("platform_version").isNull()).isTrue();
-        assertThat(root.get("os").asText()).isEqualTo(System.getProperty("os.name"));
-        assertThat(root.get("arch").asText()).isEqualTo(System.getProperty("os.arch"));
+        assertThat(root.get("os").asText()).isEqualTo(TelemetryReporter.normalizeOS(System.getProperty("os.name")));
+        assertThat(root.get("arch").asText()).isEqualTo(TelemetryReporter.normalizeArch(System.getProperty("os.arch")));
         assertThat(root.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
         assertThat(root.get("deployment_mode").asText()).isEqualTo("production");
         assertThat(root.get("features").isArray()).isTrue();
@@ -438,8 +438,8 @@ class TelemetryReporterTest {
         assertThat(body.get("sdk").asText()).isEqualTo("java");
         assertThat(body.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
         assertThat(body.get("deployment_mode").asText()).isEqualTo("enterprise");
-        assertThat(body.get("os").asText()).isEqualTo(System.getProperty("os.name"));
-        assertThat(body.get("arch").asText()).isEqualTo(System.getProperty("os.arch"));
+        assertThat(body.get("os").asText()).isEqualTo(TelemetryReporter.normalizeOS(System.getProperty("os.name")));
+        assertThat(body.get("arch").asText()).isEqualTo(TelemetryReporter.normalizeArch(System.getProperty("os.arch")));
         assertThat(body.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
         assertThat(body.get("platform_version").isNull()).isTrue();
         assertThat(body.get("features").isArray()).isTrue();

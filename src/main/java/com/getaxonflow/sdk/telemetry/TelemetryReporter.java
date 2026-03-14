@@ -176,8 +176,8 @@ public class TelemetryReporter {
             } else {
                 root.putNull("platform_version");
             }
-            root.put("os", System.getProperty("os.name"));
-            root.put("arch", System.getProperty("os.arch"));
+            root.put("os", normalizeOS(System.getProperty("os.name")));
+            root.put("arch", normalizeArch(System.getProperty("os.arch")));
             root.put("runtime_version", System.getProperty("java.version"));
             root.put("deployment_mode", mode);
 
@@ -226,6 +226,30 @@ public class TelemetryReporter {
             // Silent failure
         }
         return null;
+    }
+
+    /**
+     * Normalize OS name to lowercase short form consistent across SDKs.
+     * e.g. "Mac OS X" -> "darwin", "Windows 10" -> "windows", "Linux" -> "linux"
+     */
+    static String normalizeOS(String osName) {
+        if (osName == null) return "unknown";
+        String lower = osName.toLowerCase();
+        if (lower.contains("mac") || lower.contains("darwin")) return "darwin";
+        if (lower.contains("win")) return "windows";
+        if (lower.contains("linux")) return "linux";
+        return lower;
+    }
+
+    /**
+     * Normalize arch name consistent across SDKs.
+     * e.g. "aarch64" -> "arm64", "x86_64" -> "x64"
+     */
+    static String normalizeArch(String arch) {
+        if (arch == null) return "unknown";
+        if ("aarch64".equals(arch)) return "arm64";
+        if ("x86_64".equals(arch)) return "x64";
+        return arch;
     }
 
     private TelemetryReporter() {
