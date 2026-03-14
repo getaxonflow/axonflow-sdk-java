@@ -140,10 +140,11 @@ class TelemetryReporterTest {
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
         // Call sendPing with custom checkpoint URL, no env opt-outs, with credentials
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         TelemetryReporter.sendPing(
                 "production",
                 "http://localhost:8080",
-                null,
+                Boolean.TRUE,
                 false,
                 true,   // hasCredentials
                 null,   // doNotTrack
@@ -266,10 +267,11 @@ class TelemetryReporterTest {
 
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         TelemetryReporter.sendPing(
                 "production",
                 "http://localhost:8080",
-                null,   // no override
+                Boolean.TRUE,
                 false,
                 false,  // no credentials — no longer affects default
                 null,
@@ -365,11 +367,12 @@ class TelemetryReporterTest {
 
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         assertThatCode(() -> {
             TelemetryReporter.sendPing(
                     "production",
                     "http://localhost:8080",
-                    null,
+                    Boolean.TRUE,
                     false,
                     true,   // hasCredentials
                     null,
@@ -415,10 +418,11 @@ class TelemetryReporterTest {
 
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         TelemetryReporter.sendPing(
                 "enterprise",
                 "http://localhost:8080",
-                null,
+                Boolean.TRUE,
                 false,
                 true,   // hasCredentials
                 null,
