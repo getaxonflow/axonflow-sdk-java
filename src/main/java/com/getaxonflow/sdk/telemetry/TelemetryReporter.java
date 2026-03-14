@@ -16,6 +16,7 @@
 package com.getaxonflow.sdk.telemetry;
 
 import com.getaxonflow.sdk.AxonFlowConfig;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -59,7 +60,7 @@ public class TelemetryReporter {
      * Sends an anonymous telemetry ping asynchronously (fire-and-forget).
      *
      * @param mode             the deployment mode (e.g. "production", "sandbox")
-     * @param sdkEndpoint      the configured SDK endpoint (unused in payload, present for future use)
+     * @param sdkEndpoint      the configured SDK endpoint, used to detect platform version via /health
      * @param telemetryEnabled config override for telemetry (null = use default based on mode)
      * @param debug            whether debug logging is enabled
      */
@@ -84,15 +85,25 @@ public class TelemetryReporter {
             return;
         }
 
+        // Suppress telemetry for localhost endpoints unless explicitly enabled.
+        if (!Boolean.TRUE.equals(telemetryEnabled) && isLocalhostEndpoint(sdkEndpoint)) {
+            if (debug) {
+                logger.debug("Telemetry suppressed for localhost endpoint");
+            }
+            return;
+        }
+
         logger.info("AxonFlow: anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/telemetry");
 
         String endpoint = (checkpointUrl != null && !checkpointUrl.isEmpty())
                 ? checkpointUrl
                 : DEFAULT_ENDPOINT;
 
+        final String finalSdkEndpoint = sdkEndpoint;
         CompletableFuture.runAsync(() -> {
             try {
-                String payload = buildPayload(mode);
+                String platformVersion = detectPlatformVersion(finalSdkEndpoint);
+                String payload = buildPayload(mode, platformVersion);
 
                 OkHttpClient client = new OkHttpClient.Builder()
                         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -162,15 +173,19 @@ public class TelemetryReporter {
     /**
      * Builds the JSON payload for the telemetry ping.
      */
-    static String buildPayload(String mode) {
+    static String buildPayload(String mode, String platformVersion) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             ObjectNode root = mapper.createObjectNode();
             root.put("sdk", "java");
             root.put("sdk_version", AxonFlowConfig.SDK_VERSION);
-            root.putNull("platform_version");
-            root.put("os", System.getProperty("os.name"));
-            root.put("arch", System.getProperty("os.arch"));
+            if (platformVersion != null) {
+                root.put("platform_version", platformVersion);
+            } else {
+                root.putNull("platform_version");
+            }
+            root.put("os", normalizeOS(System.getProperty("os.name")));
+            root.put("arch", normalizeArch(System.getProperty("os.arch")));
             root.put("runtime_version", System.getProperty("java.version"));
             root.put("deployment_mode", mode);
 
@@ -184,6 +199,76 @@ public class TelemetryReporter {
             // Fallback minimal payload
             return "{\"sdk\":\"java\",\"sdk_version\":\"" + AxonFlowConfig.SDK_VERSION + "\"}";
         }
+    }
+
+    /**
+     * Detect platform version by calling the agent's /health endpoint.
+     * Returns null on any failure.
+     */
+    static String detectPlatformVersion(String sdkEndpoint) {
+        if (sdkEndpoint == null || sdkEndpoint.isEmpty()) {
+            return null;
+        }
+        try {
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .connectTimeout(2, TimeUnit.SECONDS)
+                    .readTimeout(2, TimeUnit.SECONDS)
+                    .build();
+
+            Request request = new Request.Builder()
+                    .url(sdkEndpoint + "/health")
+                    .get()
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode root = mapper.readTree(response.body().string());
+                    JsonNode versionNode = root.get("version");
+                    if (versionNode != null && !versionNode.isNull() && !versionNode.asText().isEmpty()) {
+                        return versionNode.asText();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Silent failure
+        }
+        return null;
+    }
+
+    /**
+     * Normalize OS name to lowercase short form consistent across SDKs.
+     * e.g. "Mac OS X" -> "darwin", "Windows 10" -> "windows", "Linux" -> "linux"
+     */
+    static String normalizeOS(String osName) {
+        if (osName == null) return "unknown";
+        String lower = osName.toLowerCase();
+        if (lower.contains("mac") || lower.contains("darwin")) return "darwin";
+        if (lower.contains("win")) return "windows";
+        if (lower.contains("linux")) return "linux";
+        return lower;
+    }
+
+    /**
+     * Normalize arch name consistent across SDKs.
+     * e.g. "aarch64" -> "arm64", "x86_64" -> "x64"
+     */
+    static String normalizeArch(String arch) {
+        if (arch == null) return "unknown";
+        if ("aarch64".equals(arch)) return "arm64";
+        if ("x86_64".equals(arch) || "amd64".equals(arch)) return "x64";
+        return arch;
+    }
+
+    /**
+     * Check whether the endpoint is a localhost address.
+     */
+    static boolean isLocalhostEndpoint(String endpoint) {
+        if (endpoint == null || endpoint.isEmpty()) {
+            return false;
+        }
+        String lower = endpoint.toLowerCase();
+        return lower.contains("localhost") || lower.contains("127.0.0.1") || lower.contains("[::1]");
     }
 
     private TelemetryReporter() {

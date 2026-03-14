@@ -104,14 +104,14 @@ class TelemetryReporterTest {
     @Test
     @DisplayName("should produce correct payload JSON format")
     void testPayloadFormat() throws Exception {
-        String payload = TelemetryReporter.buildPayload("production");
+        String payload = TelemetryReporter.buildPayload("production", null);
         JsonNode root = objectMapper.readTree(payload);
 
         assertThat(root.get("sdk").asText()).isEqualTo("java");
         assertThat(root.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
         assertThat(root.get("platform_version").isNull()).isTrue();
-        assertThat(root.get("os").asText()).isEqualTo(System.getProperty("os.name"));
-        assertThat(root.get("arch").asText()).isEqualTo(System.getProperty("os.arch"));
+        assertThat(root.get("os").asText()).isEqualTo(TelemetryReporter.normalizeOS(System.getProperty("os.name")));
+        assertThat(root.get("arch").asText()).isEqualTo(TelemetryReporter.normalizeArch(System.getProperty("os.arch")));
         assertThat(root.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
         assertThat(root.get("deployment_mode").asText()).isEqualTo("production");
         assertThat(root.get("features").isArray()).isTrue();
@@ -125,7 +125,7 @@ class TelemetryReporterTest {
     @Test
     @DisplayName("payload should reflect the given mode")
     void testPayloadModeReflection() throws Exception {
-        String payload = TelemetryReporter.buildPayload("sandbox");
+        String payload = TelemetryReporter.buildPayload("sandbox", null);
         JsonNode root = objectMapper.readTree(payload);
         assertThat(root.get("deployment_mode").asText()).isEqualTo("sandbox");
     }
@@ -140,10 +140,11 @@ class TelemetryReporterTest {
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
         // Call sendPing with custom checkpoint URL, no env opt-outs, with credentials
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         TelemetryReporter.sendPing(
                 "production",
                 "http://localhost:8080",
-                null,
+                Boolean.TRUE,
                 false,
                 true,   // hasCredentials
                 null,   // doNotTrack
@@ -266,10 +267,11 @@ class TelemetryReporterTest {
 
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         TelemetryReporter.sendPing(
                 "production",
                 "http://localhost:8080",
-                null,   // no override
+                Boolean.TRUE,
                 false,
                 false,  // no credentials — no longer affects default
                 null,
@@ -287,9 +289,9 @@ class TelemetryReporterTest {
     @Test
     @DisplayName("each buildPayload call should generate a unique instance_id")
     void testUniqueInstanceId() throws Exception {
-        String payload1 = TelemetryReporter.buildPayload("production");
-        String payload2 = TelemetryReporter.buildPayload("production");
-        String payload3 = TelemetryReporter.buildPayload("production");
+        String payload1 = TelemetryReporter.buildPayload("production", null);
+        String payload2 = TelemetryReporter.buildPayload("production", null);
+        String payload3 = TelemetryReporter.buildPayload("production", null);
 
         JsonNode root1 = objectMapper.readTree(payload1);
         JsonNode root2 = objectMapper.readTree(payload2);
@@ -365,11 +367,12 @@ class TelemetryReporterTest {
 
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         assertThatCode(() -> {
             TelemetryReporter.sendPing(
                     "production",
                     "http://localhost:8080",
-                    null,
+                    Boolean.TRUE,
                     false,
                     true,   // hasCredentials
                     null,
@@ -415,10 +418,11 @@ class TelemetryReporterTest {
 
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
+        // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
         TelemetryReporter.sendPing(
                 "enterprise",
                 "http://localhost:8080",
-                null,
+                Boolean.TRUE,
                 false,
                 true,   // hasCredentials
                 null,
@@ -438,8 +442,8 @@ class TelemetryReporterTest {
         assertThat(body.get("sdk").asText()).isEqualTo("java");
         assertThat(body.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
         assertThat(body.get("deployment_mode").asText()).isEqualTo("enterprise");
-        assertThat(body.get("os").asText()).isEqualTo(System.getProperty("os.name"));
-        assertThat(body.get("arch").asText()).isEqualTo(System.getProperty("os.arch"));
+        assertThat(body.get("os").asText()).isEqualTo(TelemetryReporter.normalizeOS(System.getProperty("os.name")));
+        assertThat(body.get("arch").asText()).isEqualTo(TelemetryReporter.normalizeArch(System.getProperty("os.arch")));
         assertThat(body.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
         assertThat(body.get("platform_version").isNull()).isTrue();
         assertThat(body.get("features").isArray()).isTrue();

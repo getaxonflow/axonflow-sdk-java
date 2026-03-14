@@ -20,8 +20,10 @@ import com.getaxonflow.sdk.types.Mode;
 import com.getaxonflow.sdk.util.RetryConfig;
 import com.getaxonflow.sdk.util.CacheConfig;
 
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Properties;
 
 /**
  * Configuration for the AxonFlow client.
@@ -42,8 +44,32 @@ import java.util.Objects;
  */
 public final class AxonFlowConfig {
 
-    /** SDK version string. */
-    public static final String SDK_VERSION = "3.8.0";
+    /** SDK version string, read from Maven pom.properties at runtime. */
+    public static final String SDK_VERSION = detectSdkVersion();
+
+    private static String detectSdkVersion() {
+        // Try Maven-generated pom.properties (available in packaged JAR)
+        try (InputStream is = AxonFlowConfig.class.getResourceAsStream(
+                    "/META-INF/maven/com.getaxonflow/axonflow-sdk/pom.properties")) {
+            if (is != null) {
+                Properties props = new Properties();
+                props.load(is);
+                String version = props.getProperty("version");
+                if (version != null && !version.isEmpty()) {
+                    return version;
+                }
+            }
+        } catch (Exception ignored) {
+            // Fall through to manifest check
+        }
+        // Try JAR manifest Implementation-Version
+        Package pkg = AxonFlowConfig.class.getPackage();
+        if (pkg != null && pkg.getImplementationVersion() != null) {
+            return pkg.getImplementationVersion();
+        }
+        // Fallback — "unknown" avoids hardcoded version drift
+        return "unknown";
+    }
 
     /** Default timeout for HTTP requests. */
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
