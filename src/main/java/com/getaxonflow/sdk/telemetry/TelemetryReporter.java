@@ -248,7 +248,7 @@ public class TelemetryReporter {
     static String normalizeArch(String arch) {
         if (arch == null) return "unknown";
         if ("aarch64".equals(arch)) return "arm64";
-        if ("x86_64".equals(arch)) return "x64";
+        if ("x86_64".equals(arch) || "amd64".equals(arch)) return "x64";
         return arch;
     }
 

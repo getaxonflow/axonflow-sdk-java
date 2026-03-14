@@ -49,13 +49,11 @@ public final class AxonFlowConfig {
 
     private static String detectSdkVersion() {
         // Try Maven-generated pom.properties (available in packaged JAR)
-        try {
-            Properties props = new Properties();
-            InputStream is = AxonFlowConfig.class.getResourceAsStream(
-                    "/META-INF/maven/com.getaxonflow/axonflow-sdk/pom.properties");
+        try (InputStream is = AxonFlowConfig.class.getResourceAsStream(
+                    "/META-INF/maven/com.getaxonflow/axonflow-sdk/pom.properties")) {
             if (is != null) {
+                Properties props = new Properties();
                 props.load(is);
-                is.close();
                 String version = props.getProperty("version");
                 if (version != null && !version.isEmpty()) {
                     return version;

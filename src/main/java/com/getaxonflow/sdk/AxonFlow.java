@@ -261,6 +261,7 @@ public final class AxonFlow implements Closeable {
 
         if (status.getSdkCompatibility() != null
                 && status.getSdkCompatibility().getMinSdkVersion() != null
+                && !"unknown".equals(AxonFlowConfig.SDK_VERSION)
                 && compareSemver(AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion()) < 0) {
             logger.warn("SDK version {} is below minimum supported version {}. Please upgrade.",
                     AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion());
