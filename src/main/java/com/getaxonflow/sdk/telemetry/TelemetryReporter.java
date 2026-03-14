@@ -16,6 +16,7 @@
 package com.getaxonflow.sdk.telemetry;
 
 import com.getaxonflow.sdk.AxonFlowConfig;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -214,8 +215,8 @@ public class TelemetryReporter {
             try (Response response = client.newCall(request).execute()) {
                 if (response.isSuccessful() && response.body() != null) {
                     ObjectMapper mapper = new ObjectMapper();
-                    com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response.body().string());
-                    com.fasterxml.jackson.databind.JsonNode versionNode = root.get("version");
+                    JsonNode root = mapper.readTree(response.body().string());
+                    JsonNode versionNode = root.get("version");
                     if (versionNode != null && !versionNode.isNull() && !versionNode.asText().isEmpty()) {
                         return versionNode.asText();
                     }
