@@ -69,8 +69,8 @@ public final class AxonFlowConfig {
         if (pkg != null && pkg.getImplementationVersion() != null) {
             return pkg.getImplementationVersion();
         }
-        // Fallback — keep in sync with pom.xml <version>
-        return "4.0.0";
+        // Fallback — "unknown" avoids hardcoded version drift
+        return "unknown";
     }
 
     /** Default timeout for HTTP requests. */
