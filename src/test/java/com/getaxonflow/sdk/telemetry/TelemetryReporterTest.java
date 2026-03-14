@@ -104,7 +104,7 @@ class TelemetryReporterTest {
     @Test
     @DisplayName("should produce correct payload JSON format")
     void testPayloadFormat() throws Exception {
-        String payload = TelemetryReporter.buildPayload("production");
+        String payload = TelemetryReporter.buildPayload("production", null);
         JsonNode root = objectMapper.readTree(payload);
 
         assertThat(root.get("sdk").asText()).isEqualTo("java");
@@ -125,7 +125,7 @@ class TelemetryReporterTest {
     @Test
     @DisplayName("payload should reflect the given mode")
     void testPayloadModeReflection() throws Exception {
-        String payload = TelemetryReporter.buildPayload("sandbox");
+        String payload = TelemetryReporter.buildPayload("sandbox", null);
         JsonNode root = objectMapper.readTree(payload);
         assertThat(root.get("deployment_mode").asText()).isEqualTo("sandbox");
     }
@@ -287,9 +287,9 @@ class TelemetryReporterTest {
     @Test
     @DisplayName("each buildPayload call should generate a unique instance_id")
     void testUniqueInstanceId() throws Exception {
-        String payload1 = TelemetryReporter.buildPayload("production");
-        String payload2 = TelemetryReporter.buildPayload("production");
-        String payload3 = TelemetryReporter.buildPayload("production");
+        String payload1 = TelemetryReporter.buildPayload("production", null);
+        String payload2 = TelemetryReporter.buildPayload("production", null);
+        String payload3 = TelemetryReporter.buildPayload("production", null);
 
         JsonNode root1 = objectMapper.readTree(payload1);
         JsonNode root2 = objectMapper.readTree(payload2);

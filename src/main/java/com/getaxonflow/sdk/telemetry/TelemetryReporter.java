@@ -90,9 +90,11 @@ public class TelemetryReporter {
                 ? checkpointUrl
                 : DEFAULT_ENDPOINT;
 
+        final String finalSdkEndpoint = sdkEndpoint;
         CompletableFuture.runAsync(() -> {
             try {
-                String payload = buildPayload(mode);
+                String platformVersion = detectPlatformVersion(finalSdkEndpoint);
+                String payload = buildPayload(mode, platformVersion);
 
                 OkHttpClient client = new OkHttpClient.Builder()
                         .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -162,13 +164,17 @@ public class TelemetryReporter {
     /**
      * Builds the JSON payload for the telemetry ping.
      */
-    static String buildPayload(String mode) {
+    static String buildPayload(String mode, String platformVersion) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             ObjectNode root = mapper.createObjectNode();
             root.put("sdk", "java");
             root.put("sdk_version", AxonFlowConfig.SDK_VERSION);
-            root.putNull("platform_version");
+            if (platformVersion != null) {
+                root.put("platform_version", platformVersion);
+            } else {
+                root.putNull("platform_version");
+            }
             root.put("os", System.getProperty("os.name"));
             root.put("arch", System.getProperty("os.arch"));
             root.put("runtime_version", System.getProperty("java.version"));
@@ -184,6 +190,41 @@ public class TelemetryReporter {
             // Fallback minimal payload
             return "{\"sdk\":\"java\",\"sdk_version\":\"" + AxonFlowConfig.SDK_VERSION + "\"}";
         }
+    }
+
+    /**
+     * Detect platform version by calling the agent's /health endpoint.
+     * Returns null on any failure.
+     */
+    static String detectPlatformVersion(String sdkEndpoint) {
+        if (sdkEndpoint == null || sdkEndpoint.isEmpty()) {
+            return null;
+        }
+        try {
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .connectTimeout(2, TimeUnit.SECONDS)
+                    .readTimeout(2, TimeUnit.SECONDS)
+                    .build();
+
+            Request request = new Request.Builder()
+                    .url(sdkEndpoint + "/health")
+                    .get()
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (response.isSuccessful() && response.body() != null) {
+                    ObjectMapper mapper = new ObjectMapper();
+                    com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(response.body().string());
+                    com.fasterxml.jackson.databind.JsonNode versionNode = root.get("version");
+                    if (versionNode != null && !versionNode.isNull() && !versionNode.asText().isEmpty()) {
+                        return versionNode.asText();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Silent failure
+        }
+        return null;
     }
 
     private TelemetryReporter() {
