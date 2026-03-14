@@ -60,7 +60,7 @@ public class TelemetryReporter {
      * Sends an anonymous telemetry ping asynchronously (fire-and-forget).
      *
      * @param mode             the deployment mode (e.g. "production", "sandbox")
-     * @param sdkEndpoint      the configured SDK endpoint (unused in payload, present for future use)
+     * @param sdkEndpoint      the configured SDK endpoint, used to detect platform version via /health
      * @param telemetryEnabled config override for telemetry (null = use default based on mode)
      * @param debug            whether debug logging is enabled
      */
