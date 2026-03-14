@@ -599,6 +599,57 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // Audit Tool Call
+    // ========================================================================
+
+    /**
+     * Audits a non-LLM tool call for compliance and observability.
+     *
+     * <p>Records tool invocations such as function calls, MCP operations,
+     * or API calls to the audit log.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * AuditToolCallResponse response = axonflow.auditToolCall(
+     *     AuditToolCallRequest.builder()
+     *         .toolName("web_search")
+     *         .toolType("function")
+     *         .input(Map.of("query", "latest news"))
+     *         .output(Map.of("results", 5))
+     *         .workflowId("wf_123")
+     *         .durationMs(450L)
+     *         .success(true)
+     *         .build());
+     * }</pre>
+     *
+     * @param request the audit tool call request
+     * @return the audit tool call response with audit ID
+     * @throws NullPointerException if request is null
+     * @throws IllegalArgumentException if tool_name is null or empty
+     * @throws AxonFlowException if the audit fails
+     */
+    public AuditToolCallResponse auditToolCall(AuditToolCallRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/audit/tool-call", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                return parseResponse(response, AuditToolCallResponse.class);
+            }
+        }, "auditToolCall");
+    }
+
+    /**
+     * Asynchronously audits a non-LLM tool call.
+     *
+     * @param request the audit tool call request
+     * @return a future containing the audit tool call response
+     */
+    public CompletableFuture<AuditToolCallResponse> auditToolCallAsync(AuditToolCallRequest request) {
+        return CompletableFuture.supplyAsync(() -> auditToolCall(request), asyncExecutor);
+    }
+
+    // ========================================================================
     // Proxy Mode - Query Execution
     // ========================================================================
 
