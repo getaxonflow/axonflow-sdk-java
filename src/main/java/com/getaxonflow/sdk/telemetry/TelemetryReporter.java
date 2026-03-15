@@ -93,7 +93,7 @@ public class TelemetryReporter {
             return;
         }
 
-        logger.info("AxonFlow: anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/telemetry");
+        logger.info("AxonFlow: anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry");
 
         String endpoint = (checkpointUrl != null && !checkpointUrl.isEmpty())
                 ? checkpointUrl
