@@ -480,7 +480,7 @@ AxonFlowConfig config = AxonFlowConfig.builder()
 
 ## Spring Boot Integration
 
-See our [Spring Boot Integration Guide](https://docs.getaxonflow.com/sdks/java/spring-boot) for:
+See our [Spring Boot Integration Guide](https://docs.getaxonflow.com/docs/sdk/java-getting-started) for:
 
 - Auto-configuration
 - Spring Security integration
