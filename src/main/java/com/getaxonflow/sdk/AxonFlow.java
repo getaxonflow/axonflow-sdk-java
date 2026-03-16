@@ -650,6 +650,178 @@ public final class AxonFlow implements Closeable {
     }
 
     // ========================================================================
+    // Circuit Breaker Observability
+    // ========================================================================
+
+    /**
+     * Gets the current circuit breaker status, including all active (tripped) circuits.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * CircuitBreakerStatusResponse status = axonflow.getCircuitBreakerStatus();
+     * System.out.println("Active circuits: " + status.getCount());
+     * System.out.println("Emergency stop: " + status.isEmergencyStopActive());
+     * }</pre>
+     *
+     * @return the circuit breaker status
+     * @throws AxonFlowException if the request fails
+     */
+    public CircuitBreakerStatusResponse getCircuitBreakerStatus() {
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/circuit-breaker/status", null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), CircuitBreakerStatusResponse.class);
+                }
+                return objectMapper.treeToValue(node, CircuitBreakerStatusResponse.class);
+            }
+        }, "getCircuitBreakerStatus");
+    }
+
+    /**
+     * Asynchronously gets the current circuit breaker status.
+     *
+     * @return a future containing the circuit breaker status
+     */
+    public CompletableFuture<CircuitBreakerStatusResponse> getCircuitBreakerStatusAsync() {
+        return CompletableFuture.supplyAsync(this::getCircuitBreakerStatus, asyncExecutor);
+    }
+
+    /**
+     * Gets the circuit breaker history, including past trips and resets.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * CircuitBreakerHistoryResponse history = axonflow.getCircuitBreakerHistory(50);
+     * for (CircuitBreakerHistoryEntry entry : history.getHistory()) {
+     *     System.out.println(entry.getScope() + "/" + entry.getScopeId() + " - " + entry.getState());
+     * }
+     * }</pre>
+     *
+     * @param limit the maximum number of history entries to return
+     * @return the circuit breaker history
+     * @throws IllegalArgumentException if limit is less than 1
+     * @throws AxonFlowException if the request fails
+     */
+    public CircuitBreakerHistoryResponse getCircuitBreakerHistory(int limit) {
+        if (limit < 1) {
+            throw new IllegalArgumentException("limit must be at least 1");
+        }
+
+        return retryExecutor.execute(() -> {
+            String path = "/api/v1/circuit-breaker/history?limit=" + limit;
+            Request httpRequest = buildOrchestratorRequest("GET", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), CircuitBreakerHistoryResponse.class);
+                }
+                return objectMapper.treeToValue(node, CircuitBreakerHistoryResponse.class);
+            }
+        }, "getCircuitBreakerHistory");
+    }
+
+    /**
+     * Asynchronously gets the circuit breaker history.
+     *
+     * @param limit the maximum number of history entries to return
+     * @return a future containing the circuit breaker history
+     */
+    public CompletableFuture<CircuitBreakerHistoryResponse> getCircuitBreakerHistoryAsync(int limit) {
+        return CompletableFuture.supplyAsync(() -> getCircuitBreakerHistory(limit), asyncExecutor);
+    }
+
+    /**
+     * Gets the circuit breaker configuration for a specific tenant.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * CircuitBreakerConfig config = axonflow.getCircuitBreakerConfig("tenant_123");
+     * System.out.println("Error threshold: " + config.getErrorThreshold());
+     * System.out.println("Auto recovery: " + config.isEnableAutoRecovery());
+     * }</pre>
+     *
+     * @param tenantId the tenant ID to get configuration for
+     * @return the circuit breaker configuration
+     * @throws NullPointerException if tenantId is null
+     * @throws IllegalArgumentException if tenantId is empty
+     * @throws AxonFlowException if the request fails
+     */
+    public CircuitBreakerConfig getCircuitBreakerConfig(String tenantId) {
+        Objects.requireNonNull(tenantId, "tenantId cannot be null");
+        if (tenantId.isEmpty()) {
+            throw new IllegalArgumentException("tenantId cannot be empty");
+        }
+
+        return retryExecutor.execute(() -> {
+            String path = "/api/v1/circuit-breaker/config?tenant_id=" + java.net.URLEncoder.encode(tenantId, java.nio.charset.StandardCharsets.UTF_8);
+            Request httpRequest = buildOrchestratorRequest("GET", path, null);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), CircuitBreakerConfig.class);
+                }
+                return objectMapper.treeToValue(node, CircuitBreakerConfig.class);
+            }
+        }, "getCircuitBreakerConfig");
+    }
+
+    /**
+     * Asynchronously gets the circuit breaker configuration for a specific tenant.
+     *
+     * @param tenantId the tenant ID to get configuration for
+     * @return a future containing the circuit breaker configuration
+     */
+    public CompletableFuture<CircuitBreakerConfig> getCircuitBreakerConfigAsync(String tenantId) {
+        return CompletableFuture.supplyAsync(() -> getCircuitBreakerConfig(tenantId), asyncExecutor);
+    }
+
+    /**
+     * Updates the circuit breaker configuration for a tenant.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * CircuitBreakerConfig updated = axonflow.updateCircuitBreakerConfig(
+     *     CircuitBreakerConfigUpdate.builder()
+     *         .tenantId("tenant_123")
+     *         .errorThreshold(10)
+     *         .violationThreshold(5)
+     *         .enableAutoRecovery(true)
+     *         .build());
+     * }</pre>
+     *
+     * @param config the configuration update
+     * @return confirmation with tenant_id and message
+     * @throws NullPointerException if config is null
+     * @throws AxonFlowException if the request fails
+     */
+    public CircuitBreakerConfigUpdateResponse updateCircuitBreakerConfig(CircuitBreakerConfigUpdate config) {
+        Objects.requireNonNull(config, "config cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("PUT", "/api/v1/circuit-breaker/config", config);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), CircuitBreakerConfigUpdateResponse.class);
+                }
+                return objectMapper.treeToValue(node, CircuitBreakerConfigUpdateResponse.class);
+            }
+        }, "updateCircuitBreakerConfig");
+    }
+
+    /**
+     * Asynchronously updates the circuit breaker configuration for a tenant.
+     *
+     * @param config the configuration update
+     * @return a future containing the update confirmation
+     */
+    public CompletableFuture<CircuitBreakerConfigUpdateResponse> updateCircuitBreakerConfigAsync(CircuitBreakerConfigUpdate config) {
+        return CompletableFuture.supplyAsync(() -> updateCircuitBreakerConfig(config), asyncExecutor);
+    }
+
+    // ========================================================================
     // Proxy Mode - Query Execution
     // ========================================================================
 
