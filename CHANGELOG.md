@@ -5,6 +5,23 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `LangGraphAdapter` class — wraps LangGraph workflows with AxonFlow governance gates and per-tool policy enforcement. Includes:
+  - `checkGate()` / `stepCompleted()` — step-level governance at LangGraph node boundaries
+  - `checkToolGate()` / `toolCompleted()` — per-tool governance within tool_call nodes (each tool gets its own gate check)
+  - `mcpToolInterceptor()` — factory returning an interceptor enforcing `mcpCheckInput → handler → mcpCheckOutput` around every MCP tool call
+  - `waitForApproval()` — poll until a step is approved or rejected
+  - `startWorkflow()` / `completeWorkflow()` / `abortWorkflow()` / `failWorkflow()` — workflow lifecycle management
+  - Builder pattern construction, implements `AutoCloseable`
+- `WorkflowBlockedError` and `WorkflowApprovalRequiredError` exception classes
+- Builder-based option classes: `CheckGateOptions`, `StepCompletedOptions`, `CheckToolGateOptions`, `ToolCompletedOptions`
+- MCP interceptor types: `MCPInterceptorOptions`, `MCPToolRequest`, `MCPToolHandler`, `MCPToolInterceptor`
+
+---
+
 ## [4.1.0] - 2026-03-14
 
 ### Added
