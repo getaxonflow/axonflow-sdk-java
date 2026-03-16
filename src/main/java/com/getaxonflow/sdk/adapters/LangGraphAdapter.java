@@ -43,6 +43,9 @@ import java.util.function.Function;
  * registration, step gate checks, per-tool governance, MCP tool interception,
  * and workflow lifecycle management.
  *
+ * <p><strong>Thread safety:</strong> This class is not thread-safe. Each workflow
+ * execution should use its own adapter instance from a single thread.
+ *
  * <p>"LangGraph runs the workflow. AxonFlow decides when it's allowed to move forward."
  *
  * <p>Example usage:
@@ -391,8 +394,8 @@ public final class LangGraphAdapter implements AutoCloseable {
             throws InterruptedException, TimeoutException {
         requireStarted();
 
-        long elapsed = 0;
-        while (elapsed < timeoutMs) {
+        long deadlineNanos = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        while (System.nanoTime() < deadlineNanos) {
             WorkflowStatusResponse status = client.getWorkflow(workflowId);
 
             for (WorkflowStepInfo step : status.getSteps()) {
@@ -410,7 +413,6 @@ public final class LangGraphAdapter implements AutoCloseable {
             }
 
             Thread.sleep(pollIntervalMs);
-            elapsed += pollIntervalMs;
         }
 
         throw new TimeoutException("Approval timeout after " + timeoutMs + "ms for step " + stepId);
@@ -532,7 +534,7 @@ public final class LangGraphAdapter implements AutoCloseable {
          * @return this builder
          */
         public Builder source(WorkflowSource source) {
-            this.source = source;
+            this.source = Objects.requireNonNull(source, "source cannot be null");
             return this;
         }
 
