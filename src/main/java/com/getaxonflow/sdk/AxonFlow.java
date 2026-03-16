@@ -755,7 +755,7 @@ public final class AxonFlow implements Closeable {
         }
 
         return retryExecutor.execute(() -> {
-            String path = "/api/v1/circuit-breaker/config?tenant_id=" + tenantId;
+            String path = "/api/v1/circuit-breaker/config?tenant_id=" + java.net.URLEncoder.encode(tenantId, java.nio.charset.StandardCharsets.UTF_8);
             Request httpRequest = buildOrchestratorRequest("GET", path, null);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 JsonNode node = parseResponseNode(response);
@@ -792,11 +792,11 @@ public final class AxonFlow implements Closeable {
      * }</pre>
      *
      * @param config the configuration update
-     * @return the updated circuit breaker configuration
+     * @return confirmation with tenant_id and message
      * @throws NullPointerException if config is null
      * @throws AxonFlowException if the request fails
      */
-    public CircuitBreakerConfig updateCircuitBreakerConfig(CircuitBreakerConfigUpdate config) {
+    public CircuitBreakerConfigUpdateResponse updateCircuitBreakerConfig(CircuitBreakerConfigUpdate config) {
         Objects.requireNonNull(config, "config cannot be null");
 
         return retryExecutor.execute(() -> {
@@ -804,9 +804,9 @@ public final class AxonFlow implements Closeable {
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 JsonNode node = parseResponseNode(response);
                 if (node.has("data") && node.get("data").isObject()) {
-                    return objectMapper.treeToValue(node.get("data"), CircuitBreakerConfig.class);
+                    return objectMapper.treeToValue(node.get("data"), CircuitBreakerConfigUpdateResponse.class);
                 }
-                return objectMapper.treeToValue(node, CircuitBreakerConfig.class);
+                return objectMapper.treeToValue(node, CircuitBreakerConfigUpdateResponse.class);
             }
         }, "updateCircuitBreakerConfig");
     }
@@ -815,9 +815,9 @@ public final class AxonFlow implements Closeable {
      * Asynchronously updates the circuit breaker configuration for a tenant.
      *
      * @param config the configuration update
-     * @return a future containing the updated circuit breaker configuration
+     * @return a future containing the update confirmation
      */
-    public CompletableFuture<CircuitBreakerConfig> updateCircuitBreakerConfigAsync(CircuitBreakerConfigUpdate config) {
+    public CompletableFuture<CircuitBreakerConfigUpdateResponse> updateCircuitBreakerConfigAsync(CircuitBreakerConfigUpdate config) {
         return CompletableFuture.supplyAsync(() -> updateCircuitBreakerConfig(config), asyncExecutor);
     }
 

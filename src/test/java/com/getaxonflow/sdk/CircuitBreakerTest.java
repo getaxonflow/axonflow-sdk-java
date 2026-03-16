@@ -325,7 +325,7 @@ class CircuitBreakerTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"source\":\"tenant_override\",\"error_threshold\":10,\"violation_threshold\":5,\"window_seconds\":300,\"default_timeout_seconds\":60,\"max_timeout_seconds\":600,\"enable_auto_recovery\":true,\"tenant_id\":\"tenant_123\"}}")));
+                .withBody("{\"success\":true,\"data\":{\"tenant_id\":\"tenant_123\",\"message\":\"Circuit breaker config updated for tenant\"}}")));
 
         CircuitBreakerConfigUpdate update = CircuitBreakerConfigUpdate.builder()
             .tenantId("tenant_123")
@@ -337,13 +337,11 @@ class CircuitBreakerTest {
             .enableAutoRecovery(true)
             .build();
 
-        CircuitBreakerConfig config = axonflow.updateCircuitBreakerConfig(update);
+        CircuitBreakerConfigUpdateResponse result = axonflow.updateCircuitBreakerConfig(update);
 
-        assertThat(config).isNotNull();
-        assertThat(config.getErrorThreshold()).isEqualTo(10);
-        assertThat(config.getViolationThreshold()).isEqualTo(5);
-        assertThat(config.isEnableAutoRecovery()).isTrue();
-        assertThat(config.getTenantId()).isEqualTo("tenant_123");
+        assertThat(result).isNotNull();
+        assertThat(result.getTenantId()).isEqualTo("tenant_123");
+        assertThat(result.getMessage()).isNotEmpty();
 
         verify(putRequestedFor(urlEqualTo("/api/v1/circuit-breaker/config"))
             .withRequestBody(matchingJsonPath("$.tenant_id", equalTo("tenant_123")))
@@ -358,18 +356,17 @@ class CircuitBreakerTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"source\":\"tenant_override\",\"error_threshold\":20,\"violation_threshold\":3,\"window_seconds\":60,\"default_timeout_seconds\":30,\"max_timeout_seconds\":300,\"enable_auto_recovery\":false,\"tenant_id\":\"tenant_456\"}}")));
+                .withBody("{\"success\":true,\"data\":{\"tenant_id\":\"tenant_456\",\"message\":\"Circuit breaker config updated for tenant\"}}")));
 
         CircuitBreakerConfigUpdate update = CircuitBreakerConfigUpdate.builder()
             .tenantId("tenant_456")
             .errorThreshold(20)
             .build();
 
-        CircuitBreakerConfig config = axonflow.updateCircuitBreakerConfig(update);
+        CircuitBreakerConfigUpdateResponse result = axonflow.updateCircuitBreakerConfig(update);
 
-        assertThat(config).isNotNull();
-        assertThat(config.getErrorThreshold()).isEqualTo(20);
-        assertThat(config.getTenantId()).isEqualTo("tenant_456");
+        assertThat(result).isNotNull();
+        assertThat(result.getTenantId()).isEqualTo("tenant_456");
 
         verify(putRequestedFor(urlEqualTo("/api/v1/circuit-breaker/config"))
             .withRequestBody(matchingJsonPath("$.tenant_id", equalTo("tenant_456")))
@@ -407,18 +404,18 @@ class CircuitBreakerTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"source\":\"tenant_override\",\"error_threshold\":10,\"violation_threshold\":5,\"window_seconds\":300,\"default_timeout_seconds\":60,\"max_timeout_seconds\":600,\"enable_auto_recovery\":true,\"tenant_id\":\"tenant_async\"}}")));
+                .withBody("{\"success\":true,\"data\":{\"tenant_id\":\"tenant_async\",\"message\":\"Circuit breaker config updated for tenant\"}}")));
 
         CircuitBreakerConfigUpdate update = CircuitBreakerConfigUpdate.builder()
             .tenantId("tenant_async")
             .errorThreshold(10)
             .build();
 
-        CompletableFuture<CircuitBreakerConfig> future = axonflow.updateCircuitBreakerConfigAsync(update);
-        CircuitBreakerConfig config = future.get();
+        CompletableFuture<CircuitBreakerConfigUpdateResponse> future = axonflow.updateCircuitBreakerConfigAsync(update);
+        CircuitBreakerConfigUpdateResponse result = future.get();
 
-        assertThat(config).isNotNull();
-        assertThat(config.getTenantId()).isEqualTo("tenant_async");
+        assertThat(result).isNotNull();
+        assertThat(result.getTenantId()).isEqualTo("tenant_async");
     }
 
     @Test
