@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `WorkflowBlockedError` and `WorkflowApprovalRequiredError` exception classes
 - Builder-based option classes: `CheckGateOptions`, `StepCompletedOptions`, `CheckToolGateOptions`, `ToolCompletedOptions`
 - MCP interceptor types: `MCPInterceptorOptions`, `MCPToolRequest`, `MCPToolHandler`, `MCPToolInterceptor`
+- `getCircuitBreakerStatus()` / `getCircuitBreakerStatusAsync()` — query active circuit breaker circuits and emergency stop state
+- `getCircuitBreakerHistory(limit)` / `getCircuitBreakerHistoryAsync(limit)` — retrieve circuit breaker trip/reset audit trail
+- `getCircuitBreakerConfig(tenantId)` / `getCircuitBreakerConfigAsync(tenantId)` — get effective circuit breaker config (global or tenant-specific)
+- `updateCircuitBreakerConfig(config)` / `updateCircuitBreakerConfigAsync(config)` — update per-tenant circuit breaker thresholds
 
 ---
 
