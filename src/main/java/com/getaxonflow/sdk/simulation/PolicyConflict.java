@@ -18,39 +18,49 @@ package com.getaxonflow.sdk.simulation;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
-
 /**
  * A detected conflict between policies.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class PolicyConflict {
 
-    @JsonProperty("type")
-    private final String type;
+    @JsonProperty("policy_a")
+    private final PolicyConflictRef policyA;
 
-    @JsonProperty("severity")
-    private final String severity;
+    @JsonProperty("policy_b")
+    private final PolicyConflictRef policyB;
+
+    @JsonProperty("conflict_type")
+    private final String conflictType;
 
     @JsonProperty("description")
     private final String description;
 
-    @JsonProperty("policies")
-    private final List<PolicyConflictRef> policies;
+    @JsonProperty("severity")
+    private final String severity;
+
+    @JsonProperty("overlapping_field")
+    private final String overlappingField;
 
     public PolicyConflict(
-            @JsonProperty("type") String type,
-            @JsonProperty("severity") String severity,
+            @JsonProperty("policy_a") PolicyConflictRef policyA,
+            @JsonProperty("policy_b") PolicyConflictRef policyB,
+            @JsonProperty("conflict_type") String conflictType,
             @JsonProperty("description") String description,
-            @JsonProperty("policies") List<PolicyConflictRef> policies) {
-        this.type = type;
-        this.severity = severity;
+            @JsonProperty("severity") String severity,
+            @JsonProperty("overlapping_field") String overlappingField) {
+        this.policyA = policyA;
+        this.policyB = policyB;
+        this.conflictType = conflictType;
         this.description = description;
-        this.policies = policies != null ? List.copyOf(policies) : List.of();
+        this.severity = severity;
+        this.overlappingField = overlappingField;
     }
 
-    public String getType() { return type; }
-    public String getSeverity() { return severity; }
+    public PolicyConflictRef getPolicyA() { return policyA; }
+    public PolicyConflictRef getPolicyB() { return policyB; }
+    public String getConflictType() { return conflictType; }
     public String getDescription() { return description; }
-    public List<PolicyConflictRef> getPolicies() { return policies; }
+    public String getSeverity() { return severity; }
+    public String getOverlappingField() { return overlappingField; }
 }

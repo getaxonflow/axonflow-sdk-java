@@ -24,25 +24,25 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class PolicyConflictRef {
 
-    @JsonProperty("policy_id")
-    private final String policyId;
+    @JsonProperty("id")
+    private final String id;
 
     @JsonProperty("name")
     private final String name;
 
-    @JsonProperty("action")
-    private final String action;
+    @JsonProperty("type")
+    private final String type;
 
     public PolicyConflictRef(
-            @JsonProperty("policy_id") String policyId,
+            @JsonProperty("id") String id,
             @JsonProperty("name") String name,
-            @JsonProperty("action") String action) {
-        this.policyId = policyId;
+            @JsonProperty("type") String type) {
+        this.id = id;
         this.name = name;
-        this.action = action;
+        this.type = type;
     }
 
-    public String getPolicyId() { return policyId; }
+    public String getId() { return id; }
     public String getName() { return name; }
-    public String getAction() { return action; }
+    public String getType() { return type; }
 }

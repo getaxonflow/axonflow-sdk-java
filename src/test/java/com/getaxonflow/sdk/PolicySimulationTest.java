@@ -364,7 +364,7 @@ class PolicySimulationTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"conflicts\":[{\"type\":\"action_conflict\",\"severity\":\"high\",\"description\":\"Policy 'block-pii' blocks requests that 'allow-internal' would allow\",\"policies\":[{\"policy_id\":\"policy_block_pii\",\"name\":\"block-pii\",\"action\":\"block\"},{\"policy_id\":\"policy_allow_internal\",\"name\":\"allow-internal\",\"action\":\"allow\"}]}],\"total_policies\":8,\"conflict_count\":1,\"checked_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\"}}")));
+                .withBody("{\"success\":true,\"data\":{\"conflicts\":[{\"policy_a\":{\"id\":\"policy_block_pii\",\"name\":\"block-pii\",\"type\":\"deny\"},\"policy_b\":{\"id\":\"policy_allow_internal\",\"name\":\"allow-internal\",\"type\":\"allow\"},\"conflict_type\":\"action_conflict\",\"description\":\"Policy 'block-pii' blocks requests that 'allow-internal' would allow\",\"severity\":\"high\",\"overlapping_field\":\"input.content\"}],\"total_policies\":8,\"conflict_count\":1,\"checked_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\"}}")));
 
         PolicyConflictResponse result = axonflow.detectPolicyConflicts("policy_block_pii");
 
@@ -376,14 +376,18 @@ class PolicySimulationTest {
         assertThat(result.getConflicts()).hasSize(1);
 
         PolicyConflict conflict = result.getConflicts().get(0);
-        assertThat(conflict.getType()).isEqualTo("action_conflict");
+        assertThat(conflict.getConflictType()).isEqualTo("action_conflict");
         assertThat(conflict.getSeverity()).isEqualTo("high");
         assertThat(conflict.getDescription()).contains("block-pii");
-        assertThat(conflict.getPolicies()).hasSize(2);
-        assertThat(conflict.getPolicies().get(0).getPolicyId()).isEqualTo("policy_block_pii");
-        assertThat(conflict.getPolicies().get(0).getName()).isEqualTo("block-pii");
-        assertThat(conflict.getPolicies().get(0).getAction()).isEqualTo("block");
-        assertThat(conflict.getPolicies().get(1).getPolicyId()).isEqualTo("policy_allow_internal");
+        assertThat(conflict.getOverlappingField()).isEqualTo("input.content");
+        assertThat(conflict.getPolicyA()).isNotNull();
+        assertThat(conflict.getPolicyA().getId()).isEqualTo("policy_block_pii");
+        assertThat(conflict.getPolicyA().getName()).isEqualTo("block-pii");
+        assertThat(conflict.getPolicyA().getType()).isEqualTo("deny");
+        assertThat(conflict.getPolicyB()).isNotNull();
+        assertThat(conflict.getPolicyB().getId()).isEqualTo("policy_allow_internal");
+        assertThat(conflict.getPolicyB().getName()).isEqualTo("allow-internal");
+        assertThat(conflict.getPolicyB().getType()).isEqualTo("allow");
 
         verify(postRequestedFor(urlEqualTo("/api/v1/policies/conflicts"))
             .withRequestBody(containing("\"policy_id\":\"policy_block_pii\"")));
@@ -408,11 +412,40 @@ class PolicySimulationTest {
     }
 
     @Test
-    @DisplayName("should reject null policyId for detectPolicyConflicts")
-    void shouldRejectNullPolicyIdForConflicts() {
-        assertThatThrownBy(() -> axonflow.detectPolicyConflicts(null))
-            .isInstanceOf(NullPointerException.class)
-            .hasMessageContaining("policyId cannot be null");
+    @DisplayName("should scan all policies when policyId is null")
+    void shouldScanAllPoliciesWhenNull() {
+        stubFor(post(urlEqualTo("/api/v1/policies/conflicts"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"data\":{\"conflicts\":[],\"total_policies\":5,\"conflict_count\":0,\"checked_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\"}}")));
+
+        PolicyConflictResponse result = axonflow.detectPolicyConflicts(null);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getConflictCount()).isEqualTo(0);
+        assertThat(result.getConflicts()).isEmpty();
+
+        verify(postRequestedFor(urlEqualTo("/api/v1/policies/conflicts"))
+            .withRequestBody(equalToJson("{}")));
+    }
+
+    @Test
+    @DisplayName("should scan all policies with no-arg overload")
+    void shouldScanAllPoliciesNoArg() {
+        stubFor(post(urlEqualTo("/api/v1/policies/conflicts"))
+            .willReturn(aResponse()
+                .withStatus(200)
+                .withHeader("Content-Type", "application/json")
+                .withBody("{\"success\":true,\"data\":{\"conflicts\":[],\"total_policies\":3,\"conflict_count\":0,\"checked_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\"}}")));
+
+        PolicyConflictResponse result = axonflow.detectPolicyConflicts();
+
+        assertThat(result).isNotNull();
+        assertThat(result.getConflictCount()).isEqualTo(0);
+
+        verify(postRequestedFor(urlEqualTo("/api/v1/policies/conflicts"))
+            .withRequestBody(equalToJson("{}")));
     }
 
     @Test

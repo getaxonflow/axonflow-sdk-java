@@ -927,33 +927,58 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
-     * Detects conflicts between a specific policy and other active policies.
+     * Scans all active policies for conflicts.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * PolicyConflictResponse conflicts = axonflow.detectPolicyConflicts();
+     * System.out.println("Conflicts found: " + conflicts.getConflictCount());
+     * for (PolicyConflict conflict : conflicts.getConflicts()) {
+     *     System.out.println(conflict.getConflictType() + ": " + conflict.getDescription());
+     * }
+     * }</pre>
+     *
+     * <p><b>Evaluation+ Feature:</b> Requires AxonFlow Evaluation tier or higher.
+     *
+     * @return the conflict detection result
+     * @throws AxonFlowException if the request fails
+     */
+    public PolicyConflictResponse detectPolicyConflicts() {
+        return detectPolicyConflicts(null);
+    }
+
+    /**
+     * Detects conflicts between a specific policy and other active policies,
+     * or scans all policies if policyId is null.
      *
      * <p>Example usage:
      * <pre>{@code
      * PolicyConflictResponse conflicts = axonflow.detectPolicyConflicts("policy_block_pii");
      * System.out.println("Conflicts found: " + conflicts.getConflictCount());
      * for (PolicyConflict conflict : conflicts.getConflicts()) {
-     *     System.out.println(conflict.getType() + ": " + conflict.getDescription());
+     *     System.out.println(conflict.getConflictType() + ": " + conflict.getDescription());
      * }
      * }</pre>
      *
      * <p><b>Evaluation+ Feature:</b> Requires AxonFlow Evaluation tier or higher.
      *
-     * @param policyId the policy ID to check for conflicts
+     * @param policyId the policy ID to check for conflicts, or null to scan all policies
      * @return the conflict detection result
-     * @throws NullPointerException if policyId is null
-     * @throws IllegalArgumentException if policyId is empty
+     * @throws IllegalArgumentException if policyId is non-null and empty
      * @throws AxonFlowException if the request fails
      */
     public PolicyConflictResponse detectPolicyConflicts(String policyId) {
-        Objects.requireNonNull(policyId, "policyId cannot be null");
-        if (policyId.isEmpty()) {
+        if (policyId != null && policyId.isEmpty()) {
             throw new IllegalArgumentException("policyId cannot be empty");
         }
 
         return retryExecutor.execute(() -> {
-            java.util.Map<String, String> body = java.util.Map.of("policy_id", policyId);
+            Object body;
+            if (policyId != null) {
+                body = java.util.Map.of("policy_id", policyId);
+            } else {
+                body = java.util.Map.of();
+            }
             Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/policies/conflicts", body);
             try (Response response = httpClient.newCall(httpRequest).execute()) {
                 JsonNode node = parseResponseNode(response);
@@ -966,9 +991,18 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
+     * Asynchronously scans all active policies for conflicts.
+     *
+     * @return a future containing the conflict detection result
+     */
+    public CompletableFuture<PolicyConflictResponse> detectPolicyConflictsAsync() {
+        return CompletableFuture.supplyAsync(() -> detectPolicyConflicts(), asyncExecutor);
+    }
+
+    /**
      * Asynchronously detects conflicts between a specific policy and other active policies.
      *
-     * @param policyId the policy ID to check for conflicts
+     * @param policyId the policy ID to check for conflicts, or null to scan all policies
      * @return a future containing the conflict detection result
      */
     public CompletableFuture<PolicyConflictResponse> detectPolicyConflictsAsync(String policyId) {
