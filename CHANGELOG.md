@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.3.0] - 2026-03-24
 
+### Added
+
+- `simulatePolicies()` / `simulatePoliciesAsync()` — dry-run all active policies against an input query. Returns allowed/blocked status, applied policies, risk score, and daily usage. Requires Evaluation tier or above.
+- `getPolicyImpactReport()` / `getPolicyImpactReportAsync()` — test a single policy against multiple inputs and get aggregate match/block statistics.
+- `detectPolicyConflicts()` / `detectPolicyConflictsAsync()` — analyze active policies for contradictions, shadows, and redundancies. Optionally filter to conflicts involving a specific policy.
+- Types in `com.getaxonflow.sdk.simulation` package: `SimulatePoliciesRequest`, `SimulatePoliciesResponse`, `SimulationDailyUsage`, `ImpactReportInput`, `ImpactReportRequest`, `ImpactReportResult`, `ImpactReportResponse`, `PolicyConflictRef`, `PolicyConflict`, `PolicyConflictResponse`
+
 ### Security
 
 - Hardened insecure TLS trust manager (`HttpClientFactory`) to suppress CodeQL `java/insecure-trustmanager` alert. The trust-all `X509TrustManager` is only activated when the user explicitly opts in via `insecureSkipVerify=true` in `AxonFlowConfig`. Added `lgtm` suppression comments, clarified intent in code comments, and enhanced the warning log message to explicitly discourage production use.

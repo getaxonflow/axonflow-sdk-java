@@ -25,6 +25,7 @@ import com.getaxonflow.sdk.types.hitl.HITLTypes.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
 import com.getaxonflow.sdk.masfeat.MASFEATTypes.*;
 import com.getaxonflow.sdk.types.webhook.WebhookTypes.*;
+import com.getaxonflow.sdk.simulation.*;
 import com.getaxonflow.sdk.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -819,6 +820,159 @@ public final class AxonFlow implements Closeable {
      */
     public CompletableFuture<CircuitBreakerConfigUpdateResponse> updateCircuitBreakerConfigAsync(CircuitBreakerConfigUpdate config) {
         return CompletableFuture.supplyAsync(() -> updateCircuitBreakerConfig(config), asyncExecutor);
+    }
+
+    // ========================================================================
+    // Policy Simulation
+    // ========================================================================
+
+    /**
+     * Simulates policy evaluation against a query without actually enforcing policies.
+     *
+     * <p>This is a dry-run mode that shows which policies would match and what actions
+     * would be taken, without blocking the request.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * SimulatePoliciesResponse result = axonflow.simulatePolicies(
+     *     SimulatePoliciesRequest.builder()
+     *         .query("Transfer $50,000 to external account")
+     *         .requestType("execute")
+     *         .build());
+     * System.out.println("Allowed: " + result.isAllowed());
+     * System.out.println("Applied policies: " + result.getAppliedPolicies());
+     * System.out.println("Risk score: " + result.getRiskScore());
+     * }</pre>
+     *
+     * <p><b>Evaluation+ Feature:</b> Requires AxonFlow Evaluation tier or higher.
+     *
+     * @param request the simulation request
+     * @return the simulation result
+     * @throws NullPointerException if request is null
+     * @throws AxonFlowException if the request fails
+     */
+    public SimulatePoliciesResponse simulatePolicies(SimulatePoliciesRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/policies/simulate", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), SimulatePoliciesResponse.class);
+                }
+                return objectMapper.treeToValue(node, SimulatePoliciesResponse.class);
+            }
+        }, "simulatePolicies");
+    }
+
+    /**
+     * Asynchronously simulates policy evaluation against a query.
+     *
+     * @param request the simulation request
+     * @return a future containing the simulation result
+     */
+    public CompletableFuture<SimulatePoliciesResponse> simulatePoliciesAsync(SimulatePoliciesRequest request) {
+        return CompletableFuture.supplyAsync(() -> simulatePolicies(request), asyncExecutor);
+    }
+
+    /**
+     * Generates a policy impact report by testing a set of inputs against a specific policy.
+     *
+     * <p>This helps you understand how a policy would affect real traffic before deploying it.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * ImpactReportResponse report = axonflow.getPolicyImpactReport(
+     *     ImpactReportRequest.builder()
+     *         .policyId("policy_block_pii")
+     *         .inputs(List.of(
+     *             ImpactReportInput.builder().query("My SSN is 123-45-6789").build(),
+     *             ImpactReportInput.builder().query("What is the weather?").build()))
+     *         .build());
+     * System.out.println("Match rate: " + report.getMatchRate());
+     * System.out.println("Block rate: " + report.getBlockRate());
+     * }</pre>
+     *
+     * <p><b>Evaluation+ Feature:</b> Requires AxonFlow Evaluation tier or higher.
+     *
+     * @param request the impact report request
+     * @return the impact report
+     * @throws NullPointerException if request is null
+     * @throws AxonFlowException if the request fails
+     */
+    public ImpactReportResponse getPolicyImpactReport(ImpactReportRequest request) {
+        Objects.requireNonNull(request, "request cannot be null");
+
+        return retryExecutor.execute(() -> {
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/policies/impact-report", request);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), ImpactReportResponse.class);
+                }
+                return objectMapper.treeToValue(node, ImpactReportResponse.class);
+            }
+        }, "getPolicyImpactReport");
+    }
+
+    /**
+     * Asynchronously generates a policy impact report.
+     *
+     * @param request the impact report request
+     * @return a future containing the impact report
+     */
+    public CompletableFuture<ImpactReportResponse> getPolicyImpactReportAsync(ImpactReportRequest request) {
+        return CompletableFuture.supplyAsync(() -> getPolicyImpactReport(request), asyncExecutor);
+    }
+
+    /**
+     * Detects conflicts between a specific policy and other active policies.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * PolicyConflictResponse conflicts = axonflow.detectPolicyConflicts("policy_block_pii");
+     * System.out.println("Conflicts found: " + conflicts.getConflictCount());
+     * for (PolicyConflict conflict : conflicts.getConflicts()) {
+     *     System.out.println(conflict.getType() + ": " + conflict.getDescription());
+     * }
+     * }</pre>
+     *
+     * <p><b>Evaluation+ Feature:</b> Requires AxonFlow Evaluation tier or higher.
+     *
+     * @param policyId the policy ID to check for conflicts
+     * @return the conflict detection result
+     * @throws NullPointerException if policyId is null
+     * @throws IllegalArgumentException if policyId is empty
+     * @throws AxonFlowException if the request fails
+     */
+    public PolicyConflictResponse detectPolicyConflicts(String policyId) {
+        Objects.requireNonNull(policyId, "policyId cannot be null");
+        if (policyId.isEmpty()) {
+            throw new IllegalArgumentException("policyId cannot be empty");
+        }
+
+        return retryExecutor.execute(() -> {
+            java.util.Map<String, String> body = java.util.Map.of("policy_id", policyId);
+            Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/policies/conflicts", body);
+            try (Response response = httpClient.newCall(httpRequest).execute()) {
+                JsonNode node = parseResponseNode(response);
+                if (node.has("data") && node.get("data").isObject()) {
+                    return objectMapper.treeToValue(node.get("data"), PolicyConflictResponse.class);
+                }
+                return objectMapper.treeToValue(node, PolicyConflictResponse.class);
+            }
+        }, "detectPolicyConflicts");
+    }
+
+    /**
+     * Asynchronously detects conflicts between a specific policy and other active policies.
+     *
+     * @param policyId the policy ID to check for conflicts
+     * @return a future containing the conflict detection result
+     */
+    public CompletableFuture<PolicyConflictResponse> detectPolicyConflictsAsync(String policyId) {
+        return CompletableFuture.supplyAsync(() -> detectPolicyConflicts(policyId), asyncExecutor);
     }
 
     // ========================================================================
