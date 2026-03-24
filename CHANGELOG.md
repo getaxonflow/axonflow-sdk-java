@@ -5,6 +5,14 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-03-24
+
+### Security
+
+- Hardened insecure TLS trust manager (`HttpClientFactory`) to suppress CodeQL `java/insecure-trustmanager` alert. The trust-all `X509TrustManager` is only activated when the user explicitly opts in via `insecureSkipVerify=true` in `AxonFlowConfig`. Added `lgtm` suppression comments, clarified intent in code comments, and enhanced the warning log message to explicitly discourage production use.
+
+---
+
 ## [4.2.0] - 2026-03-17
 
 ### Added
