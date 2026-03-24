@@ -58,7 +58,7 @@ class PolicySimulationTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"allowed\":false,\"applied_policies\":[\"block-pii\",\"block-financial\"],\"risk_score\":0.85,\"required_actions\":[\"redact_pii\"],\"processing_time_ms\":12,\"total_policies\":5,\"dry_run\":true,\"simulated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\",\"daily_usage\":{\"used\":3,\"limit\":100,\"resets_at\":\"2026-03-25T00:00:00Z\"}}}")));
+                .withBody("{\"success\":true,\"data\":{\"allowed\":false,\"applied_policies\":[\"block-pii\",\"block-financial\"],\"risk_score\":0.85,\"required_actions\":[\"redact_pii\"],\"processing_time_ms\":12,\"total_policies\":5,\"dry_run\":true,\"simulated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\",\"daily_usage\":{\"used\":3,\"limit\":100}}}")));
 
         SimulatePoliciesResponse result = axonflow.simulatePolicies(
             SimulatePoliciesRequest.builder()
@@ -79,7 +79,6 @@ class PolicySimulationTest {
         assertThat(result.getDailyUsage()).isNotNull();
         assertThat(result.getDailyUsage().getUsed()).isEqualTo(3);
         assertThat(result.getDailyUsage().getLimit()).isEqualTo(100);
-        assertThat(result.getDailyUsage().getResetsAt()).isEqualTo("2026-03-25T00:00:00Z");
 
         verify(postRequestedFor(urlEqualTo("/api/v1/policies/simulate"))
             .withRequestBody(matchingJsonPath("$.query", equalTo("My SSN is 123-45-6789")))
@@ -93,7 +92,7 @@ class PolicySimulationTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"allowed\":true,\"applied_policies\":[],\"risk_score\":0.1,\"required_actions\":[],\"processing_time_ms\":5,\"total_policies\":5,\"dry_run\":true,\"simulated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\",\"daily_usage\":{\"used\":1,\"limit\":100,\"resets_at\":\"2026-03-25T00:00:00Z\"}}}")));
+                .withBody("{\"success\":true,\"data\":{\"allowed\":true,\"applied_policies\":[],\"risk_score\":0.1,\"required_actions\":[],\"processing_time_ms\":5,\"total_policies\":5,\"dry_run\":true,\"simulated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\",\"daily_usage\":{\"used\":1,\"limit\":100}}}")));
 
         SimulatePoliciesResponse result = axonflow.simulatePolicies(
             SimulatePoliciesRequest.builder()
@@ -213,7 +212,7 @@ class PolicySimulationTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"policy_id\":\"policy_block_pii\",\"total_inputs\":3,\"matched\":2,\"blocked\":2,\"match_rate\":0.667,\"block_rate\":0.667,\"results\":[{\"query\":\"My SSN is 123-45-6789\",\"matched\":true,\"blocked\":true,\"action\":\"block\"},{\"query\":\"What is the weather?\",\"matched\":false,\"blocked\":false,\"action\":\"allow\"},{\"query\":\"My email is test@example.com\",\"matched\":true,\"blocked\":true,\"action\":\"block\"}],\"processing_time_ms\":25,\"generated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\"}}")));
+                .withBody("{\"success\":true,\"data\":{\"policy_id\":\"policy_block_pii\",\"policy_name\":\"block-pii\",\"total_inputs\":3,\"matched\":2,\"blocked\":2,\"match_rate\":0.667,\"block_rate\":0.667,\"results\":[{\"input_index\":0,\"matched\":true,\"blocked\":true,\"actions\":[\"block\"]},{\"input_index\":1,\"matched\":false,\"blocked\":false,\"actions\":[\"allow\"]},{\"input_index\":2,\"matched\":true,\"blocked\":true,\"actions\":[\"block\"]}],\"processing_time_ms\":25,\"generated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"evaluation\"}}")));
 
         ImpactReportResponse report = axonflow.getPolicyImpactReport(
             ImpactReportRequest.builder()
@@ -231,13 +230,15 @@ class PolicySimulationTest {
         assertThat(report.getBlocked()).isEqualTo(2);
         assertThat(report.getMatchRate()).isEqualTo(0.667);
         assertThat(report.getBlockRate()).isEqualTo(0.667);
+        assertThat(report.getPolicyName()).isEqualTo("block-pii");
         assertThat(report.getResults()).hasSize(3);
-        assertThat(report.getResults().get(0).getQuery()).isEqualTo("My SSN is 123-45-6789");
+        assertThat(report.getResults().get(0).getInputIndex()).isEqualTo(0);
         assertThat(report.getResults().get(0).isMatched()).isTrue();
         assertThat(report.getResults().get(0).isBlocked()).isTrue();
-        assertThat(report.getResults().get(0).getAction()).isEqualTo("block");
+        assertThat(report.getResults().get(0).getActions()).containsExactly("block");
+        assertThat(report.getResults().get(1).getInputIndex()).isEqualTo(1);
         assertThat(report.getResults().get(1).isMatched()).isFalse();
-        assertThat(report.getResults().get(1).getAction()).isEqualTo("allow");
+        assertThat(report.getResults().get(1).getActions()).containsExactly("allow");
         assertThat(report.getProcessingTimeMs()).isEqualTo(25);
         assertThat(report.getGeneratedAt()).isEqualTo("2026-03-24T10:00:00Z");
         assertThat(report.getTier()).isEqualTo("evaluation");
@@ -253,7 +254,7 @@ class PolicySimulationTest {
             .willReturn(aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", "application/json")
-                .withBody("{\"success\":true,\"data\":{\"policy_id\":\"policy_strict\",\"total_inputs\":1,\"matched\":0,\"blocked\":0,\"match_rate\":0.0,\"block_rate\":0.0,\"results\":[{\"query\":\"Hello world\",\"matched\":false,\"blocked\":false,\"action\":\"allow\"}],\"processing_time_ms\":3,\"generated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"enterprise\"}}")));
+                .withBody("{\"success\":true,\"data\":{\"policy_id\":\"policy_strict\",\"total_inputs\":1,\"matched\":0,\"blocked\":0,\"match_rate\":0.0,\"block_rate\":0.0,\"results\":[{\"input_index\":0,\"matched\":false,\"blocked\":false,\"actions\":[\"allow\"]}],\"processing_time_ms\":3,\"generated_at\":\"2026-03-24T10:00:00Z\",\"tier\":\"enterprise\"}}")));
 
         ImpactReportResponse report = axonflow.getPolicyImpactReport(
             ImpactReportRequest.builder()

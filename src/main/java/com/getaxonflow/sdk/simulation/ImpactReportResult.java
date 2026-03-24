@@ -18,14 +18,16 @@ package com.getaxonflow.sdk.simulation;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
+
 /**
  * Result for a single input in an impact report.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class ImpactReportResult {
 
-    @JsonProperty("query")
-    private final String query;
+    @JsonProperty("input_index")
+    private final int inputIndex;
 
     @JsonProperty("matched")
     private final boolean matched;
@@ -33,22 +35,22 @@ public final class ImpactReportResult {
     @JsonProperty("blocked")
     private final boolean blocked;
 
-    @JsonProperty("action")
-    private final String action;
+    @JsonProperty("actions")
+    private final List<String> actions;
 
     public ImpactReportResult(
-            @JsonProperty("query") String query,
+            @JsonProperty("input_index") int inputIndex,
             @JsonProperty("matched") boolean matched,
             @JsonProperty("blocked") boolean blocked,
-            @JsonProperty("action") String action) {
-        this.query = query;
+            @JsonProperty("actions") List<String> actions) {
+        this.inputIndex = inputIndex;
         this.matched = matched;
         this.blocked = blocked;
-        this.action = action;
+        this.actions = actions != null ? List.copyOf(actions) : List.of();
     }
 
-    public String getQuery() { return query; }
+    public int getInputIndex() { return inputIndex; }
     public boolean isMatched() { return matched; }
     public boolean isBlocked() { return blocked; }
-    public String getAction() { return action; }
+    public List<String> getActions() { return actions; }
 }

@@ -30,19 +30,13 @@ public final class SimulationDailyUsage {
     @JsonProperty("limit")
     private final int limit;
 
-    @JsonProperty("resets_at")
-    private final String resetsAt;
-
     public SimulationDailyUsage(
             @JsonProperty("used") int used,
-            @JsonProperty("limit") int limit,
-            @JsonProperty("resets_at") String resetsAt) {
+            @JsonProperty("limit") int limit) {
         this.used = used;
         this.limit = limit;
-        this.resetsAt = resetsAt;
     }
 
     public int getUsed() { return used; }
     public int getLimit() { return limit; }
-    public String getResetsAt() { return resetsAt; }
 }

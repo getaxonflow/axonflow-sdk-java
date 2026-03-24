@@ -29,6 +29,9 @@ public final class ImpactReportResponse {
     @JsonProperty("policy_id")
     private final String policyId;
 
+    @JsonProperty("policy_name")
+    private final String policyName;
+
     @JsonProperty("total_inputs")
     private final int totalInputs;
 
@@ -58,6 +61,7 @@ public final class ImpactReportResponse {
 
     public ImpactReportResponse(
             @JsonProperty("policy_id") String policyId,
+            @JsonProperty("policy_name") String policyName,
             @JsonProperty("total_inputs") int totalInputs,
             @JsonProperty("matched") int matched,
             @JsonProperty("blocked") int blocked,
@@ -68,6 +72,7 @@ public final class ImpactReportResponse {
             @JsonProperty("generated_at") String generatedAt,
             @JsonProperty("tier") String tier) {
         this.policyId = policyId;
+        this.policyName = policyName;
         this.totalInputs = totalInputs;
         this.matched = matched;
         this.blocked = blocked;
@@ -80,6 +85,7 @@ public final class ImpactReportResponse {
     }
 
     public String getPolicyId() { return policyId; }
+    public String getPolicyName() { return policyName; }
     public int getTotalInputs() { return totalInputs; }
     public int getMatched() { return matched; }
     public int getBlocked() { return blocked; }
