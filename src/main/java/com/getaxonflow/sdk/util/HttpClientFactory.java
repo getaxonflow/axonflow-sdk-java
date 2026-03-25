@@ -70,19 +70,22 @@ public final class HttpClientFactory {
         return builder.build();
     }
 
-    @SuppressWarnings("java:S4830") // Intentionally trusting all certificates when insecureSkipVerify is enabled
+    @SuppressWarnings({"java:S4830", "java:S5527"}) // Intentionally trusting all certificates when insecureSkipVerify is enabled
     private static void configureInsecureSsl(OkHttpClient.Builder builder) {
         try {
+            // CodeQL: java/insecure-trustmanager -- suppressed: opt-in for development/self-signed certificates.
+            // This trust manager is only activated when the user explicitly sets insecureSkipVerify=true
+            // in AxonFlowConfig. It is never used by default.
             TrustManager[] trustAllCerts = new TrustManager[]{
-                new X509TrustManager() {
+                new X509TrustManager() { // lgtm[java/insecure-trustmanager]
                     @Override
                     public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                        // Trust all clients
+                        // Intentionally empty: trust all client certificates when insecureSkipVerify is enabled
                     }
 
                     @Override
                     public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                        // Trust all servers
+                        // Intentionally empty: trust all server certificates when insecureSkipVerify is enabled
                     }
 
                     @Override
@@ -96,9 +99,11 @@ public final class HttpClientFactory {
             sslContext.init(null, trustAllCerts, new SecureRandom());
 
             builder.sslSocketFactory(sslContext.getSocketFactory(), (X509TrustManager) trustAllCerts[0]);
-            builder.hostnameVerifier((hostname, session) -> true);
+            builder.hostnameVerifier((hostname, session) -> true); // lgtm[java/insecure-hostname-verifier]
 
-            logger.warn("SSL certificate verification is disabled. This should only be used in development.");
+            logger.warn("SSL certificate verification is DISABLED (insecureSkipVerify=true). "
+                + "Do NOT use this in production. This is intended only for development environments "
+                + "with self-signed certificates.");
         } catch (Exception e) {
             logger.error("Failed to configure insecure SSL", e);
         }
