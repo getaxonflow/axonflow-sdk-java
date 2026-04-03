@@ -3103,15 +3103,11 @@ public final class AxonFlow implements Closeable {
     }
 
     private void addAuthHeaders(Request.Builder builder) {
-        // Add auth headers only when credentials are provided
-        // Community/self-hosted mode works without credentials
-        if (!config.hasCredentials()) {
-            logger.debug("No credentials configured - community/self-hosted mode");
-            return;
-        }
-
-        // OAuth2-style: Authorization: Basic base64(clientId:clientSecret)
-        String credentials = config.getClientId() + ":" + config.getClientSecret();
+        // Always send Basic auth with the effective clientId — server derives tenant from it.
+        // clientSecret defaults to empty string for community/no-secret mode.
+        String effectiveClientId = getEffectiveClientId();
+        String secret = config.getClientSecret() != null ? config.getClientSecret() : "";
+        String credentials = effectiveClientId + ":" + secret;
         String encoded = Base64.getEncoder().encodeToString(
             credentials.getBytes(StandardCharsets.UTF_8)
         );
