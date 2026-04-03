@@ -422,8 +422,8 @@ class SelfHostedZeroConfigTest {
     class AuthHeaderTests {
 
         @Test
-        @DisplayName("should not send auth headers when no credentials configured")
-        void shouldNotSendAuthHeadersWithoutCredentials(WireMockRuntimeInfo wmRuntimeInfo) {
+        @DisplayName("should send community Basic auth when no credentials configured")
+        void shouldSendCommunityAuthWithoutCredentials(WireMockRuntimeInfo wmRuntimeInfo) {
             stubFor(post(urlEqualTo("/api/request"))
                 .willReturn(aResponse()
                     .withStatus(200)
@@ -433,7 +433,7 @@ class SelfHostedZeroConfigTest {
                         + "\"data\": {\"answer\": \"test\"}"
                         + "}")));
 
-            // No credentials - community mode
+            // No credentials - community mode (effective clientId = "community")
             AxonFlow client = AxonFlow.create(AxonFlowConfig.builder()
                 .agentUrl(wmRuntimeInfo.getHttpBaseUrl())
                 .build());
@@ -445,12 +445,14 @@ class SelfHostedZeroConfigTest {
                     .build()
             );
 
-            // Verify no auth headers were sent when no credentials configured
+            // Basic auth always sent with effective clientId ("community:")
+            String expectedAuth = "Basic " + java.util.Base64.getEncoder()
+                .encodeToString("community:".getBytes(java.nio.charset.StandardCharsets.UTF_8));
             verify(postRequestedFor(urlEqualTo("/api/request"))
                 .withoutHeader("X-License-Key")
-                .withoutHeader("Authorization"));
+                .withHeader("Authorization", equalTo(expectedAuth)));
 
-            System.out.println("✅ Auth headers not sent in community mode (no credentials)");
+            System.out.println("✅ Community mode: Basic auth with default clientId");
         }
 
         @Test
