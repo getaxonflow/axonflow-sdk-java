@@ -2727,7 +2727,6 @@ public final class AxonFlow implements Closeable {
             .get();
 
         addAuthHeaders(builder);
-        addTenantIdHeader(builder);
 
         Request httpRequest = builder.build();
 
@@ -2928,11 +2927,6 @@ public final class AxonFlow implements Closeable {
 
         // Add authentication headers
         addAuthHeaders(builder);
-
-        // Add tenant ID for policy APIs (uses clientId)
-        if (config.getClientId() != null && !config.getClientId().isEmpty()) {
-            builder.header("X-Tenant-ID", config.getClientId());
-        }
 
         // Add mode header
         if (config.getMode() != null) {
@@ -3137,12 +3131,6 @@ public final class AxonFlow implements Closeable {
     private String getEffectiveClientId() {
         String clientId = config.getClientId();
         return (clientId != null && !clientId.isEmpty()) ? clientId : "community";
-    }
-
-    private void addTenantIdHeader(Request.Builder builder) {
-        if (config.getClientId() != null && !config.getClientId().isEmpty()) {
-            builder.header("X-Tenant-ID", config.getClientId());
-        }
     }
 
     private <T> T parseResponse(Response response, Class<T> type) throws IOException {
@@ -3739,7 +3727,6 @@ public final class AxonFlow implements Closeable {
             .header("Accept", "application/json");
 
         addAuthHeaders(builder);
-        addTenantIdHeader(builder);
 
         RequestBody requestBody = null;
         if (body != null) {

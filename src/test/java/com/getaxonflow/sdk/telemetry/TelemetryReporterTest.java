@@ -419,9 +419,11 @@ class TelemetryReporterTest {
         String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
         // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
+        // Use localhost:1 so detectPlatformVersion gets immediate connection-refused
+        // (localhost:8080 may have a running service that returns a version)
         TelemetryReporter.sendPing(
                 "enterprise",
-                "http://localhost:8080",
+                "http://localhost:1",
                 Boolean.TRUE,
                 false,
                 true,   // hasCredentials
