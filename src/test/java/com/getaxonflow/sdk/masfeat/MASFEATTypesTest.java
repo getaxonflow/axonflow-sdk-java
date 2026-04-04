@@ -341,7 +341,7 @@ class MASFEATTypesTest {
       registry.setCustomerImpact(3);
       registry.setModelComplexity(2);
       registry.setHumanReliance(1);
-      registry.setMateriality(MaterialityClassification.HIGH);
+      registry.setMaterialityClassification(MaterialityClassification.HIGH);
       registry.setStatus(SystemStatus.ACTIVE);
       registry.setMetadata(metadata);
       registry.setCreatedAt(now);
