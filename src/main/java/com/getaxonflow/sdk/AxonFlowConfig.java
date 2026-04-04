@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.UUID;
 
 /**
  * Configuration for the AxonFlow client.
@@ -101,7 +102,10 @@ public final class AxonFlowConfig {
         this.demoMode
             ? normalizeUrl(DEMO_ENDPOINT)
             : normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
-    this.clientId = builder.clientId;
+    this.clientId =
+        this.demoMode && builder.clientId != null
+            ? builder.clientId + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 6)
+            : builder.clientId;
     this.clientSecret = builder.clientSecret;
     this.mode = builder.mode != null ? builder.mode : Mode.PRODUCTION;
     this.timeout = builder.timeout != null ? builder.timeout : DEFAULT_TIMEOUT;
