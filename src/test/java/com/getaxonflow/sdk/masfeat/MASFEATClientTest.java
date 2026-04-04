@@ -80,7 +80,7 @@ class MASFEATClientTest {
 
             assertThat(result.getId()).isEqualTo("sys-123");
             assertThat(result.getSystemName()).isEqualTo("Credit Scoring Model");
-            assertThat(result.getMateriality()).isEqualTo(MaterialityClassification.HIGH);
+            assertThat(result.getMaterialityClassification()).isEqualTo(MaterialityClassification.HIGH);
 
             verify(postRequestedFor(urlEqualTo("/api/v1/masfeat/registry")));
         }

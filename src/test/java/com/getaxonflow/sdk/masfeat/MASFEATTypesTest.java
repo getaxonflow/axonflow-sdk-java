@@ -348,7 +348,7 @@ class MASFEATTypesTest {
             assertThat(registry.getCustomerImpact()).isEqualTo(3);
             assertThat(registry.getModelComplexity()).isEqualTo(2);
             assertThat(registry.getHumanReliance()).isEqualTo(1);
-            assertThat(registry.getMateriality()).isEqualTo(MaterialityClassification.HIGH);
+            assertThat(registry.getMaterialityClassification()).isEqualTo(MaterialityClassification.HIGH);
             assertThat(registry.getStatus()).isEqualTo(SystemStatus.ACTIVE);
             assertThat(registry.getMetadata()).containsEntry("version", "1.0");
             assertThat(registry.getCreatedAt()).isEqualTo(now);
