@@ -405,7 +405,7 @@ public final class MASFEATTypes {
         private int modelComplexity;
         private int humanReliance;
         @com.fasterxml.jackson.annotation.JsonProperty("materiality_classification")
-        private MaterialityClassification materiality;
+        private MaterialityClassification materialityClassification;
         private SystemStatus status;
         private Instant createdAt;
         private Instant updatedAt;
@@ -433,8 +433,8 @@ public final class MASFEATTypes {
         public void setModelComplexity(int modelComplexity) { this.modelComplexity = modelComplexity; }
         public int getHumanReliance() { return humanReliance; }
         public void setHumanReliance(int humanReliance) { this.humanReliance = humanReliance; }
-        public MaterialityClassification getMateriality() { return materiality; }
-        public void setMateriality(MaterialityClassification materiality) { this.materiality = materiality; }
+        public MaterialityClassification getMaterialityClassification() { return materialityClassification; }
+        public void setMaterialityClassification(MaterialityClassification materialityClassification) { this.materialityClassification = materialityClassification; }
         public SystemStatus getStatus() { return status; }
         public void setStatus(SystemStatus status) { this.status = status; }
         public Instant getCreatedAt() { return createdAt; }
