@@ -404,6 +404,7 @@ public final class MASFEATTypes {
         private int customerImpact;
         private int modelComplexity;
         private int humanReliance;
+        @com.fasterxml.jackson.annotation.JsonProperty("materiality_classification")
         private MaterialityClassification materiality;
         private SystemStatus status;
         private Instant createdAt;
