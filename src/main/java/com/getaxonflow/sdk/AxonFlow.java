@@ -6175,7 +6175,7 @@ public final class AxonFlow implements Closeable {
       }
       if (materiality != null) {
         try {
-          system.setMateriality(MaterialityClassification.fromValue(materiality));
+          system.setMaterialityClassification(MaterialityClassification.fromValue(materiality));
         } catch (IllegalArgumentException e) {
           logger.warn("Unknown materiality: {}", materiality);
         }
