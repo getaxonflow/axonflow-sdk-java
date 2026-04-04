@@ -18,94 +18,90 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
 /**
  * Response from the MCP input policy check endpoint.
  *
- * <p>Indicates whether the input statement is allowed by configured policies.
- * A 403 HTTP response still returns a valid response body with {@code allowed=false}
- * and details in {@code blockReason} and {@code policyInfo}.</p>
+ * <p>Indicates whether the input statement is allowed by configured policies. A 403 HTTP response
+ * still returns a valid response body with {@code allowed=false} and details in {@code blockReason}
+ * and {@code policyInfo}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class MCPCheckInputResponse {
 
-    @JsonProperty("allowed")
-    private final boolean allowed;
+  @JsonProperty("allowed")
+  private final boolean allowed;
 
-    @JsonProperty("block_reason")
-    private final String blockReason;
+  @JsonProperty("block_reason")
+  private final String blockReason;
 
-    @JsonProperty("policies_evaluated")
-    private final int policiesEvaluated;
+  @JsonProperty("policies_evaluated")
+  private final int policiesEvaluated;
 
-    @JsonProperty("policy_info")
-    private final ConnectorPolicyInfo policyInfo;
+  @JsonProperty("policy_info")
+  private final ConnectorPolicyInfo policyInfo;
 
-    @JsonCreator
-    public MCPCheckInputResponse(
-            @JsonProperty("allowed") boolean allowed,
-            @JsonProperty("block_reason") String blockReason,
-            @JsonProperty("policies_evaluated") int policiesEvaluated,
-            @JsonProperty("policy_info") ConnectorPolicyInfo policyInfo) {
-        this.allowed = allowed;
-        this.blockReason = blockReason;
-        this.policiesEvaluated = policiesEvaluated;
-        this.policyInfo = policyInfo;
-    }
+  @JsonCreator
+  public MCPCheckInputResponse(
+      @JsonProperty("allowed") boolean allowed,
+      @JsonProperty("block_reason") String blockReason,
+      @JsonProperty("policies_evaluated") int policiesEvaluated,
+      @JsonProperty("policy_info") ConnectorPolicyInfo policyInfo) {
+    this.allowed = allowed;
+    this.blockReason = blockReason;
+    this.policiesEvaluated = policiesEvaluated;
+    this.policyInfo = policyInfo;
+  }
 
-    /**
-     * Returns whether the input is allowed by policies.
-     */
-    public boolean isAllowed() {
-        return allowed;
-    }
+  /** Returns whether the input is allowed by policies. */
+  public boolean isAllowed() {
+    return allowed;
+  }
 
-    /**
-     * Returns the reason the input was blocked, or null if allowed.
-     */
-    public String getBlockReason() {
-        return blockReason;
-    }
+  /** Returns the reason the input was blocked, or null if allowed. */
+  public String getBlockReason() {
+    return blockReason;
+  }
 
-    /**
-     * Returns the number of policies evaluated.
-     */
-    public int getPoliciesEvaluated() {
-        return policiesEvaluated;
-    }
+  /** Returns the number of policies evaluated. */
+  public int getPoliciesEvaluated() {
+    return policiesEvaluated;
+  }
 
-    /**
-     * Returns detailed policy evaluation information.
-     */
-    public ConnectorPolicyInfo getPolicyInfo() {
-        return policyInfo;
-    }
+  /** Returns detailed policy evaluation information. */
+  public ConnectorPolicyInfo getPolicyInfo() {
+    return policyInfo;
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        MCPCheckInputResponse that = (MCPCheckInputResponse) o;
-        return allowed == that.allowed &&
-               policiesEvaluated == that.policiesEvaluated &&
-               Objects.equals(blockReason, that.blockReason) &&
-               Objects.equals(policyInfo, that.policyInfo);
-    }
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    MCPCheckInputResponse that = (MCPCheckInputResponse) o;
+    return allowed == that.allowed
+        && policiesEvaluated == that.policiesEvaluated
+        && Objects.equals(blockReason, that.blockReason)
+        && Objects.equals(policyInfo, that.policyInfo);
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(allowed, blockReason, policiesEvaluated, policyInfo);
-    }
+  @Override
+  public int hashCode() {
+    return Objects.hash(allowed, blockReason, policiesEvaluated, policyInfo);
+  }
 
-    @Override
-    public String toString() {
-        return "MCPCheckInputResponse{" +
-               "allowed=" + allowed +
-               ", blockReason='" + blockReason + '\'' +
-               ", policiesEvaluated=" + policiesEvaluated +
-               ", policyInfo=" + policyInfo +
-               '}';
-    }
+  @Override
+  public String toString() {
+    return "MCPCheckInputResponse{"
+        + "allowed="
+        + allowed
+        + ", blockReason='"
+        + blockReason
+        + '\''
+        + ", policiesEvaluated="
+        + policiesEvaluated
+        + ", policyInfo="
+        + policyInfo
+        + '}';
+  }
 }

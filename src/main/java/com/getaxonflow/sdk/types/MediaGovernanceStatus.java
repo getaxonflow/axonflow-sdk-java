@@ -17,67 +17,91 @@ package com.getaxonflow.sdk.types;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
 /**
  * Platform-level media governance status.
  *
- * <p>Indicates whether media governance is available, the default enablement
- * state, and the license tier required.
+ * <p>Indicates whether media governance is available, the default enablement state, and the license
+ * tier required.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MediaGovernanceStatus {
 
-    @JsonProperty("available")
-    private boolean available;
+  @JsonProperty("available")
+  private boolean available;
 
-    @JsonProperty("enabled_by_default")
-    private boolean enabledByDefault;
+  @JsonProperty("enabled_by_default")
+  private boolean enabledByDefault;
 
-    @JsonProperty("per_tenant_control")
-    private boolean perTenantControl;
+  @JsonProperty("per_tenant_control")
+  private boolean perTenantControl;
 
-    @JsonProperty("tier")
-    private String tier;
+  @JsonProperty("tier")
+  private String tier;
 
-    public MediaGovernanceStatus() {}
+  public MediaGovernanceStatus() {}
 
-    public boolean isAvailable() { return available; }
-    public void setAvailable(boolean available) { this.available = available; }
+  public boolean isAvailable() {
+    return available;
+  }
 
-    public boolean isEnabledByDefault() { return enabledByDefault; }
-    public void setEnabledByDefault(boolean enabledByDefault) { this.enabledByDefault = enabledByDefault; }
+  public void setAvailable(boolean available) {
+    this.available = available;
+  }
 
-    public boolean isPerTenantControl() { return perTenantControl; }
-    public void setPerTenantControl(boolean perTenantControl) { this.perTenantControl = perTenantControl; }
+  public boolean isEnabledByDefault() {
+    return enabledByDefault;
+  }
 
-    public String getTier() { return tier; }
-    public void setTier(String tier) { this.tier = tier; }
+  public void setEnabledByDefault(boolean enabledByDefault) {
+    this.enabledByDefault = enabledByDefault;
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        MediaGovernanceStatus that = (MediaGovernanceStatus) o;
-        return available == that.available &&
-               enabledByDefault == that.enabledByDefault &&
-               perTenantControl == that.perTenantControl &&
-               Objects.equals(tier, that.tier);
-    }
+  public boolean isPerTenantControl() {
+    return perTenantControl;
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(available, enabledByDefault, perTenantControl, tier);
-    }
+  public void setPerTenantControl(boolean perTenantControl) {
+    this.perTenantControl = perTenantControl;
+  }
 
-    @Override
-    public String toString() {
-        return "MediaGovernanceStatus{" +
-               "available=" + available +
-               ", enabledByDefault=" + enabledByDefault +
-               ", perTenantControl=" + perTenantControl +
-               ", tier='" + tier + '\'' +
-               '}';
-    }
+  public String getTier() {
+    return tier;
+  }
+
+  public void setTier(String tier) {
+    this.tier = tier;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    MediaGovernanceStatus that = (MediaGovernanceStatus) o;
+    return available == that.available
+        && enabledByDefault == that.enabledByDefault
+        && perTenantControl == that.perTenantControl
+        && Objects.equals(tier, that.tier);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(available, enabledByDefault, perTenantControl, tier);
+  }
+
+  @Override
+  public String toString() {
+    return "MediaGovernanceStatus{"
+        + "available="
+        + available
+        + ", enabledByDefault="
+        + enabledByDefault
+        + ", perTenantControl="
+        + perTenantControl
+        + ", tier='"
+        + tier
+        + '\''
+        + '}';
+  }
 }

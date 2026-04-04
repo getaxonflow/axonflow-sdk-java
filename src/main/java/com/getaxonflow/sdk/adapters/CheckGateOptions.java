@@ -16,89 +16,85 @@
 package com.getaxonflow.sdk.adapters;
 
 import com.getaxonflow.sdk.types.workflow.WorkflowTypes.ToolContext;
-
 import java.util.Map;
 
-/**
- * Options for {@link LangGraphAdapter#checkGate}.
- */
+/** Options for {@link LangGraphAdapter#checkGate}. */
 public final class CheckGateOptions {
 
-    private final String stepId;
-    private final Map<String, Object> stepInput;
-    private final String model;
-    private final String provider;
-    private final ToolContext toolContext;
+  private final String stepId;
+  private final Map<String, Object> stepInput;
+  private final String model;
+  private final String provider;
+  private final ToolContext toolContext;
 
-    private CheckGateOptions(Builder builder) {
-        this.stepId = builder.stepId;
-        this.stepInput = builder.stepInput;
-        this.model = builder.model;
-        this.provider = builder.provider;
-        this.toolContext = builder.toolContext;
+  private CheckGateOptions(Builder builder) {
+    this.stepId = builder.stepId;
+    this.stepInput = builder.stepInput;
+    this.model = builder.model;
+    this.provider = builder.provider;
+    this.toolContext = builder.toolContext;
+  }
+
+  public String getStepId() {
+    return stepId;
+  }
+
+  public Map<String, Object> getStepInput() {
+    return stepInput;
+  }
+
+  public String getModel() {
+    return model;
+  }
+
+  public String getProvider() {
+    return provider;
+  }
+
+  public ToolContext getToolContext() {
+    return toolContext;
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public static final class Builder {
+    private String stepId;
+    private Map<String, Object> stepInput;
+    private String model;
+    private String provider;
+    private ToolContext toolContext;
+
+    private Builder() {}
+
+    public Builder stepId(String stepId) {
+      this.stepId = stepId;
+      return this;
     }
 
-    public String getStepId() {
-        return stepId;
+    public Builder stepInput(Map<String, Object> stepInput) {
+      this.stepInput = stepInput;
+      return this;
     }
 
-    public Map<String, Object> getStepInput() {
-        return stepInput;
+    public Builder model(String model) {
+      this.model = model;
+      return this;
     }
 
-    public String getModel() {
-        return model;
+    public Builder provider(String provider) {
+      this.provider = provider;
+      return this;
     }
 
-    public String getProvider() {
-        return provider;
+    public Builder toolContext(ToolContext toolContext) {
+      this.toolContext = toolContext;
+      return this;
     }
 
-    public ToolContext getToolContext() {
-        return toolContext;
+    public CheckGateOptions build() {
+      return new CheckGateOptions(this);
     }
-
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    public static final class Builder {
-        private String stepId;
-        private Map<String, Object> stepInput;
-        private String model;
-        private String provider;
-        private ToolContext toolContext;
-
-        private Builder() {
-        }
-
-        public Builder stepId(String stepId) {
-            this.stepId = stepId;
-            return this;
-        }
-
-        public Builder stepInput(Map<String, Object> stepInput) {
-            this.stepInput = stepInput;
-            return this;
-        }
-
-        public Builder model(String model) {
-            this.model = model;
-            return this;
-        }
-
-        public Builder provider(String provider) {
-            this.provider = provider;
-            return this;
-        }
-
-        public Builder toolContext(ToolContext toolContext) {
-            this.toolContext = toolContext;
-            return this;
-        }
-
-        public CheckGateOptions build() {
-            return new CheckGateOptions(this);
-        }
-    }
+  }
 }

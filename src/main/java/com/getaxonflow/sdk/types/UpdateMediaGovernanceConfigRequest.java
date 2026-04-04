@@ -18,72 +18,91 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 import java.util.Objects;
 
 /**
  * Request to update per-tenant media governance configuration.
  *
- * <p>Fields set to {@code null} are omitted from the JSON payload,
- * allowing partial updates.
+ * <p>Fields set to {@code null} are omitted from the JSON payload, allowing partial updates.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class UpdateMediaGovernanceConfigRequest {
 
-    @JsonProperty("enabled")
-    private Boolean enabled;
+  @JsonProperty("enabled")
+  private Boolean enabled;
 
-    @JsonProperty("allowed_analyzers")
+  @JsonProperty("allowed_analyzers")
+  private List<String> allowedAnalyzers;
+
+  public UpdateMediaGovernanceConfigRequest() {}
+
+  public Boolean getEnabled() {
+    return enabled;
+  }
+
+  public void setEnabled(Boolean enabled) {
+    this.enabled = enabled;
+  }
+
+  public List<String> getAllowedAnalyzers() {
+    return allowedAnalyzers;
+  }
+
+  public void setAllowedAnalyzers(List<String> allowedAnalyzers) {
+    this.allowedAnalyzers = allowedAnalyzers;
+  }
+
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    UpdateMediaGovernanceConfigRequest that = (UpdateMediaGovernanceConfigRequest) o;
+    return Objects.equals(enabled, that.enabled)
+        && Objects.equals(allowedAnalyzers, that.allowedAnalyzers);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(enabled, allowedAnalyzers);
+  }
+
+  @Override
+  public String toString() {
+    return "UpdateMediaGovernanceConfigRequest{"
+        + "enabled="
+        + enabled
+        + ", allowedAnalyzers="
+        + allowedAnalyzers
+        + '}';
+  }
+
+  public static final class Builder {
+    private Boolean enabled;
     private List<String> allowedAnalyzers;
 
-    public UpdateMediaGovernanceConfigRequest() {}
+    private Builder() {}
 
-    public Boolean getEnabled() { return enabled; }
-    public void setEnabled(Boolean enabled) { this.enabled = enabled; }
-
-    public List<String> getAllowedAnalyzers() { return allowedAnalyzers; }
-    public void setAllowedAnalyzers(List<String> allowedAnalyzers) { this.allowedAnalyzers = allowedAnalyzers; }
-
-    public static Builder builder() { return new Builder(); }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        UpdateMediaGovernanceConfigRequest that = (UpdateMediaGovernanceConfigRequest) o;
-        return Objects.equals(enabled, that.enabled) &&
-               Objects.equals(allowedAnalyzers, that.allowedAnalyzers);
+    public Builder enabled(Boolean enabled) {
+      this.enabled = enabled;
+      return this;
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(enabled, allowedAnalyzers);
+    public Builder allowedAnalyzers(List<String> allowedAnalyzers) {
+      this.allowedAnalyzers = allowedAnalyzers;
+      return this;
     }
 
-    @Override
-    public String toString() {
-        return "UpdateMediaGovernanceConfigRequest{" +
-               "enabled=" + enabled +
-               ", allowedAnalyzers=" + allowedAnalyzers +
-               '}';
+    public UpdateMediaGovernanceConfigRequest build() {
+      UpdateMediaGovernanceConfigRequest request = new UpdateMediaGovernanceConfigRequest();
+      request.enabled = this.enabled;
+      request.allowedAnalyzers = this.allowedAnalyzers;
+      return request;
     }
-
-    public static final class Builder {
-        private Boolean enabled;
-        private List<String> allowedAnalyzers;
-
-        private Builder() {}
-
-        public Builder enabled(Boolean enabled) { this.enabled = enabled; return this; }
-        public Builder allowedAnalyzers(List<String> allowedAnalyzers) { this.allowedAnalyzers = allowedAnalyzers; return this; }
-
-        public UpdateMediaGovernanceConfigRequest build() {
-            UpdateMediaGovernanceConfigRequest request = new UpdateMediaGovernanceConfigRequest();
-            request.enabled = this.enabled;
-            request.allowedAnalyzers = this.allowedAnalyzers;
-            return request;
-        }
-    }
+  }
 }

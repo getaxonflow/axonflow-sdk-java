@@ -7,14 +7,16 @@
  * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.
  *
  * <h2>Features</h2>
+ *
  * <ul>
- *   <li>AI System Registry with 3-dimensional materiality classification</li>
- *   <li>FEAT Assessment lifecycle management</li>
- *   <li>Kill Switch for emergency model shutdown</li>
- *   <li>7-year audit retention</li>
+ *   <li>AI System Registry with 3-dimensional materiality classification
+ *   <li>FEAT Assessment lifecycle management
+ *   <li>Kill Switch for emergency model shutdown
+ *   <li>7-year audit retention
  * </ul>
  *
  * <h2>Example</h2>
+ *
  * <pre>{@code
  * AxonFlowClient client = AxonFlowClient.builder()
  *     .apiKey("your-api-key")

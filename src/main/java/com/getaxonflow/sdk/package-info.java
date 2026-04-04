@@ -17,11 +17,11 @@
 /**
  * AxonFlow Java SDK - AI Governance Platform for Enterprise LLM Applications.
  *
- * <p>This SDK provides a Java client for interacting with the AxonFlow API,
- * enabling AI governance, policy enforcement, and compliance tracking for
- * LLM applications.
+ * <p>This SDK provides a Java client for interacting with the AxonFlow API, enabling AI governance,
+ * policy enforcement, and compliance tracking for LLM applications.
  *
  * <h2>Quick Start</h2>
+ *
  * <pre>{@code
  * // Create a client
  * AxonFlow axonflow = AxonFlow.create(AxonFlowConfig.builder()
@@ -49,11 +49,12 @@
  * }</pre>
  *
  * <h2>Key Classes</h2>
+ *
  * <ul>
- *   <li>{@link com.getaxonflow.sdk.AxonFlow} - Main client class</li>
- *   <li>{@link com.getaxonflow.sdk.AxonFlowConfig} - Configuration builder</li>
- *   <li>{@link com.getaxonflow.sdk.types.PolicyApprovalRequest} - Gateway Mode pre-check request</li>
- *   <li>{@link com.getaxonflow.sdk.types.ClientRequest} - Proxy Mode query request</li>
+ *   <li>{@link com.getaxonflow.sdk.AxonFlow} - Main client class
+ *   <li>{@link com.getaxonflow.sdk.AxonFlowConfig} - Configuration builder
+ *   <li>{@link com.getaxonflow.sdk.types.PolicyApprovalRequest} - Gateway Mode pre-check request
+ *   <li>{@link com.getaxonflow.sdk.types.ClientRequest} - Proxy Mode query request
  * </ul>
  *
  * @see com.getaxonflow.sdk.AxonFlow

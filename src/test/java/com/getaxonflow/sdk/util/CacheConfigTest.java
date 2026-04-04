@@ -15,77 +15,73 @@
  */
 package com.getaxonflow.sdk.util;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
+import static org.assertj.core.api.Assertions.*;
 
 import java.time.Duration;
-
-import static org.assertj.core.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 @DisplayName("CacheConfig")
 class CacheConfigTest {
 
-    @Test
-    @DisplayName("should create defaults")
-    void shouldCreateDefaults() {
-        CacheConfig config = CacheConfig.defaults();
+  @Test
+  @DisplayName("should create defaults")
+  void shouldCreateDefaults() {
+    CacheConfig config = CacheConfig.defaults();
 
-        assertThat(config.isEnabled()).isTrue();
-        assertThat(config.getTtl()).isEqualTo(Duration.ofSeconds(60));
-        assertThat(config.getMaxSize()).isEqualTo(1000);
-    }
+    assertThat(config.isEnabled()).isTrue();
+    assertThat(config.getTtl()).isEqualTo(Duration.ofSeconds(60));
+    assertThat(config.getMaxSize()).isEqualTo(1000);
+  }
 
-    @Test
-    @DisplayName("should create disabled config")
-    void shouldCreateDisabled() {
-        CacheConfig config = CacheConfig.disabled();
+  @Test
+  @DisplayName("should create disabled config")
+  void shouldCreateDisabled() {
+    CacheConfig config = CacheConfig.disabled();
 
-        assertThat(config.isEnabled()).isFalse();
-    }
+    assertThat(config.isEnabled()).isFalse();
+  }
 
-    @Test
-    @DisplayName("should build with custom values")
-    void shouldBuildWithCustomValues() {
-        CacheConfig config = CacheConfig.builder()
-            .enabled(true)
-            .ttl(Duration.ofMinutes(5))
-            .maxSize(500)
-            .build();
+  @Test
+  @DisplayName("should build with custom values")
+  void shouldBuildWithCustomValues() {
+    CacheConfig config =
+        CacheConfig.builder().enabled(true).ttl(Duration.ofMinutes(5)).maxSize(500).build();
 
-        assertThat(config.isEnabled()).isTrue();
-        assertThat(config.getTtl()).isEqualTo(Duration.ofMinutes(5));
-        assertThat(config.getMaxSize()).isEqualTo(500);
-    }
+    assertThat(config.isEnabled()).isTrue();
+    assertThat(config.getTtl()).isEqualTo(Duration.ofMinutes(5));
+    assertThat(config.getMaxSize()).isEqualTo(500);
+  }
 
-    @Test
-    @DisplayName("should validate TTL")
-    void shouldValidateTtl() {
-        assertThatThrownBy(() -> CacheConfig.builder().ttl(null).build())
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("ttl");
+  @Test
+  @DisplayName("should validate TTL")
+  void shouldValidateTtl() {
+    assertThatThrownBy(() -> CacheConfig.builder().ttl(null).build())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("ttl");
 
-        assertThatThrownBy(() -> CacheConfig.builder().ttl(Duration.ofSeconds(-1)).build())
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("ttl");
-    }
+    assertThatThrownBy(() -> CacheConfig.builder().ttl(Duration.ofSeconds(-1)).build())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("ttl");
+  }
 
-    @Test
-    @DisplayName("should validate max size")
-    void shouldValidateMaxSize() {
-        assertThatThrownBy(() -> CacheConfig.builder().maxSize(0).build())
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("maxSize");
-    }
+  @Test
+  @DisplayName("should validate max size")
+  void shouldValidateMaxSize() {
+    assertThatThrownBy(() -> CacheConfig.builder().maxSize(0).build())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("maxSize");
+  }
 
-    @Test
-    @DisplayName("should implement equals and hashCode")
-    void shouldImplementEqualsAndHashCode() {
-        CacheConfig config1 = CacheConfig.builder().maxSize(100).build();
-        CacheConfig config2 = CacheConfig.builder().maxSize(100).build();
-        CacheConfig config3 = CacheConfig.builder().maxSize(200).build();
+  @Test
+  @DisplayName("should implement equals and hashCode")
+  void shouldImplementEqualsAndHashCode() {
+    CacheConfig config1 = CacheConfig.builder().maxSize(100).build();
+    CacheConfig config2 = CacheConfig.builder().maxSize(100).build();
+    CacheConfig config3 = CacheConfig.builder().maxSize(200).build();
 
-        assertThat(config1).isEqualTo(config2);
-        assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
-        assertThat(config1).isNotEqualTo(config3);
-    }
+    assertThat(config1).isEqualTo(config2);
+    assertThat(config1.hashCode()).isEqualTo(config2.hashCode());
+    assertThat(config1).isNotEqualTo(config3);
+  }
 }

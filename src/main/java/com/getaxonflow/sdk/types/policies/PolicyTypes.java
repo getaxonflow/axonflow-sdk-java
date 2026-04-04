@@ -17,1192 +17,1724 @@ package com.getaxonflow.sdk.types.policies;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Policy CRUD types for the Unified Policy Architecture v2.0.0.
- */
+/** Policy CRUD types for the Unified Policy Architecture v2.0.0. */
 public final class PolicyTypes {
 
-    private PolicyTypes() {}
+  private PolicyTypes() {}
 
-    // ========================================================================
-    // Media Governance Policy Category Constants
-    // ========================================================================
+  // ========================================================================
+  // Media Governance Policy Category Constants
+  // ========================================================================
 
-    /** Policy category for media safety (NSFW, violence). */
-    public static final String CATEGORY_MEDIA_SAFETY = "media-safety";
+  /** Policy category for media safety (NSFW, violence). */
+  public static final String CATEGORY_MEDIA_SAFETY = "media-safety";
 
-    /** Policy category for media biometric detection (faces, fingerprints). */
-    public static final String CATEGORY_MEDIA_BIOMETRIC = "media-biometric";
+  /** Policy category for media biometric detection (faces, fingerprints). */
+  public static final String CATEGORY_MEDIA_BIOMETRIC = "media-biometric";
 
-    /** Policy category for sensitive document detection. */
-    public static final String CATEGORY_MEDIA_DOCUMENT = "media-document";
+  /** Policy category for sensitive document detection. */
+  public static final String CATEGORY_MEDIA_DOCUMENT = "media-document";
 
-    /** Policy category for PII detected in media (OCR text extraction). */
-    public static final String CATEGORY_MEDIA_PII = "media-pii";
+  /** Policy category for PII detected in media (OCR text extraction). */
+  public static final String CATEGORY_MEDIA_PII = "media-pii";
 
-    // ========================================================================
-    // Enums
-    // ========================================================================
+  // ========================================================================
+  // Enums
+  // ========================================================================
 
-    /**
-     * Policy categories for organization and filtering.
-     */
-    public enum PolicyCategory {
-        // Static policy categories - Security
-        SECURITY_SQLI("security-sqli"),
-        SECURITY_ADMIN("security-admin"),
+  /** Policy categories for organization and filtering. */
+  public enum PolicyCategory {
+    // Static policy categories - Security
+    SECURITY_SQLI("security-sqli"),
+    SECURITY_ADMIN("security-admin"),
 
-        // Static policy categories - PII Detection
-        PII_GLOBAL("pii-global"),
-        PII_US("pii-us"),
-        PII_EU("pii-eu"),
-        PII_INDIA("pii-india"),
-        PII_SINGAPORE("pii-singapore"),
+    // Static policy categories - PII Detection
+    PII_GLOBAL("pii-global"),
+    PII_US("pii-us"),
+    PII_EU("pii-eu"),
+    PII_INDIA("pii-india"),
+    PII_SINGAPORE("pii-singapore"),
 
-        // Static policy categories - Code Governance
-        CODE_SECRETS("code-secrets"),
-        CODE_UNSAFE("code-unsafe"),
-        CODE_COMPLIANCE("code-compliance"),
+    // Static policy categories - Code Governance
+    CODE_SECRETS("code-secrets"),
+    CODE_UNSAFE("code-unsafe"),
+    CODE_COMPLIANCE("code-compliance"),
 
-        // Sensitive data category
-        SENSITIVE_DATA("sensitive-data"),
+    // Sensitive data category
+    SENSITIVE_DATA("sensitive-data"),
 
-        // Media governance categories
-        MEDIA_SAFETY("media-safety"),
-        MEDIA_BIOMETRIC("media-biometric"),
-        MEDIA_PII("media-pii"),
-        MEDIA_DOCUMENT("media-document"),
+    // Media governance categories
+    MEDIA_SAFETY("media-safety"),
+    MEDIA_BIOMETRIC("media-biometric"),
+    MEDIA_PII("media-pii"),
+    MEDIA_DOCUMENT("media-document"),
 
-        // Dynamic policy categories
-        DYNAMIC_RISK("dynamic-risk"),
-        DYNAMIC_COMPLIANCE("dynamic-compliance"),
-        DYNAMIC_SECURITY("dynamic-security"),
-        DYNAMIC_COST("dynamic-cost"),
-        DYNAMIC_ACCESS("dynamic-access");
+    // Dynamic policy categories
+    DYNAMIC_RISK("dynamic-risk"),
+    DYNAMIC_COMPLIANCE("dynamic-compliance"),
+    DYNAMIC_SECURITY("dynamic-security"),
+    DYNAMIC_COST("dynamic-cost"),
+    DYNAMIC_ACCESS("dynamic-access");
 
-        private final String value;
+    private final String value;
 
-        PolicyCategory(String value) {
-            this.value = value;
-        }
-
-        @JsonValue
-        public String getValue() {
-            return value;
-        }
+    PolicyCategory(String value) {
+      this.value = value;
     }
 
-    /**
-     * Policy tiers determine where policies apply.
-     */
-    public enum PolicyTier {
-        SYSTEM("system"),
-        ORGANIZATION("organization"),
-        TENANT("tenant");
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+  }
 
-        private final String value;
+  /** Policy tiers determine where policies apply. */
+  public enum PolicyTier {
+    SYSTEM("system"),
+    ORGANIZATION("organization"),
+    TENANT("tenant");
 
-        PolicyTier(String value) {
-            this.value = value;
-        }
+    private final String value;
 
-        @JsonValue
-        public String getValue() {
-            return value;
-        }
+    PolicyTier(String value) {
+      this.value = value;
     }
 
-    /**
-     * Override action for policy overrides.
-     * <ul>
-     *   <li>BLOCK: Immediately block the request</li>
-     *   <li>REQUIRE_APPROVAL: Pause for human approval (HITL)</li>
-     *   <li>REDACT: Mask sensitive content</li>
-     *   <li>WARN: Log warning, allow request</li>
-     *   <li>LOG: Audit only</li>
-     * </ul>
-     */
-    public enum OverrideAction {
-        BLOCK("block"),
-        REQUIRE_APPROVAL("require_approval"),
-        REDACT("redact"),
-        WARN("warn"),
-        LOG("log");
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+  }
 
-        private final String value;
+  /**
+   * Override action for policy overrides.
+   *
+   * <ul>
+   *   <li>BLOCK: Immediately block the request
+   *   <li>REQUIRE_APPROVAL: Pause for human approval (HITL)
+   *   <li>REDACT: Mask sensitive content
+   *   <li>WARN: Log warning, allow request
+   *   <li>LOG: Audit only
+   * </ul>
+   */
+  public enum OverrideAction {
+    BLOCK("block"),
+    REQUIRE_APPROVAL("require_approval"),
+    REDACT("redact"),
+    WARN("warn"),
+    LOG("log");
 
-        OverrideAction(String value) {
-            this.value = value;
-        }
+    private final String value;
 
-        @JsonValue
-        public String getValue() {
-            return value;
-        }
+    OverrideAction(String value) {
+      this.value = value;
     }
 
-    /**
-     * Action to take when a policy matches.
-     * <ul>
-     *   <li>BLOCK: Immediately block the request</li>
-     *   <li>REQUIRE_APPROVAL: Pause for human approval (HITL)</li>
-     *   <li>REDACT: Mask sensitive content</li>
-     *   <li>WARN: Log warning, allow request</li>
-     *   <li>LOG: Audit only</li>
-     *   <li>ALLOW: Explicitly allow (for overrides)</li>
-     * </ul>
-     */
-    public enum PolicyAction {
-        BLOCK("block"),
-        REQUIRE_APPROVAL("require_approval"),
-        REDACT("redact"),
-        WARN("warn"),
-        LOG("log"),
-        ALLOW("allow");
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+  }
 
-        private final String value;
+  /**
+   * Action to take when a policy matches.
+   *
+   * <ul>
+   *   <li>BLOCK: Immediately block the request
+   *   <li>REQUIRE_APPROVAL: Pause for human approval (HITL)
+   *   <li>REDACT: Mask sensitive content
+   *   <li>WARN: Log warning, allow request
+   *   <li>LOG: Audit only
+   *   <li>ALLOW: Explicitly allow (for overrides)
+   * </ul>
+   */
+  public enum PolicyAction {
+    BLOCK("block"),
+    REQUIRE_APPROVAL("require_approval"),
+    REDACT("redact"),
+    WARN("warn"),
+    LOG("log"),
+    ALLOW("allow");
 
-        PolicyAction(String value) {
-            this.value = value;
-        }
+    private final String value;
 
-        @JsonValue
-        public String getValue() {
-            return value;
-        }
+    PolicyAction(String value) {
+      this.value = value;
     }
 
-    /**
-     * Policy severity levels.
-     */
-    public enum PolicySeverity {
-        CRITICAL("critical"),
-        HIGH("high"),
-        MEDIUM("medium"),
-        LOW("low");
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+  }
 
-        private final String value;
+  /** Policy severity levels. */
+  public enum PolicySeverity {
+    CRITICAL("critical"),
+    HIGH("high"),
+    MEDIUM("medium"),
+    LOW("low");
 
-        PolicySeverity(String value) {
-            this.value = value;
-        }
+    private final String value;
 
-        @JsonValue
-        public String getValue() {
-            return value;
-        }
+    PolicySeverity(String value) {
+      this.value = value;
     }
 
-    // ========================================================================
-    // Static Policy Types
-    // ========================================================================
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+  }
 
-    /**
-     * Static policy definition.
-     */
-    public static class StaticPolicy {
-        private String id;
-        private String name;
-        private String description;
-        private PolicyCategory category;
-        private PolicyTier tier;
-        private String pattern;
-        private PolicySeverity severity;
-        private boolean enabled;
-        private PolicyAction action;
-        @JsonProperty("organization_id")
-        private String organizationId;
-        @JsonProperty("tenant_id")
-        private String tenantId;
-        @JsonProperty("created_at")
-        private Instant createdAt;
-        @JsonProperty("updated_at")
-        private Instant updatedAt;
-        private Integer version;
-        @JsonProperty("has_override")
-        private Boolean hasOverride;
-        private PolicyOverride override;
+  // ========================================================================
+  // Static Policy Types
+  // ========================================================================
 
-        // Getters and setters
-        public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public PolicyCategory getCategory() { return category; }
-        public void setCategory(PolicyCategory category) { this.category = category; }
-        public PolicyTier getTier() { return tier; }
-        public void setTier(PolicyTier tier) { this.tier = tier; }
-        public String getPattern() { return pattern; }
-        public void setPattern(String pattern) { this.pattern = pattern; }
-        public PolicySeverity getSeverity() { return severity; }
-        public void setSeverity(PolicySeverity severity) { this.severity = severity; }
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
-        public PolicyAction getAction() { return action; }
-        public void setAction(PolicyAction action) { this.action = action; }
-        public String getOrganizationId() { return organizationId; }
-        public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
-        public String getTenantId() { return tenantId; }
-        public void setTenantId(String tenantId) { this.tenantId = tenantId; }
-        public Instant getCreatedAt() { return createdAt; }
-        public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-        public Instant getUpdatedAt() { return updatedAt; }
-        public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-        public Integer getVersion() { return version; }
-        public void setVersion(Integer version) { this.version = version; }
-        public Boolean getHasOverride() { return hasOverride; }
-        public void setHasOverride(Boolean hasOverride) { this.hasOverride = hasOverride; }
-        public PolicyOverride getOverride() { return override; }
-        public void setOverride(PolicyOverride override) { this.override = override; }
+  /** Static policy definition. */
+  public static class StaticPolicy {
+    private String id;
+    private String name;
+    private String description;
+    private PolicyCategory category;
+    private PolicyTier tier;
+    private String pattern;
+    private PolicySeverity severity;
+    private boolean enabled;
+    private PolicyAction action;
+
+    @JsonProperty("organization_id")
+    private String organizationId;
+
+    @JsonProperty("tenant_id")
+    private String tenantId;
+
+    @JsonProperty("created_at")
+    private Instant createdAt;
+
+    @JsonProperty("updated_at")
+    private Instant updatedAt;
+
+    private Integer version;
+
+    @JsonProperty("has_override")
+    private Boolean hasOverride;
+
+    private PolicyOverride override;
+
+    // Getters and setters
+    public String getId() {
+      return id;
     }
 
-    /**
-     * Policy override configuration.
-     */
-    public static class PolicyOverride {
-        @JsonProperty("policy_id")
-        private String policyId;
-        @JsonProperty("action_override")
-        private OverrideAction actionOverride;
-        @JsonProperty("override_reason")
-        private String overrideReason;
-        @JsonProperty("created_by")
-        private String createdBy;
-        @JsonProperty("created_at")
-        private Instant createdAt;
-        @JsonProperty("expires_at")
-        private Instant expiresAt;
-        private boolean active;
-
-        // Getters and setters
-        public String getPolicyId() { return policyId; }
-        public void setPolicyId(String policyId) { this.policyId = policyId; }
-        public OverrideAction getActionOverride() { return actionOverride; }
-        public void setActionOverride(OverrideAction actionOverride) { this.actionOverride = actionOverride; }
-        public String getOverrideReason() { return overrideReason; }
-        public void setOverrideReason(String overrideReason) { this.overrideReason = overrideReason; }
-        public String getCreatedBy() { return createdBy; }
-        public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
-        public Instant getCreatedAt() { return createdAt; }
-        public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-        public Instant getExpiresAt() { return expiresAt; }
-        public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
-        public boolean isActive() { return active; }
-        public void setActive(boolean active) { this.active = active; }
+    public void setId(String id) {
+      this.id = id;
     }
 
-    /**
-     * Options for listing static policies.
-     */
-    public static class ListStaticPoliciesOptions {
-        private PolicyCategory category;
-        private PolicyTier tier;
-        private String organizationId;
-        private Boolean enabled;
-        private Integer limit;
-        private Integer offset;
-        private String sortBy;
-        private String sortOrder;
-        private String search;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public PolicyCategory getCategory() { return category; }
-        public PolicyTier getTier() { return tier; }
-        public String getOrganizationId() { return organizationId; }
-        public Boolean getEnabled() { return enabled; }
-        public Integer getLimit() { return limit; }
-        public Integer getOffset() { return offset; }
-        public String getSortBy() { return sortBy; }
-        public String getSortOrder() { return sortOrder; }
-        public String getSearch() { return search; }
-
-        public static class Builder {
-            private final ListStaticPoliciesOptions options = new ListStaticPoliciesOptions();
-
-            public Builder category(PolicyCategory category) {
-                options.category = category;
-                return this;
-            }
-
-            public Builder tier(PolicyTier tier) {
-                options.tier = tier;
-                return this;
-            }
-
-            /**
-             * Filters policies by organization ID (Enterprise).
-             *
-             * @param organizationId the organization ID
-             * @return this builder
-             */
-            public Builder organizationId(String organizationId) {
-                options.organizationId = organizationId;
-                return this;
-            }
-
-            public Builder enabled(Boolean enabled) {
-                options.enabled = enabled;
-                return this;
-            }
-
-            public Builder limit(Integer limit) {
-                options.limit = limit;
-                return this;
-            }
-
-            public Builder offset(Integer offset) {
-                options.offset = offset;
-                return this;
-            }
-
-            public Builder sortBy(String sortBy) {
-                options.sortBy = sortBy;
-                return this;
-            }
-
-            public Builder sortOrder(String sortOrder) {
-                options.sortOrder = sortOrder;
-                return this;
-            }
-
-            public Builder search(String search) {
-                options.search = search;
-                return this;
-            }
-
-            public ListStaticPoliciesOptions build() {
-                return options;
-            }
-        }
+    public String getName() {
+      return name;
     }
 
-    /**
-     * Request to create a new static policy.
-     */
-    public static class CreateStaticPolicyRequest {
-        private String name;
-        private String description;
-        private PolicyCategory category;
-        private PolicyTier tier = PolicyTier.TENANT;
-        @JsonProperty("organization_id")
-        private String organizationId;
-        private String pattern;
-        private PolicySeverity severity = PolicySeverity.MEDIUM;
-        private boolean enabled = true;
-        private PolicyAction action = PolicyAction.BLOCK;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public String getName() { return name; }
-        public String getDescription() { return description; }
-        public PolicyCategory getCategory() { return category; }
-        public PolicyTier getTier() { return tier; }
-        public String getOrganizationId() { return organizationId; }
-        public String getPattern() { return pattern; }
-        public PolicySeverity getSeverity() { return severity; }
-        public boolean isEnabled() { return enabled; }
-        public PolicyAction getAction() { return action; }
-
-        public static class Builder {
-            private final CreateStaticPolicyRequest request = new CreateStaticPolicyRequest();
-
-            public Builder name(String name) {
-                request.name = name;
-                return this;
-            }
-
-            public Builder description(String description) {
-                request.description = description;
-                return this;
-            }
-
-            public Builder category(PolicyCategory category) {
-                request.category = category;
-                return this;
-            }
-
-            public Builder tier(PolicyTier tier) {
-                request.tier = tier;
-                return this;
-            }
-
-            /**
-             * Sets the organization ID for organization-tier policies (Enterprise).
-             *
-             * @param organizationId the organization ID
-             * @return this builder
-             */
-            public Builder organizationId(String organizationId) {
-                request.organizationId = organizationId;
-                return this;
-            }
-
-            public Builder pattern(String pattern) {
-                request.pattern = pattern;
-                return this;
-            }
-
-            public Builder severity(PolicySeverity severity) {
-                request.severity = severity;
-                return this;
-            }
-
-            public Builder enabled(boolean enabled) {
-                request.enabled = enabled;
-                return this;
-            }
-
-            public Builder action(PolicyAction action) {
-                request.action = action;
-                return this;
-            }
-
-            public CreateStaticPolicyRequest build() {
-                return request;
-            }
-        }
+    public void setName(String name) {
+      this.name = name;
     }
 
-    /**
-     * Request to update an existing static policy.
-     */
-    public static class UpdateStaticPolicyRequest {
-        private String name;
-        private String description;
-        private PolicyCategory category;
-        private String pattern;
-        private PolicySeverity severity;
-        private Boolean enabled;
-        private PolicyAction action;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public String getName() { return name; }
-        public String getDescription() { return description; }
-        public PolicyCategory getCategory() { return category; }
-        public String getPattern() { return pattern; }
-        public PolicySeverity getSeverity() { return severity; }
-        public Boolean getEnabled() { return enabled; }
-        public PolicyAction getAction() { return action; }
-
-        public static class Builder {
-            private final UpdateStaticPolicyRequest request = new UpdateStaticPolicyRequest();
-
-            public Builder name(String name) {
-                request.name = name;
-                return this;
-            }
-
-            public Builder description(String description) {
-                request.description = description;
-                return this;
-            }
-
-            public Builder category(PolicyCategory category) {
-                request.category = category;
-                return this;
-            }
-
-            public Builder pattern(String pattern) {
-                request.pattern = pattern;
-                return this;
-            }
-
-            public Builder severity(PolicySeverity severity) {
-                request.severity = severity;
-                return this;
-            }
-
-            public Builder enabled(Boolean enabled) {
-                request.enabled = enabled;
-                return this;
-            }
-
-            public Builder action(PolicyAction action) {
-                request.action = action;
-                return this;
-            }
-
-            public UpdateStaticPolicyRequest build() {
-                return request;
-            }
-        }
+    public String getDescription() {
+      return description;
     }
 
-    /**
-     * Request to create a policy override.
-     */
-    public static class CreatePolicyOverrideRequest {
-        @JsonProperty("action_override")
-        private OverrideAction actionOverride;
-        @JsonProperty("override_reason")
-        private String overrideReason;
-        @JsonProperty("expires_at")
-        private Instant expiresAt;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public OverrideAction getActionOverride() { return actionOverride; }
-        public String getOverrideReason() { return overrideReason; }
-        public Instant getExpiresAt() { return expiresAt; }
-
-        public static class Builder {
-            private final CreatePolicyOverrideRequest request = new CreatePolicyOverrideRequest();
-
-            public Builder actionOverride(OverrideAction actionOverride) {
-                request.actionOverride = actionOverride;
-                return this;
-            }
-
-            public Builder overrideReason(String overrideReason) {
-                request.overrideReason = overrideReason;
-                return this;
-            }
-
-            public Builder expiresAt(Instant expiresAt) {
-                request.expiresAt = expiresAt;
-                return this;
-            }
-
-            public CreatePolicyOverrideRequest build() {
-                return request;
-            }
-        }
+    public void setDescription(String description) {
+      this.description = description;
     }
 
-    // ========================================================================
-    // Dynamic Policy Types
-    // ========================================================================
-
-    /**
-     * Condition for dynamic policy evaluation.
-     */
-    public static class DynamicPolicyCondition {
-        private String field;
-        private String operator;
-        private Object value;
-
-        public DynamicPolicyCondition() {}
-
-        public DynamicPolicyCondition(String field, String operator, Object value) {
-            this.field = field;
-            this.operator = operator;
-            this.value = value;
-        }
-
-        public String getField() { return field; }
-        public void setField(String field) { this.field = field; }
-        public String getOperator() { return operator; }
-        public void setOperator(String operator) { this.operator = operator; }
-        public Object getValue() { return value; }
-        public void setValue(Object value) { this.value = value; }
+    public PolicyCategory getCategory() {
+      return category;
     }
 
-    /**
-     * Action to take when dynamic policy conditions are met.
-     */
-    public static class DynamicPolicyAction {
-        private String type;  // "block", "alert", "redact", "log", "route", "modify_risk"
-        private Map<String, Object> config;
-
-        public DynamicPolicyAction() {}
-
-        public DynamicPolicyAction(String type, Map<String, Object> config) {
-            this.type = type;
-            this.config = config;
-        }
-
-        public String getType() { return type; }
-        public void setType(String type) { this.type = type; }
-        public Map<String, Object> getConfig() { return config; }
-        public void setConfig(Map<String, Object> config) { this.config = config; }
+    public void setCategory(PolicyCategory category) {
+      this.category = category;
     }
 
-    /**
-     * Dynamic policy definition.
-     *
-     * <p>Dynamic policies are LLM-powered policies that can evaluate complex,
-     * context-aware rules that can't be expressed with simple regex patterns.
-     *
-     * <p>For provider restrictions (GDPR, HIPAA, RBI compliance), use action config:
-     * <pre>{@code
-     * List<DynamicPolicyAction> actions = List.of(
-     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
-     * );
-     * }</pre>
-     */
-    public static class DynamicPolicy {
-        private String id;
-        private String name;
-        private String description;
-        private String type;  // "risk", "content", "user", "cost"
-        private String category;  // "dynamic-risk", "dynamic-compliance", etc.
-        private PolicyTier tier;
-        @JsonProperty("organization_id")
-        private String organizationId;
-        private List<DynamicPolicyCondition> conditions;
-        private List<DynamicPolicyAction> actions;
-        private int priority;
-        private boolean enabled;
-        @JsonProperty("created_at")
-        private Instant createdAt;
-        @JsonProperty("updated_at")
-        private Instant updatedAt;
-
-        // Getters and setters
-        public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public String getType() { return type; }
-        public void setType(String type) { this.type = type; }
-        public String getCategory() { return category; }
-        public void setCategory(String category) { this.category = category; }
-        public PolicyTier getTier() { return tier; }
-        public void setTier(PolicyTier tier) { this.tier = tier; }
-        public String getOrganizationId() { return organizationId; }
-        public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
-        public List<DynamicPolicyCondition> getConditions() { return conditions; }
-        public void setConditions(List<DynamicPolicyCondition> conditions) { this.conditions = conditions; }
-        public List<DynamicPolicyAction> getActions() { return actions; }
-        public void setActions(List<DynamicPolicyAction> actions) { this.actions = actions; }
-        public int getPriority() { return priority; }
-        public void setPriority(int priority) { this.priority = priority; }
-        public boolean isEnabled() { return enabled; }
-        public void setEnabled(boolean enabled) { this.enabled = enabled; }
-        public Instant getCreatedAt() { return createdAt; }
-        public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-        public Instant getUpdatedAt() { return updatedAt; }
-        public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public PolicyTier getTier() {
+      return tier;
     }
 
-    /**
-     * Options for listing dynamic policies.
-     */
-    public static class ListDynamicPoliciesOptions {
-        private String type;  // Filter by policy type: "risk", "content", "user", "cost"
-        private PolicyTier tier;
-        private String organizationId;
-        private Boolean enabled;
-        private Integer limit;
-        private Integer offset;
-        private String sortBy;
-        private String sortOrder;
-        private String search;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public String getType() { return type; }
-        public PolicyTier getTier() { return tier; }
-        public String getOrganizationId() { return organizationId; }
-        public Boolean getEnabled() { return enabled; }
-        public Integer getLimit() { return limit; }
-        public Integer getOffset() { return offset; }
-        public String getSortBy() { return sortBy; }
-        public String getSortOrder() { return sortOrder; }
-        public String getSearch() { return search; }
-
-        public static class Builder {
-            private final ListDynamicPoliciesOptions options = new ListDynamicPoliciesOptions();
-
-            /**
-             * Filter by policy type: "risk", "content", "user", "cost".
-             *
-             * @param type the policy type
-             * @return this builder
-             */
-            public Builder type(String type) {
-                options.type = type;
-                return this;
-            }
-
-            /**
-             * Filters policies by tier.
-             *
-             * @param tier the policy tier
-             * @return this builder
-             */
-            public Builder tier(PolicyTier tier) {
-                options.tier = tier;
-                return this;
-            }
-
-            /**
-             * Filters policies by organization ID (Enterprise).
-             *
-             * @param organizationId the organization ID
-             * @return this builder
-             */
-            public Builder organizationId(String organizationId) {
-                options.organizationId = organizationId;
-                return this;
-            }
-
-            public Builder enabled(Boolean enabled) {
-                options.enabled = enabled;
-                return this;
-            }
-
-            public Builder limit(Integer limit) {
-                options.limit = limit;
-                return this;
-            }
-
-            public Builder offset(Integer offset) {
-                options.offset = offset;
-                return this;
-            }
-
-            public Builder sortBy(String sortBy) {
-                options.sortBy = sortBy;
-                return this;
-            }
-
-            public Builder sortOrder(String sortOrder) {
-                options.sortOrder = sortOrder;
-                return this;
-            }
-
-            public Builder search(String search) {
-                options.search = search;
-                return this;
-            }
-
-            public ListDynamicPoliciesOptions build() {
-                return options;
-            }
-        }
+    public void setTier(PolicyTier tier) {
+      this.tier = tier;
     }
 
-    /**
-     * Request to create a dynamic policy.
-     *
-     * <p>For provider restrictions, use action config with "allowed_providers" key:
-     * <pre>{@code
-     * List<DynamicPolicyAction> actions = List.of(
-     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
-     * );
-     * }</pre>
-     */
-    public static class CreateDynamicPolicyRequest {
-        private String name;
-        private String description;
-        private String type;  // "risk", "content", "user", "cost"
-        private String category;  // "dynamic-risk", "dynamic-compliance", etc.
-        private PolicyTier tier = PolicyTier.TENANT;
-        @JsonProperty("organization_id")
-        private String organizationId;
-        private List<DynamicPolicyCondition> conditions;
-        private List<DynamicPolicyAction> actions;
-        private int priority;
-        private boolean enabled = true;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public String getName() { return name; }
-        public String getDescription() { return description; }
-        public String getType() { return type; }
-        public String getCategory() { return category; }
-        public PolicyTier getTier() { return tier; }
-        public String getOrganizationId() { return organizationId; }
-        public List<DynamicPolicyCondition> getConditions() { return conditions; }
-        public List<DynamicPolicyAction> getActions() { return actions; }
-        public int getPriority() { return priority; }
-        public boolean isEnabled() { return enabled; }
-
-        public static class Builder {
-            private final CreateDynamicPolicyRequest request = new CreateDynamicPolicyRequest();
-
-            public Builder name(String name) {
-                request.name = name;
-                return this;
-            }
-
-            public Builder description(String description) {
-                request.description = description;
-                return this;
-            }
-
-            /**
-             * Sets the policy type: "risk", "content", "user", "cost".
-             *
-             * @param type the policy type
-             * @return this builder
-             */
-            public Builder type(String type) {
-                request.type = type;
-                return this;
-            }
-
-            /**
-             * Sets the policy category. Must start with "dynamic-".
-             * Examples: "dynamic-risk", "dynamic-compliance", "dynamic-security", "dynamic-cost", "dynamic-access".
-             *
-             * @param category the policy category
-             * @return this builder
-             */
-            public Builder category(String category) {
-                request.category = category;
-                return this;
-            }
-
-            /**
-             * Sets the policy tier. Defaults to {@link PolicyTier#TENANT}.
-             *
-             * @param tier the policy tier
-             * @return this builder
-             */
-            public Builder tier(PolicyTier tier) {
-                request.tier = tier;
-                return this;
-            }
-
-            /**
-             * Sets the organization ID for organization-tier policies (Enterprise).
-             *
-             * @param organizationId the organization ID
-             * @return this builder
-             */
-            public Builder organizationId(String organizationId) {
-                request.organizationId = organizationId;
-                return this;
-            }
-
-            public Builder conditions(List<DynamicPolicyCondition> conditions) {
-                request.conditions = conditions;
-                return this;
-            }
-
-            public Builder actions(List<DynamicPolicyAction> actions) {
-                request.actions = actions;
-                return this;
-            }
-
-            public Builder priority(int priority) {
-                request.priority = priority;
-                return this;
-            }
-
-            public Builder enabled(boolean enabled) {
-                request.enabled = enabled;
-                return this;
-            }
-
-            public CreateDynamicPolicyRequest build() {
-                return request;
-            }
-        }
+    public String getPattern() {
+      return pattern;
     }
 
-    /**
-     * Request to update a dynamic policy.
-     *
-     * <p>For provider restrictions, use action config with "allowed_providers" key:
-     * <pre>{@code
-     * List<DynamicPolicyAction> actions = List.of(
-     *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
-     * );
-     * }</pre>
-     */
-    public static class UpdateDynamicPolicyRequest {
-        private String name;
-        private String description;
-        private String type;
-        private String category;
-        private PolicyTier tier;
-        @JsonProperty("organization_id")
-        private String organizationId;
-        private List<DynamicPolicyCondition> conditions;
-        private List<DynamicPolicyAction> actions;
-        private Integer priority;
-        private Boolean enabled;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public String getName() { return name; }
-        public String getDescription() { return description; }
-        public String getType() { return type; }
-        public String getCategory() { return category; }
-        public PolicyTier getTier() { return tier; }
-        public String getOrganizationId() { return organizationId; }
-        public List<DynamicPolicyCondition> getConditions() { return conditions; }
-        public List<DynamicPolicyAction> getActions() { return actions; }
-        public Integer getPriority() { return priority; }
-        public Boolean getEnabled() { return enabled; }
-
-        public static class Builder {
-            private final UpdateDynamicPolicyRequest request = new UpdateDynamicPolicyRequest();
-
-            public Builder name(String name) {
-                request.name = name;
-                return this;
-            }
-
-            public Builder description(String description) {
-                request.description = description;
-                return this;
-            }
-
-            public Builder type(String type) {
-                request.type = type;
-                return this;
-            }
-
-            /**
-             * Sets the policy category. Must start with "dynamic-" if specified.
-             *
-             * @param category the policy category
-             * @return this builder
-             */
-            public Builder category(String category) {
-                request.category = category;
-                return this;
-            }
-
-            /**
-             * Sets the policy tier.
-             *
-             * @param tier the policy tier
-             * @return this builder
-             */
-            public Builder tier(PolicyTier tier) {
-                request.tier = tier;
-                return this;
-            }
-
-            /**
-             * Sets the organization ID for organization-tier policies (Enterprise).
-             *
-             * @param organizationId the organization ID
-             * @return this builder
-             */
-            public Builder organizationId(String organizationId) {
-                request.organizationId = organizationId;
-                return this;
-            }
-
-            public Builder conditions(List<DynamicPolicyCondition> conditions) {
-                request.conditions = conditions;
-                return this;
-            }
-
-            public Builder actions(List<DynamicPolicyAction> actions) {
-                request.actions = actions;
-                return this;
-            }
-
-            public Builder priority(Integer priority) {
-                request.priority = priority;
-                return this;
-            }
-
-            public Builder enabled(Boolean enabled) {
-                request.enabled = enabled;
-                return this;
-            }
-
-            public UpdateDynamicPolicyRequest build() {
-                return request;
-            }
-        }
+    public void setPattern(String pattern) {
+      this.pattern = pattern;
     }
 
-    // ========================================================================
-    // Pattern Testing Types
-    // ========================================================================
-
-    /**
-     * Result of testing a regex pattern.
-     */
-    public static class TestPatternResult {
-        private boolean valid;
-        private String error;
-        private String pattern;
-        private List<String> inputs;
-        private List<TestPatternMatch> matches;
-
-        public boolean isValid() { return valid; }
-        public void setValid(boolean valid) { this.valid = valid; }
-        public String getError() { return error; }
-        public void setError(String error) { this.error = error; }
-        public String getPattern() { return pattern; }
-        public void setPattern(String pattern) { this.pattern = pattern; }
-        public List<String> getInputs() { return inputs; }
-        public void setInputs(List<String> inputs) { this.inputs = inputs; }
-        public List<TestPatternMatch> getMatches() { return matches; }
-        public void setMatches(List<TestPatternMatch> matches) { this.matches = matches; }
+    public PolicySeverity getSeverity() {
+      return severity;
     }
 
-    /**
-     * Individual pattern match result.
-     */
-    public static class TestPatternMatch {
-        private String input;
-        private boolean matched;
-        @JsonProperty("matched_text")
-        private String matchedText;
-        private Integer position;
-
-        public String getInput() { return input; }
-        public void setInput(String input) { this.input = input; }
-        public boolean isMatched() { return matched; }
-        public void setMatched(boolean matched) { this.matched = matched; }
-        public String getMatchedText() { return matchedText; }
-        public void setMatchedText(String matchedText) { this.matchedText = matchedText; }
-        public Integer getPosition() { return position; }
-        public void setPosition(Integer position) { this.position = position; }
+    public void setSeverity(PolicySeverity severity) {
+      this.severity = severity;
     }
 
-    // ========================================================================
-    // Policy Version Types
-    // ========================================================================
-
-    /**
-     * Policy version history entry.
-     */
-    public static class PolicyVersion {
-        private int version;
-        @JsonProperty("changed_by")
-        private String changedBy;
-        @JsonProperty("changed_at")
-        private Instant changedAt;
-        @JsonProperty("change_type")
-        private String changeType;
-        @JsonProperty("change_description")
-        private String changeDescription;
-        @JsonProperty("previous_values")
-        private Map<String, Object> previousValues;
-        @JsonProperty("new_values")
-        private Map<String, Object> newValues;
-
-        public int getVersion() { return version; }
-        public void setVersion(int version) { this.version = version; }
-        public String getChangedBy() { return changedBy; }
-        public void setChangedBy(String changedBy) { this.changedBy = changedBy; }
-        public Instant getChangedAt() { return changedAt; }
-        public void setChangedAt(Instant changedAt) { this.changedAt = changedAt; }
-        public String getChangeType() { return changeType; }
-        public void setChangeType(String changeType) { this.changeType = changeType; }
-        public String getChangeDescription() { return changeDescription; }
-        public void setChangeDescription(String changeDescription) { this.changeDescription = changeDescription; }
-        public Map<String, Object> getPreviousValues() { return previousValues; }
-        public void setPreviousValues(Map<String, Object> previousValues) { this.previousValues = previousValues; }
-        public Map<String, Object> getNewValues() { return newValues; }
-        public void setNewValues(Map<String, Object> newValues) { this.newValues = newValues; }
+    public boolean isEnabled() {
+      return enabled;
     }
 
-    /**
-     * Options for getting effective policies.
-     */
-    public static class EffectivePoliciesOptions {
-        private PolicyCategory category;
-        private boolean includeDisabled;
-        private boolean includeOverridden;
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public PolicyCategory getCategory() { return category; }
-        public boolean isIncludeDisabled() { return includeDisabled; }
-        public boolean isIncludeOverridden() { return includeOverridden; }
-
-        public static class Builder {
-            private final EffectivePoliciesOptions options = new EffectivePoliciesOptions();
-
-            public Builder category(PolicyCategory category) {
-                options.category = category;
-                return this;
-            }
-
-            public Builder includeDisabled(boolean includeDisabled) {
-                options.includeDisabled = includeDisabled;
-                return this;
-            }
-
-            public Builder includeOverridden(boolean includeOverridden) {
-                options.includeOverridden = includeOverridden;
-                return this;
-            }
-
-            public EffectivePoliciesOptions build() {
-                return options;
-            }
-        }
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
     }
 
-    // ========================================================================
-    // Response Wrappers
-    // ========================================================================
-
-    /**
-     * Wrapper for list static policies response.
-     */
-    public static class StaticPoliciesResponse {
-        private List<StaticPolicy> policies;
-
-        public List<StaticPolicy> getPolicies() { return policies; }
-        public void setPolicies(List<StaticPolicy> policies) { this.policies = policies; }
+    public PolicyAction getAction() {
+      return action;
     }
 
-    /**
-     * Wrapper for effective policies response.
-     */
-    public static class EffectivePoliciesResponse {
-        @JsonProperty("static")
-        private List<StaticPolicy> staticPolicies;
-        @JsonProperty("dynamic")
-        private List<DynamicPolicy> dynamicPolicies;
-
-        public List<StaticPolicy> getStaticPolicies() { return staticPolicies; }
-        public void setStaticPolicies(List<StaticPolicy> staticPolicies) { this.staticPolicies = staticPolicies; }
-        public List<DynamicPolicy> getDynamicPolicies() { return dynamicPolicies; }
-        public void setDynamicPolicies(List<DynamicPolicy> dynamicPolicies) { this.dynamicPolicies = dynamicPolicies; }
+    public void setAction(PolicyAction action) {
+      this.action = action;
     }
 
-    /**
-     * Wrapper for list dynamic policies response.
-     * Agent proxy (Issue #886) returns {"policies": [...]} wrapper.
-     */
-    public static class DynamicPoliciesResponse {
-        private List<DynamicPolicy> policies;
-
-        public List<DynamicPolicy> getPolicies() { return policies; }
-        public void setPolicies(List<DynamicPolicy> policies) { this.policies = policies; }
+    public String getOrganizationId() {
+      return organizationId;
     }
 
-    /**
-     * Wrapper for single dynamic policy response.
-     * Agent proxy (Issue #886) returns {"policy": {...}} wrapper.
-     */
-    public static class DynamicPolicyResponse {
-        private DynamicPolicy policy;
-
-        public DynamicPolicy getPolicy() { return policy; }
-        public void setPolicy(DynamicPolicy policy) { this.policy = policy; }
+    public void setOrganizationId(String organizationId) {
+      this.organizationId = organizationId;
     }
+
+    public String getTenantId() {
+      return tenantId;
+    }
+
+    public void setTenantId(String tenantId) {
+      this.tenantId = tenantId;
+    }
+
+    public Instant getCreatedAt() {
+      return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+      this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+      return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+      this.updatedAt = updatedAt;
+    }
+
+    public Integer getVersion() {
+      return version;
+    }
+
+    public void setVersion(Integer version) {
+      this.version = version;
+    }
+
+    public Boolean getHasOverride() {
+      return hasOverride;
+    }
+
+    public void setHasOverride(Boolean hasOverride) {
+      this.hasOverride = hasOverride;
+    }
+
+    public PolicyOverride getOverride() {
+      return override;
+    }
+
+    public void setOverride(PolicyOverride override) {
+      this.override = override;
+    }
+  }
+
+  /** Policy override configuration. */
+  public static class PolicyOverride {
+    @JsonProperty("policy_id")
+    private String policyId;
+
+    @JsonProperty("action_override")
+    private OverrideAction actionOverride;
+
+    @JsonProperty("override_reason")
+    private String overrideReason;
+
+    @JsonProperty("created_by")
+    private String createdBy;
+
+    @JsonProperty("created_at")
+    private Instant createdAt;
+
+    @JsonProperty("expires_at")
+    private Instant expiresAt;
+
+    private boolean active;
+
+    // Getters and setters
+    public String getPolicyId() {
+      return policyId;
+    }
+
+    public void setPolicyId(String policyId) {
+      this.policyId = policyId;
+    }
+
+    public OverrideAction getActionOverride() {
+      return actionOverride;
+    }
+
+    public void setActionOverride(OverrideAction actionOverride) {
+      this.actionOverride = actionOverride;
+    }
+
+    public String getOverrideReason() {
+      return overrideReason;
+    }
+
+    public void setOverrideReason(String overrideReason) {
+      this.overrideReason = overrideReason;
+    }
+
+    public String getCreatedBy() {
+      return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+      this.createdBy = createdBy;
+    }
+
+    public Instant getCreatedAt() {
+      return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+      this.createdAt = createdAt;
+    }
+
+    public Instant getExpiresAt() {
+      return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+      this.expiresAt = expiresAt;
+    }
+
+    public boolean isActive() {
+      return active;
+    }
+
+    public void setActive(boolean active) {
+      this.active = active;
+    }
+  }
+
+  /** Options for listing static policies. */
+  public static class ListStaticPoliciesOptions {
+    private PolicyCategory category;
+    private PolicyTier tier;
+    private String organizationId;
+    private Boolean enabled;
+    private Integer limit;
+    private Integer offset;
+    private String sortBy;
+    private String sortOrder;
+    private String search;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public PolicyCategory getCategory() {
+      return category;
+    }
+
+    public PolicyTier getTier() {
+      return tier;
+    }
+
+    public String getOrganizationId() {
+      return organizationId;
+    }
+
+    public Boolean getEnabled() {
+      return enabled;
+    }
+
+    public Integer getLimit() {
+      return limit;
+    }
+
+    public Integer getOffset() {
+      return offset;
+    }
+
+    public String getSortBy() {
+      return sortBy;
+    }
+
+    public String getSortOrder() {
+      return sortOrder;
+    }
+
+    public String getSearch() {
+      return search;
+    }
+
+    public static class Builder {
+      private final ListStaticPoliciesOptions options = new ListStaticPoliciesOptions();
+
+      public Builder category(PolicyCategory category) {
+        options.category = category;
+        return this;
+      }
+
+      public Builder tier(PolicyTier tier) {
+        options.tier = tier;
+        return this;
+      }
+
+      /**
+       * Filters policies by organization ID (Enterprise).
+       *
+       * @param organizationId the organization ID
+       * @return this builder
+       */
+      public Builder organizationId(String organizationId) {
+        options.organizationId = organizationId;
+        return this;
+      }
+
+      public Builder enabled(Boolean enabled) {
+        options.enabled = enabled;
+        return this;
+      }
+
+      public Builder limit(Integer limit) {
+        options.limit = limit;
+        return this;
+      }
+
+      public Builder offset(Integer offset) {
+        options.offset = offset;
+        return this;
+      }
+
+      public Builder sortBy(String sortBy) {
+        options.sortBy = sortBy;
+        return this;
+      }
+
+      public Builder sortOrder(String sortOrder) {
+        options.sortOrder = sortOrder;
+        return this;
+      }
+
+      public Builder search(String search) {
+        options.search = search;
+        return this;
+      }
+
+      public ListStaticPoliciesOptions build() {
+        return options;
+      }
+    }
+  }
+
+  /** Request to create a new static policy. */
+  public static class CreateStaticPolicyRequest {
+    private String name;
+    private String description;
+    private PolicyCategory category;
+    private PolicyTier tier = PolicyTier.TENANT;
+
+    @JsonProperty("organization_id")
+    private String organizationId;
+
+    private String pattern;
+    private PolicySeverity severity = PolicySeverity.MEDIUM;
+    private boolean enabled = true;
+    private PolicyAction action = PolicyAction.BLOCK;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public PolicyCategory getCategory() {
+      return category;
+    }
+
+    public PolicyTier getTier() {
+      return tier;
+    }
+
+    public String getOrganizationId() {
+      return organizationId;
+    }
+
+    public String getPattern() {
+      return pattern;
+    }
+
+    public PolicySeverity getSeverity() {
+      return severity;
+    }
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public PolicyAction getAction() {
+      return action;
+    }
+
+    public static class Builder {
+      private final CreateStaticPolicyRequest request = new CreateStaticPolicyRequest();
+
+      public Builder name(String name) {
+        request.name = name;
+        return this;
+      }
+
+      public Builder description(String description) {
+        request.description = description;
+        return this;
+      }
+
+      public Builder category(PolicyCategory category) {
+        request.category = category;
+        return this;
+      }
+
+      public Builder tier(PolicyTier tier) {
+        request.tier = tier;
+        return this;
+      }
+
+      /**
+       * Sets the organization ID for organization-tier policies (Enterprise).
+       *
+       * @param organizationId the organization ID
+       * @return this builder
+       */
+      public Builder organizationId(String organizationId) {
+        request.organizationId = organizationId;
+        return this;
+      }
+
+      public Builder pattern(String pattern) {
+        request.pattern = pattern;
+        return this;
+      }
+
+      public Builder severity(PolicySeverity severity) {
+        request.severity = severity;
+        return this;
+      }
+
+      public Builder enabled(boolean enabled) {
+        request.enabled = enabled;
+        return this;
+      }
+
+      public Builder action(PolicyAction action) {
+        request.action = action;
+        return this;
+      }
+
+      public CreateStaticPolicyRequest build() {
+        return request;
+      }
+    }
+  }
+
+  /** Request to update an existing static policy. */
+  public static class UpdateStaticPolicyRequest {
+    private String name;
+    private String description;
+    private PolicyCategory category;
+    private String pattern;
+    private PolicySeverity severity;
+    private Boolean enabled;
+    private PolicyAction action;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public PolicyCategory getCategory() {
+      return category;
+    }
+
+    public String getPattern() {
+      return pattern;
+    }
+
+    public PolicySeverity getSeverity() {
+      return severity;
+    }
+
+    public Boolean getEnabled() {
+      return enabled;
+    }
+
+    public PolicyAction getAction() {
+      return action;
+    }
+
+    public static class Builder {
+      private final UpdateStaticPolicyRequest request = new UpdateStaticPolicyRequest();
+
+      public Builder name(String name) {
+        request.name = name;
+        return this;
+      }
+
+      public Builder description(String description) {
+        request.description = description;
+        return this;
+      }
+
+      public Builder category(PolicyCategory category) {
+        request.category = category;
+        return this;
+      }
+
+      public Builder pattern(String pattern) {
+        request.pattern = pattern;
+        return this;
+      }
+
+      public Builder severity(PolicySeverity severity) {
+        request.severity = severity;
+        return this;
+      }
+
+      public Builder enabled(Boolean enabled) {
+        request.enabled = enabled;
+        return this;
+      }
+
+      public Builder action(PolicyAction action) {
+        request.action = action;
+        return this;
+      }
+
+      public UpdateStaticPolicyRequest build() {
+        return request;
+      }
+    }
+  }
+
+  /** Request to create a policy override. */
+  public static class CreatePolicyOverrideRequest {
+    @JsonProperty("action_override")
+    private OverrideAction actionOverride;
+
+    @JsonProperty("override_reason")
+    private String overrideReason;
+
+    @JsonProperty("expires_at")
+    private Instant expiresAt;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public OverrideAction getActionOverride() {
+      return actionOverride;
+    }
+
+    public String getOverrideReason() {
+      return overrideReason;
+    }
+
+    public Instant getExpiresAt() {
+      return expiresAt;
+    }
+
+    public static class Builder {
+      private final CreatePolicyOverrideRequest request = new CreatePolicyOverrideRequest();
+
+      public Builder actionOverride(OverrideAction actionOverride) {
+        request.actionOverride = actionOverride;
+        return this;
+      }
+
+      public Builder overrideReason(String overrideReason) {
+        request.overrideReason = overrideReason;
+        return this;
+      }
+
+      public Builder expiresAt(Instant expiresAt) {
+        request.expiresAt = expiresAt;
+        return this;
+      }
+
+      public CreatePolicyOverrideRequest build() {
+        return request;
+      }
+    }
+  }
+
+  // ========================================================================
+  // Dynamic Policy Types
+  // ========================================================================
+
+  /** Condition for dynamic policy evaluation. */
+  public static class DynamicPolicyCondition {
+    private String field;
+    private String operator;
+    private Object value;
+
+    public DynamicPolicyCondition() {}
+
+    public DynamicPolicyCondition(String field, String operator, Object value) {
+      this.field = field;
+      this.operator = operator;
+      this.value = value;
+    }
+
+    public String getField() {
+      return field;
+    }
+
+    public void setField(String field) {
+      this.field = field;
+    }
+
+    public String getOperator() {
+      return operator;
+    }
+
+    public void setOperator(String operator) {
+      this.operator = operator;
+    }
+
+    public Object getValue() {
+      return value;
+    }
+
+    public void setValue(Object value) {
+      this.value = value;
+    }
+  }
+
+  /** Action to take when dynamic policy conditions are met. */
+  public static class DynamicPolicyAction {
+    private String type; // "block", "alert", "redact", "log", "route", "modify_risk"
+    private Map<String, Object> config;
+
+    public DynamicPolicyAction() {}
+
+    public DynamicPolicyAction(String type, Map<String, Object> config) {
+      this.type = type;
+      this.config = config;
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public void setType(String type) {
+      this.type = type;
+    }
+
+    public Map<String, Object> getConfig() {
+      return config;
+    }
+
+    public void setConfig(Map<String, Object> config) {
+      this.config = config;
+    }
+  }
+
+  /**
+   * Dynamic policy definition.
+   *
+   * <p>Dynamic policies are LLM-powered policies that can evaluate complex, context-aware rules
+   * that can't be expressed with simple regex patterns.
+   *
+   * <p>For provider restrictions (GDPR, HIPAA, RBI compliance), use action config:
+   *
+   * <pre>{@code
+   * List<DynamicPolicyAction> actions = List.of(
+   *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+   * );
+   * }</pre>
+   */
+  public static class DynamicPolicy {
+    private String id;
+    private String name;
+    private String description;
+    private String type; // "risk", "content", "user", "cost"
+    private String category; // "dynamic-risk", "dynamic-compliance", etc.
+    private PolicyTier tier;
+
+    @JsonProperty("organization_id")
+    private String organizationId;
+
+    private List<DynamicPolicyCondition> conditions;
+    private List<DynamicPolicyAction> actions;
+    private int priority;
+    private boolean enabled;
+
+    @JsonProperty("created_at")
+    private Instant createdAt;
+
+    @JsonProperty("updated_at")
+    private Instant updatedAt;
+
+    // Getters and setters
+    public String getId() {
+      return id;
+    }
+
+    public void setId(String id) {
+      this.id = id;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public void setName(String name) {
+      this.name = name;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public void setDescription(String description) {
+      this.description = description;
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public void setType(String type) {
+      this.type = type;
+    }
+
+    public String getCategory() {
+      return category;
+    }
+
+    public void setCategory(String category) {
+      this.category = category;
+    }
+
+    public PolicyTier getTier() {
+      return tier;
+    }
+
+    public void setTier(PolicyTier tier) {
+      this.tier = tier;
+    }
+
+    public String getOrganizationId() {
+      return organizationId;
+    }
+
+    public void setOrganizationId(String organizationId) {
+      this.organizationId = organizationId;
+    }
+
+    public List<DynamicPolicyCondition> getConditions() {
+      return conditions;
+    }
+
+    public void setConditions(List<DynamicPolicyCondition> conditions) {
+      this.conditions = conditions;
+    }
+
+    public List<DynamicPolicyAction> getActions() {
+      return actions;
+    }
+
+    public void setActions(List<DynamicPolicyAction> actions) {
+      this.actions = actions;
+    }
+
+    public int getPriority() {
+      return priority;
+    }
+
+    public void setPriority(int priority) {
+      this.priority = priority;
+    }
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public Instant getCreatedAt() {
+      return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+      this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+      return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+      this.updatedAt = updatedAt;
+    }
+  }
+
+  /** Options for listing dynamic policies. */
+  public static class ListDynamicPoliciesOptions {
+    private String type; // Filter by policy type: "risk", "content", "user", "cost"
+    private PolicyTier tier;
+    private String organizationId;
+    private Boolean enabled;
+    private Integer limit;
+    private Integer offset;
+    private String sortBy;
+    private String sortOrder;
+    private String search;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public PolicyTier getTier() {
+      return tier;
+    }
+
+    public String getOrganizationId() {
+      return organizationId;
+    }
+
+    public Boolean getEnabled() {
+      return enabled;
+    }
+
+    public Integer getLimit() {
+      return limit;
+    }
+
+    public Integer getOffset() {
+      return offset;
+    }
+
+    public String getSortBy() {
+      return sortBy;
+    }
+
+    public String getSortOrder() {
+      return sortOrder;
+    }
+
+    public String getSearch() {
+      return search;
+    }
+
+    public static class Builder {
+      private final ListDynamicPoliciesOptions options = new ListDynamicPoliciesOptions();
+
+      /**
+       * Filter by policy type: "risk", "content", "user", "cost".
+       *
+       * @param type the policy type
+       * @return this builder
+       */
+      public Builder type(String type) {
+        options.type = type;
+        return this;
+      }
+
+      /**
+       * Filters policies by tier.
+       *
+       * @param tier the policy tier
+       * @return this builder
+       */
+      public Builder tier(PolicyTier tier) {
+        options.tier = tier;
+        return this;
+      }
+
+      /**
+       * Filters policies by organization ID (Enterprise).
+       *
+       * @param organizationId the organization ID
+       * @return this builder
+       */
+      public Builder organizationId(String organizationId) {
+        options.organizationId = organizationId;
+        return this;
+      }
+
+      public Builder enabled(Boolean enabled) {
+        options.enabled = enabled;
+        return this;
+      }
+
+      public Builder limit(Integer limit) {
+        options.limit = limit;
+        return this;
+      }
+
+      public Builder offset(Integer offset) {
+        options.offset = offset;
+        return this;
+      }
+
+      public Builder sortBy(String sortBy) {
+        options.sortBy = sortBy;
+        return this;
+      }
+
+      public Builder sortOrder(String sortOrder) {
+        options.sortOrder = sortOrder;
+        return this;
+      }
+
+      public Builder search(String search) {
+        options.search = search;
+        return this;
+      }
+
+      public ListDynamicPoliciesOptions build() {
+        return options;
+      }
+    }
+  }
+
+  /**
+   * Request to create a dynamic policy.
+   *
+   * <p>For provider restrictions, use action config with "allowed_providers" key:
+   *
+   * <pre>{@code
+   * List<DynamicPolicyAction> actions = List.of(
+   *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+   * );
+   * }</pre>
+   */
+  public static class CreateDynamicPolicyRequest {
+    private String name;
+    private String description;
+    private String type; // "risk", "content", "user", "cost"
+    private String category; // "dynamic-risk", "dynamic-compliance", etc.
+    private PolicyTier tier = PolicyTier.TENANT;
+
+    @JsonProperty("organization_id")
+    private String organizationId;
+
+    private List<DynamicPolicyCondition> conditions;
+    private List<DynamicPolicyAction> actions;
+    private int priority;
+    private boolean enabled = true;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public String getCategory() {
+      return category;
+    }
+
+    public PolicyTier getTier() {
+      return tier;
+    }
+
+    public String getOrganizationId() {
+      return organizationId;
+    }
+
+    public List<DynamicPolicyCondition> getConditions() {
+      return conditions;
+    }
+
+    public List<DynamicPolicyAction> getActions() {
+      return actions;
+    }
+
+    public int getPriority() {
+      return priority;
+    }
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public static class Builder {
+      private final CreateDynamicPolicyRequest request = new CreateDynamicPolicyRequest();
+
+      public Builder name(String name) {
+        request.name = name;
+        return this;
+      }
+
+      public Builder description(String description) {
+        request.description = description;
+        return this;
+      }
+
+      /**
+       * Sets the policy type: "risk", "content", "user", "cost".
+       *
+       * @param type the policy type
+       * @return this builder
+       */
+      public Builder type(String type) {
+        request.type = type;
+        return this;
+      }
+
+      /**
+       * Sets the policy category. Must start with "dynamic-". Examples: "dynamic-risk",
+       * "dynamic-compliance", "dynamic-security", "dynamic-cost", "dynamic-access".
+       *
+       * @param category the policy category
+       * @return this builder
+       */
+      public Builder category(String category) {
+        request.category = category;
+        return this;
+      }
+
+      /**
+       * Sets the policy tier. Defaults to {@link PolicyTier#TENANT}.
+       *
+       * @param tier the policy tier
+       * @return this builder
+       */
+      public Builder tier(PolicyTier tier) {
+        request.tier = tier;
+        return this;
+      }
+
+      /**
+       * Sets the organization ID for organization-tier policies (Enterprise).
+       *
+       * @param organizationId the organization ID
+       * @return this builder
+       */
+      public Builder organizationId(String organizationId) {
+        request.organizationId = organizationId;
+        return this;
+      }
+
+      public Builder conditions(List<DynamicPolicyCondition> conditions) {
+        request.conditions = conditions;
+        return this;
+      }
+
+      public Builder actions(List<DynamicPolicyAction> actions) {
+        request.actions = actions;
+        return this;
+      }
+
+      public Builder priority(int priority) {
+        request.priority = priority;
+        return this;
+      }
+
+      public Builder enabled(boolean enabled) {
+        request.enabled = enabled;
+        return this;
+      }
+
+      public CreateDynamicPolicyRequest build() {
+        return request;
+      }
+    }
+  }
+
+  /**
+   * Request to update a dynamic policy.
+   *
+   * <p>For provider restrictions, use action config with "allowed_providers" key:
+   *
+   * <pre>{@code
+   * List<DynamicPolicyAction> actions = List.of(
+   *     new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))
+   * );
+   * }</pre>
+   */
+  public static class UpdateDynamicPolicyRequest {
+    private String name;
+    private String description;
+    private String type;
+    private String category;
+    private PolicyTier tier;
+
+    @JsonProperty("organization_id")
+    private String organizationId;
+
+    private List<DynamicPolicyCondition> conditions;
+    private List<DynamicPolicyAction> actions;
+    private Integer priority;
+    private Boolean enabled;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public String getDescription() {
+      return description;
+    }
+
+    public String getType() {
+      return type;
+    }
+
+    public String getCategory() {
+      return category;
+    }
+
+    public PolicyTier getTier() {
+      return tier;
+    }
+
+    public String getOrganizationId() {
+      return organizationId;
+    }
+
+    public List<DynamicPolicyCondition> getConditions() {
+      return conditions;
+    }
+
+    public List<DynamicPolicyAction> getActions() {
+      return actions;
+    }
+
+    public Integer getPriority() {
+      return priority;
+    }
+
+    public Boolean getEnabled() {
+      return enabled;
+    }
+
+    public static class Builder {
+      private final UpdateDynamicPolicyRequest request = new UpdateDynamicPolicyRequest();
+
+      public Builder name(String name) {
+        request.name = name;
+        return this;
+      }
+
+      public Builder description(String description) {
+        request.description = description;
+        return this;
+      }
+
+      public Builder type(String type) {
+        request.type = type;
+        return this;
+      }
+
+      /**
+       * Sets the policy category. Must start with "dynamic-" if specified.
+       *
+       * @param category the policy category
+       * @return this builder
+       */
+      public Builder category(String category) {
+        request.category = category;
+        return this;
+      }
+
+      /**
+       * Sets the policy tier.
+       *
+       * @param tier the policy tier
+       * @return this builder
+       */
+      public Builder tier(PolicyTier tier) {
+        request.tier = tier;
+        return this;
+      }
+
+      /**
+       * Sets the organization ID for organization-tier policies (Enterprise).
+       *
+       * @param organizationId the organization ID
+       * @return this builder
+       */
+      public Builder organizationId(String organizationId) {
+        request.organizationId = organizationId;
+        return this;
+      }
+
+      public Builder conditions(List<DynamicPolicyCondition> conditions) {
+        request.conditions = conditions;
+        return this;
+      }
+
+      public Builder actions(List<DynamicPolicyAction> actions) {
+        request.actions = actions;
+        return this;
+      }
+
+      public Builder priority(Integer priority) {
+        request.priority = priority;
+        return this;
+      }
+
+      public Builder enabled(Boolean enabled) {
+        request.enabled = enabled;
+        return this;
+      }
+
+      public UpdateDynamicPolicyRequest build() {
+        return request;
+      }
+    }
+  }
+
+  // ========================================================================
+  // Pattern Testing Types
+  // ========================================================================
+
+  /** Result of testing a regex pattern. */
+  public static class TestPatternResult {
+    private boolean valid;
+    private String error;
+    private String pattern;
+    private List<String> inputs;
+    private List<TestPatternMatch> matches;
+
+    public boolean isValid() {
+      return valid;
+    }
+
+    public void setValid(boolean valid) {
+      this.valid = valid;
+    }
+
+    public String getError() {
+      return error;
+    }
+
+    public void setError(String error) {
+      this.error = error;
+    }
+
+    public String getPattern() {
+      return pattern;
+    }
+
+    public void setPattern(String pattern) {
+      this.pattern = pattern;
+    }
+
+    public List<String> getInputs() {
+      return inputs;
+    }
+
+    public void setInputs(List<String> inputs) {
+      this.inputs = inputs;
+    }
+
+    public List<TestPatternMatch> getMatches() {
+      return matches;
+    }
+
+    public void setMatches(List<TestPatternMatch> matches) {
+      this.matches = matches;
+    }
+  }
+
+  /** Individual pattern match result. */
+  public static class TestPatternMatch {
+    private String input;
+    private boolean matched;
+
+    @JsonProperty("matched_text")
+    private String matchedText;
+
+    private Integer position;
+
+    public String getInput() {
+      return input;
+    }
+
+    public void setInput(String input) {
+      this.input = input;
+    }
+
+    public boolean isMatched() {
+      return matched;
+    }
+
+    public void setMatched(boolean matched) {
+      this.matched = matched;
+    }
+
+    public String getMatchedText() {
+      return matchedText;
+    }
+
+    public void setMatchedText(String matchedText) {
+      this.matchedText = matchedText;
+    }
+
+    public Integer getPosition() {
+      return position;
+    }
+
+    public void setPosition(Integer position) {
+      this.position = position;
+    }
+  }
+
+  // ========================================================================
+  // Policy Version Types
+  // ========================================================================
+
+  /** Policy version history entry. */
+  public static class PolicyVersion {
+    private int version;
+
+    @JsonProperty("changed_by")
+    private String changedBy;
+
+    @JsonProperty("changed_at")
+    private Instant changedAt;
+
+    @JsonProperty("change_type")
+    private String changeType;
+
+    @JsonProperty("change_description")
+    private String changeDescription;
+
+    @JsonProperty("previous_values")
+    private Map<String, Object> previousValues;
+
+    @JsonProperty("new_values")
+    private Map<String, Object> newValues;
+
+    public int getVersion() {
+      return version;
+    }
+
+    public void setVersion(int version) {
+      this.version = version;
+    }
+
+    public String getChangedBy() {
+      return changedBy;
+    }
+
+    public void setChangedBy(String changedBy) {
+      this.changedBy = changedBy;
+    }
+
+    public Instant getChangedAt() {
+      return changedAt;
+    }
+
+    public void setChangedAt(Instant changedAt) {
+      this.changedAt = changedAt;
+    }
+
+    public String getChangeType() {
+      return changeType;
+    }
+
+    public void setChangeType(String changeType) {
+      this.changeType = changeType;
+    }
+
+    public String getChangeDescription() {
+      return changeDescription;
+    }
+
+    public void setChangeDescription(String changeDescription) {
+      this.changeDescription = changeDescription;
+    }
+
+    public Map<String, Object> getPreviousValues() {
+      return previousValues;
+    }
+
+    public void setPreviousValues(Map<String, Object> previousValues) {
+      this.previousValues = previousValues;
+    }
+
+    public Map<String, Object> getNewValues() {
+      return newValues;
+    }
+
+    public void setNewValues(Map<String, Object> newValues) {
+      this.newValues = newValues;
+    }
+  }
+
+  /** Options for getting effective policies. */
+  public static class EffectivePoliciesOptions {
+    private PolicyCategory category;
+    private boolean includeDisabled;
+    private boolean includeOverridden;
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public PolicyCategory getCategory() {
+      return category;
+    }
+
+    public boolean isIncludeDisabled() {
+      return includeDisabled;
+    }
+
+    public boolean isIncludeOverridden() {
+      return includeOverridden;
+    }
+
+    public static class Builder {
+      private final EffectivePoliciesOptions options = new EffectivePoliciesOptions();
+
+      public Builder category(PolicyCategory category) {
+        options.category = category;
+        return this;
+      }
+
+      public Builder includeDisabled(boolean includeDisabled) {
+        options.includeDisabled = includeDisabled;
+        return this;
+      }
+
+      public Builder includeOverridden(boolean includeOverridden) {
+        options.includeOverridden = includeOverridden;
+        return this;
+      }
+
+      public EffectivePoliciesOptions build() {
+        return options;
+      }
+    }
+  }
+
+  // ========================================================================
+  // Response Wrappers
+  // ========================================================================
+
+  /** Wrapper for list static policies response. */
+  public static class StaticPoliciesResponse {
+    private List<StaticPolicy> policies;
+
+    public List<StaticPolicy> getPolicies() {
+      return policies;
+    }
+
+    public void setPolicies(List<StaticPolicy> policies) {
+      this.policies = policies;
+    }
+  }
+
+  /** Wrapper for effective policies response. */
+  public static class EffectivePoliciesResponse {
+    @JsonProperty("static")
+    private List<StaticPolicy> staticPolicies;
+
+    @JsonProperty("dynamic")
+    private List<DynamicPolicy> dynamicPolicies;
+
+    public List<StaticPolicy> getStaticPolicies() {
+      return staticPolicies;
+    }
+
+    public void setStaticPolicies(List<StaticPolicy> staticPolicies) {
+      this.staticPolicies = staticPolicies;
+    }
+
+    public List<DynamicPolicy> getDynamicPolicies() {
+      return dynamicPolicies;
+    }
+
+    public void setDynamicPolicies(List<DynamicPolicy> dynamicPolicies) {
+      this.dynamicPolicies = dynamicPolicies;
+    }
+  }
+
+  /**
+   * Wrapper for list dynamic policies response. Agent proxy (Issue #886) returns {"policies":
+   * [...]} wrapper.
+   */
+  public static class DynamicPoliciesResponse {
+    private List<DynamicPolicy> policies;
+
+    public List<DynamicPolicy> getPolicies() {
+      return policies;
+    }
+
+    public void setPolicies(List<DynamicPolicy> policies) {
+      this.policies = policies;
+    }
+  }
+
+  /**
+   * Wrapper for single dynamic policy response. Agent proxy (Issue #886) returns {"policy": {...}}
+   * wrapper.
+   */
+  public static class DynamicPolicyResponse {
+    private DynamicPolicy policy;
+
+    public DynamicPolicy getPolicy() {
+      return policy;
+    }
+
+    public void setPolicy(DynamicPolicy policy) {
+      this.policy = policy;
+    }
+  }
 }
