@@ -17,76 +17,108 @@ package com.getaxonflow.sdk.types;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 import java.util.Objects;
 
 /**
  * Per-tenant media governance configuration.
  *
- * <p>Controls whether media analysis is enabled for a tenant and which
- * analyzers are allowed. Returned by the media governance config API.
+ * <p>Controls whether media analysis is enabled for a tenant and which analyzers are allowed.
+ * Returned by the media governance config API.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MediaGovernanceConfig {
 
-    @JsonProperty("tenant_id")
-    private String tenantId;
+  @JsonProperty("tenant_id")
+  private String tenantId;
 
-    @JsonProperty("enabled")
-    private boolean enabled;
+  @JsonProperty("enabled")
+  private boolean enabled;
 
-    @JsonProperty("allowed_analyzers")
-    private List<String> allowedAnalyzers;
+  @JsonProperty("allowed_analyzers")
+  private List<String> allowedAnalyzers;
 
-    @JsonProperty("updated_at")
-    private String updatedAt;
+  @JsonProperty("updated_at")
+  private String updatedAt;
 
-    @JsonProperty("updated_by")
-    private String updatedBy;
+  @JsonProperty("updated_by")
+  private String updatedBy;
 
-    public MediaGovernanceConfig() {}
+  public MediaGovernanceConfig() {}
 
-    public String getTenantId() { return tenantId; }
-    public void setTenantId(String tenantId) { this.tenantId = tenantId; }
+  public String getTenantId() {
+    return tenantId;
+  }
 
-    public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+  public void setTenantId(String tenantId) {
+    this.tenantId = tenantId;
+  }
 
-    public List<String> getAllowedAnalyzers() { return allowedAnalyzers; }
-    public void setAllowedAnalyzers(List<String> allowedAnalyzers) { this.allowedAnalyzers = allowedAnalyzers; }
+  public boolean isEnabled() {
+    return enabled;
+  }
 
-    public String getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(String updatedAt) { this.updatedAt = updatedAt; }
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
+  }
 
-    public String getUpdatedBy() { return updatedBy; }
-    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
+  public List<String> getAllowedAnalyzers() {
+    return allowedAnalyzers;
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        MediaGovernanceConfig that = (MediaGovernanceConfig) o;
-        return enabled == that.enabled &&
-               Objects.equals(tenantId, that.tenantId) &&
-               Objects.equals(allowedAnalyzers, that.allowedAnalyzers) &&
-               Objects.equals(updatedAt, that.updatedAt) &&
-               Objects.equals(updatedBy, that.updatedBy);
-    }
+  public void setAllowedAnalyzers(List<String> allowedAnalyzers) {
+    this.allowedAnalyzers = allowedAnalyzers;
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(tenantId, enabled, allowedAnalyzers, updatedAt, updatedBy);
-    }
+  public String getUpdatedAt() {
+    return updatedAt;
+  }
 
-    @Override
-    public String toString() {
-        return "MediaGovernanceConfig{" +
-               "tenantId='" + tenantId + '\'' +
-               ", enabled=" + enabled +
-               ", allowedAnalyzers=" + allowedAnalyzers +
-               ", updatedAt='" + updatedAt + '\'' +
-               ", updatedBy='" + updatedBy + '\'' +
-               '}';
-    }
+  public void setUpdatedAt(String updatedAt) {
+    this.updatedAt = updatedAt;
+  }
+
+  public String getUpdatedBy() {
+    return updatedBy;
+  }
+
+  public void setUpdatedBy(String updatedBy) {
+    this.updatedBy = updatedBy;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    MediaGovernanceConfig that = (MediaGovernanceConfig) o;
+    return enabled == that.enabled
+        && Objects.equals(tenantId, that.tenantId)
+        && Objects.equals(allowedAnalyzers, that.allowedAnalyzers)
+        && Objects.equals(updatedAt, that.updatedAt)
+        && Objects.equals(updatedBy, that.updatedBy);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(tenantId, enabled, allowedAnalyzers, updatedAt, updatedBy);
+  }
+
+  @Override
+  public String toString() {
+    return "MediaGovernanceConfig{"
+        + "tenantId='"
+        + tenantId
+        + '\''
+        + ", enabled="
+        + enabled
+        + ", allowedAnalyzers="
+        + allowedAnalyzers
+        + ", updatedAt='"
+        + updatedAt
+        + '\''
+        + ", updatedBy='"
+        + updatedBy
+        + '\''
+        + '}';
+  }
 }

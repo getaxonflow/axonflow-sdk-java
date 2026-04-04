@@ -18,81 +18,79 @@ package com.getaxonflow.sdk.exceptions;
 import java.time.Duration;
 import java.time.Instant;
 
-/**
- * Thrown when the rate limit has been exceeded.
- */
+/** Thrown when the rate limit has been exceeded. */
 public class RateLimitException extends AxonFlowException {
 
-    private static final long serialVersionUID = 1L;
+  private static final long serialVersionUID = 1L;
 
-    private final int limit;
-    private final int remaining;
-    private final Instant resetAt;
+  private final int limit;
+  private final int remaining;
+  private final Instant resetAt;
 
-    /**
-     * Creates a new RateLimitException.
-     *
-     * @param message the error message
-     */
-    public RateLimitException(String message) {
-        super(message, 429, "RATE_LIMIT_EXCEEDED");
-        this.limit = 0;
-        this.remaining = 0;
-        this.resetAt = null;
+  /**
+   * Creates a new RateLimitException.
+   *
+   * @param message the error message
+   */
+  public RateLimitException(String message) {
+    super(message, 429, "RATE_LIMIT_EXCEEDED");
+    this.limit = 0;
+    this.remaining = 0;
+    this.resetAt = null;
+  }
+
+  /**
+   * Creates a new RateLimitException with rate limit details.
+   *
+   * @param message the error message
+   * @param limit the maximum requests allowed
+   * @param remaining the remaining requests in the current window
+   * @param resetAt when the rate limit resets
+   */
+  public RateLimitException(String message, int limit, int remaining, Instant resetAt) {
+    super(message, 429, "RATE_LIMIT_EXCEEDED");
+    this.limit = limit;
+    this.remaining = remaining;
+    this.resetAt = resetAt;
+  }
+
+  /**
+   * Returns the maximum number of requests allowed.
+   *
+   * @return the rate limit
+   */
+  public int getLimit() {
+    return limit;
+  }
+
+  /**
+   * Returns the remaining requests in the current window.
+   *
+   * @return the remaining count
+   */
+  public int getRemaining() {
+    return remaining;
+  }
+
+  /**
+   * Returns when the rate limit resets.
+   *
+   * @return the reset time
+   */
+  public Instant getResetAt() {
+    return resetAt;
+  }
+
+  /**
+   * Returns the duration until the rate limit resets.
+   *
+   * @return the duration until reset, or Duration.ZERO if already reset
+   */
+  public Duration getRetryAfter() {
+    if (resetAt == null) {
+      return Duration.ZERO;
     }
-
-    /**
-     * Creates a new RateLimitException with rate limit details.
-     *
-     * @param message   the error message
-     * @param limit     the maximum requests allowed
-     * @param remaining the remaining requests in the current window
-     * @param resetAt   when the rate limit resets
-     */
-    public RateLimitException(String message, int limit, int remaining, Instant resetAt) {
-        super(message, 429, "RATE_LIMIT_EXCEEDED");
-        this.limit = limit;
-        this.remaining = remaining;
-        this.resetAt = resetAt;
-    }
-
-    /**
-     * Returns the maximum number of requests allowed.
-     *
-     * @return the rate limit
-     */
-    public int getLimit() {
-        return limit;
-    }
-
-    /**
-     * Returns the remaining requests in the current window.
-     *
-     * @return the remaining count
-     */
-    public int getRemaining() {
-        return remaining;
-    }
-
-    /**
-     * Returns when the rate limit resets.
-     *
-     * @return the reset time
-     */
-    public Instant getResetAt() {
-        return resetAt;
-    }
-
-    /**
-     * Returns the duration until the rate limit resets.
-     *
-     * @return the duration until reset, or Duration.ZERO if already reset
-     */
-    public Duration getRetryAfter() {
-        if (resetAt == null) {
-            return Duration.ZERO;
-        }
-        Duration duration = Duration.between(Instant.now(), resetAt);
-        return duration.isNegative() ? Duration.ZERO : duration;
-    }
+    Duration duration = Duration.between(Instant.now(), resetAt);
+    return duration.isNegative() ? Duration.ZERO : duration;
+  }
 }

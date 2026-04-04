@@ -17,10 +17,11 @@
 /**
  * Exception types for the AxonFlow SDK.
  *
- * <p>All exceptions extend {@link com.getaxonflow.sdk.exceptions.AxonFlowException},
- * allowing callers to catch all SDK errors with a single catch block.
+ * <p>All exceptions extend {@link com.getaxonflow.sdk.exceptions.AxonFlowException}, allowing
+ * callers to catch all SDK errors with a single catch block.
  *
  * <h2>Exception Hierarchy</h2>
+ *
  * <pre>
  * AxonFlowException (base)
  * ├── AuthenticationException   - Authentication/authorization failures
@@ -35,6 +36,7 @@
  * </pre>
  *
  * <h2>Usage Example</h2>
+ *
  * <pre>{@code
  * try {
  *     axonflow.proxyLLMCall(request);

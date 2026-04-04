@@ -17,8 +17,8 @@
 /**
  * Webhook subscription types for AxonFlow SDK.
  *
- * <p>This package contains types for managing webhook subscriptions including
- * create, read, update, delete, and list operations.
+ * <p>This package contains types for managing webhook subscriptions including create, read, update,
+ * delete, and list operations.
  *
  * @see com.getaxonflow.sdk.types.webhook.WebhookTypes
  * @see com.getaxonflow.sdk.AxonFlow#createWebhook

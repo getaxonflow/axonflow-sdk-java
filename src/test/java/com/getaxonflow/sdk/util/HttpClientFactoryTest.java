@@ -15,76 +15,70 @@
  */
 package com.getaxonflow.sdk.util;
 
-import com.getaxonflow.sdk.AxonFlowConfig;
-import okhttp3.OkHttpClient;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
-
-import java.time.Duration;
-
 import static org.assertj.core.api.Assertions.*;
+
+import com.getaxonflow.sdk.AxonFlowConfig;
+import java.time.Duration;
+import okhttp3.OkHttpClient;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 @DisplayName("HttpClientFactory")
 class HttpClientFactoryTest {
 
-    @Test
-    @DisplayName("should create client with default config")
-    void shouldCreateClientWithDefaultConfig() {
-        AxonFlowConfig config = AxonFlowConfig.builder()
-            .agentUrl("http://localhost:8080")
-            .build();
+  @Test
+  @DisplayName("should create client with default config")
+  void shouldCreateClientWithDefaultConfig() {
+    AxonFlowConfig config = AxonFlowConfig.builder().agentUrl("http://localhost:8080").build();
 
-        OkHttpClient client = HttpClientFactory.create(config);
+    OkHttpClient client = HttpClientFactory.create(config);
 
-        assertThat(client).isNotNull();
-        // Default timeout is 60 seconds
-        assertThat(client.connectTimeoutMillis()).isEqualTo(60000);
-        assertThat(client.readTimeoutMillis()).isEqualTo(60000);
-        assertThat(client.writeTimeoutMillis()).isEqualTo(60000);
-    }
+    assertThat(client).isNotNull();
+    // Default timeout is 60 seconds
+    assertThat(client.connectTimeoutMillis()).isEqualTo(60000);
+    assertThat(client.readTimeoutMillis()).isEqualTo(60000);
+    assertThat(client.writeTimeoutMillis()).isEqualTo(60000);
+  }
 
-    @Test
-    @DisplayName("should create client with custom timeout")
-    void shouldCreateClientWithCustomTimeout() {
-        AxonFlowConfig config = AxonFlowConfig.builder()
+  @Test
+  @DisplayName("should create client with custom timeout")
+  void shouldCreateClientWithCustomTimeout() {
+    AxonFlowConfig config =
+        AxonFlowConfig.builder()
             .agentUrl("http://localhost:8080")
             .timeout(Duration.ofSeconds(10))
             .build();
 
-        OkHttpClient client = HttpClientFactory.create(config);
+    OkHttpClient client = HttpClientFactory.create(config);
 
-        assertThat(client.connectTimeoutMillis()).isEqualTo(10000);
-        assertThat(client.readTimeoutMillis()).isEqualTo(10000);
-        assertThat(client.writeTimeoutMillis()).isEqualTo(10000);
-    }
+    assertThat(client.connectTimeoutMillis()).isEqualTo(10000);
+    assertThat(client.readTimeoutMillis()).isEqualTo(10000);
+    assertThat(client.writeTimeoutMillis()).isEqualTo(10000);
+  }
 
-    @Test
-    @DisplayName("should create client with debug mode")
-    void shouldCreateClientWithDebugMode() {
-        AxonFlowConfig config = AxonFlowConfig.builder()
-            .agentUrl("http://localhost:8080")
-            .debug(true)
-            .build();
+  @Test
+  @DisplayName("should create client with debug mode")
+  void shouldCreateClientWithDebugMode() {
+    AxonFlowConfig config =
+        AxonFlowConfig.builder().agentUrl("http://localhost:8080").debug(true).build();
 
-        OkHttpClient client = HttpClientFactory.create(config);
+    OkHttpClient client = HttpClientFactory.create(config);
 
-        assertThat(client).isNotNull();
-        // Debug mode adds an interceptor
-        assertThat(client.interceptors()).hasSize(1);
-    }
+    assertThat(client).isNotNull();
+    // Debug mode adds an interceptor
+    assertThat(client.interceptors()).hasSize(1);
+  }
 
-    @Test
-    @DisplayName("should create client with insecure skip verify")
-    void shouldCreateClientWithInsecureSkipVerify() {
-        AxonFlowConfig config = AxonFlowConfig.builder()
-            .agentUrl("http://localhost:8080")
-            .insecureSkipVerify(true)
-            .build();
+  @Test
+  @DisplayName("should create client with insecure skip verify")
+  void shouldCreateClientWithInsecureSkipVerify() {
+    AxonFlowConfig config =
+        AxonFlowConfig.builder().agentUrl("http://localhost:8080").insecureSkipVerify(true).build();
 
-        OkHttpClient client = HttpClientFactory.create(config);
+    OkHttpClient client = HttpClientFactory.create(config);
 
-        assertThat(client).isNotNull();
-        // Should have a custom hostname verifier that accepts all hosts
-        assertThat(client.hostnameVerifier()).isNotNull();
-    }
+    assertThat(client).isNotNull();
+    // Should have a custom hostname verifier that accepts all hosts
+    assertThat(client.hostnameVerifier()).isNotNull();
+  }
 }

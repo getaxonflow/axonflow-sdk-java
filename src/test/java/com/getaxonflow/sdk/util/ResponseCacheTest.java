@@ -15,142 +15,140 @@
  */
 package com.getaxonflow.sdk.util;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.DisplayName;
-
-import java.time.Duration;
-import java.util.Optional;
-
 import static org.assertj.core.api.Assertions.*;
+
+import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 @DisplayName("ResponseCache")
 class ResponseCacheTest {
 
-    @Test
-    @DisplayName("should store and retrieve values")
-    void shouldStoreAndRetrieveValues() {
-        ResponseCache cache = new ResponseCache(CacheConfig.defaults());
+  @Test
+  @DisplayName("should store and retrieve values")
+  void shouldStoreAndRetrieveValues() {
+    ResponseCache cache = new ResponseCache(CacheConfig.defaults());
 
-        String key = "test-key";
-        String value = "test-value";
+    String key = "test-key";
+    String value = "test-value";
 
-        cache.put(key, value);
-        Optional<String> retrieved = cache.get(key, String.class);
+    cache.put(key, value);
+    Optional<String> retrieved = cache.get(key, String.class);
 
-        assertThat(retrieved).isPresent().contains(value);
-    }
+    assertThat(retrieved).isPresent().contains(value);
+  }
 
-    @Test
-    @DisplayName("should return empty for missing keys")
-    void shouldReturnEmptyForMissingKeys() {
-        ResponseCache cache = new ResponseCache(CacheConfig.defaults());
+  @Test
+  @DisplayName("should return empty for missing keys")
+  void shouldReturnEmptyForMissingKeys() {
+    ResponseCache cache = new ResponseCache(CacheConfig.defaults());
 
-        Optional<String> result = cache.get("nonexistent", String.class);
+    Optional<String> result = cache.get("nonexistent", String.class);
 
-        assertThat(result).isEmpty();
-    }
+    assertThat(result).isEmpty();
+  }
 
-    @Test
-    @DisplayName("should return empty for wrong type")
-    void shouldReturnEmptyForWrongType() {
-        ResponseCache cache = new ResponseCache(CacheConfig.defaults());
+  @Test
+  @DisplayName("should return empty for wrong type")
+  void shouldReturnEmptyForWrongType() {
+    ResponseCache cache = new ResponseCache(CacheConfig.defaults());
 
-        cache.put("key", "string-value");
-        Optional<Integer> result = cache.get("key", Integer.class);
+    cache.put("key", "string-value");
+    Optional<Integer> result = cache.get("key", Integer.class);
 
-        assertThat(result).isEmpty();
-    }
+    assertThat(result).isEmpty();
+  }
 
-    @Test
-    @DisplayName("should not cache when disabled")
-    void shouldNotCacheWhenDisabled() {
-        ResponseCache cache = new ResponseCache(CacheConfig.disabled());
+  @Test
+  @DisplayName("should not cache when disabled")
+  void shouldNotCacheWhenDisabled() {
+    ResponseCache cache = new ResponseCache(CacheConfig.disabled());
 
-        cache.put("key", "value");
-        Optional<String> result = cache.get("key", String.class);
+    cache.put("key", "value");
+    Optional<String> result = cache.get("key", String.class);
 
-        assertThat(result).isEmpty();
-    }
+    assertThat(result).isEmpty();
+  }
 
-    @Test
-    @DisplayName("should invalidate specific key")
-    void shouldInvalidateSpecificKey() {
-        ResponseCache cache = new ResponseCache(CacheConfig.defaults());
+  @Test
+  @DisplayName("should invalidate specific key")
+  void shouldInvalidateSpecificKey() {
+    ResponseCache cache = new ResponseCache(CacheConfig.defaults());
 
-        cache.put("key1", "value1");
-        cache.put("key2", "value2");
+    cache.put("key1", "value1");
+    cache.put("key2", "value2");
 
-        cache.invalidate("key1");
+    cache.invalidate("key1");
 
-        assertThat(cache.get("key1", String.class)).isEmpty();
-        assertThat(cache.get("key2", String.class)).isPresent();
-    }
+    assertThat(cache.get("key1", String.class)).isEmpty();
+    assertThat(cache.get("key2", String.class)).isPresent();
+  }
 
-    @Test
-    @DisplayName("should clear all entries")
-    void shouldClearAllEntries() {
-        ResponseCache cache = new ResponseCache(CacheConfig.defaults());
+  @Test
+  @DisplayName("should clear all entries")
+  void shouldClearAllEntries() {
+    ResponseCache cache = new ResponseCache(CacheConfig.defaults());
 
-        cache.put("key1", "value1");
-        cache.put("key2", "value2");
+    cache.put("key1", "value1");
+    cache.put("key2", "value2");
 
-        cache.clear();
+    cache.clear();
 
-        assertThat(cache.get("key1", String.class)).isEmpty();
-        assertThat(cache.get("key2", String.class)).isEmpty();
-    }
+    assertThat(cache.get("key1", String.class)).isEmpty();
+    assertThat(cache.get("key2", String.class)).isEmpty();
+  }
 
-    @Test
-    @DisplayName("should generate consistent cache keys")
-    void shouldGenerateConsistentKeys() {
-        String key1 = ResponseCache.generateKey("chat", "hello", "user-123");
-        String key2 = ResponseCache.generateKey("chat", "hello", "user-123");
-        String key3 = ResponseCache.generateKey("chat", "hello", "user-456");
+  @Test
+  @DisplayName("should generate consistent cache keys")
+  void shouldGenerateConsistentKeys() {
+    String key1 = ResponseCache.generateKey("chat", "hello", "user-123");
+    String key2 = ResponseCache.generateKey("chat", "hello", "user-123");
+    String key3 = ResponseCache.generateKey("chat", "hello", "user-456");
 
-        assertThat(key1).isEqualTo(key2);
-        assertThat(key1).isNotEqualTo(key3);
-    }
+    assertThat(key1).isEqualTo(key2);
+    assertThat(key1).isNotEqualTo(key3);
+  }
 
-    @Test
-    @DisplayName("should handle null values in key generation")
-    void shouldHandleNullsInKeyGeneration() {
-        String key1 = ResponseCache.generateKey(null, "query", "user");
-        String key2 = ResponseCache.generateKey("", "query", "user");
-        String key3 = ResponseCache.generateKey("type", null, null);
+  @Test
+  @DisplayName("should handle null values in key generation")
+  void shouldHandleNullsInKeyGeneration() {
+    String key1 = ResponseCache.generateKey(null, "query", "user");
+    String key2 = ResponseCache.generateKey("", "query", "user");
+    String key3 = ResponseCache.generateKey("type", null, null);
 
-        assertThat(key1).isNotEmpty();
-        assertThat(key2).isNotEmpty();
-        assertThat(key3).isNotEmpty();
-    }
+    assertThat(key1).isNotEmpty();
+    assertThat(key2).isNotEmpty();
+    assertThat(key3).isNotEmpty();
+  }
 
-    @Test
-    @DisplayName("should provide stats")
-    void shouldProvideStats() {
-        ResponseCache cache = new ResponseCache(CacheConfig.defaults());
+  @Test
+  @DisplayName("should provide stats")
+  void shouldProvideStats() {
+    ResponseCache cache = new ResponseCache(CacheConfig.defaults());
 
-        String stats = cache.getStats();
+    String stats = cache.getStats();
 
-        assertThat(stats).isNotEmpty();
-    }
+    assertThat(stats).isNotEmpty();
+  }
 
-    @Test
-    @DisplayName("should provide stats for disabled cache")
-    void shouldProvideStatsForDisabledCache() {
-        ResponseCache cache = new ResponseCache(CacheConfig.disabled());
+  @Test
+  @DisplayName("should provide stats for disabled cache")
+  void shouldProvideStatsForDisabledCache() {
+    ResponseCache cache = new ResponseCache(CacheConfig.disabled());
 
-        String stats = cache.getStats();
+    String stats = cache.getStats();
 
-        assertThat(stats).isEqualTo("Cache disabled");
-    }
+    assertThat(stats).isEqualTo("Cache disabled");
+  }
 
-    @Test
-    @DisplayName("should not cache null values")
-    void shouldNotCacheNullValues() {
-        ResponseCache cache = new ResponseCache(CacheConfig.defaults());
+  @Test
+  @DisplayName("should not cache null values")
+  void shouldNotCacheNullValues() {
+    ResponseCache cache = new ResponseCache(CacheConfig.defaults());
 
-        cache.put("key", null);
-        Optional<String> result = cache.get("key", String.class);
+    cache.put("key", null);
+    Optional<String> result = cache.get("key", String.class);
 
-        assertThat(result).isEmpty();
-    }
+    assertThat(result).isEmpty();
+  }
 }

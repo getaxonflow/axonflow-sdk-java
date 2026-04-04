@@ -17,46 +17,53 @@ package com.getaxonflow.sdk.types;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Objects;
 
-/**
- * SDK compatibility information returned by the AxonFlow platform health endpoint.
- */
+/** SDK compatibility information returned by the AxonFlow platform health endpoint. */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class SDKCompatibility {
 
-    @JsonProperty("min_sdk_version")
-    private final String minSdkVersion;
+  @JsonProperty("min_sdk_version")
+  private final String minSdkVersion;
 
-    @JsonProperty("recommended_sdk_version")
-    private final String recommendedSdkVersion;
+  @JsonProperty("recommended_sdk_version")
+  private final String recommendedSdkVersion;
 
-    public SDKCompatibility(
-            @JsonProperty("min_sdk_version") String minSdkVersion,
-            @JsonProperty("recommended_sdk_version") String recommendedSdkVersion) {
-        this.minSdkVersion = minSdkVersion;
-        this.recommendedSdkVersion = recommendedSdkVersion;
-    }
+  public SDKCompatibility(
+      @JsonProperty("min_sdk_version") String minSdkVersion,
+      @JsonProperty("recommended_sdk_version") String recommendedSdkVersion) {
+    this.minSdkVersion = minSdkVersion;
+    this.recommendedSdkVersion = recommendedSdkVersion;
+  }
 
-    public String getMinSdkVersion() { return minSdkVersion; }
-    public String getRecommendedSdkVersion() { return recommendedSdkVersion; }
+  public String getMinSdkVersion() {
+    return minSdkVersion;
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        SDKCompatibility that = (SDKCompatibility) o;
-        return Objects.equals(minSdkVersion, that.minSdkVersion) && Objects.equals(recommendedSdkVersion, that.recommendedSdkVersion);
-    }
+  public String getRecommendedSdkVersion() {
+    return recommendedSdkVersion;
+  }
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(minSdkVersion, recommendedSdkVersion);
-    }
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    SDKCompatibility that = (SDKCompatibility) o;
+    return Objects.equals(minSdkVersion, that.minSdkVersion)
+        && Objects.equals(recommendedSdkVersion, that.recommendedSdkVersion);
+  }
 
-    @Override
-    public String toString() {
-        return "SDKCompatibility{minSdkVersion='" + minSdkVersion + "', recommendedSdkVersion='" + recommendedSdkVersion + "'}";
-    }
+  @Override
+  public int hashCode() {
+    return Objects.hash(minSdkVersion, recommendedSdkVersion);
+  }
+
+  @Override
+  public String toString() {
+    return "SDKCompatibility{minSdkVersion='"
+        + minSdkVersion
+        + "', recommendedSdkVersion='"
+        + recommendedSdkVersion
+        + "'}";
+  }
 }

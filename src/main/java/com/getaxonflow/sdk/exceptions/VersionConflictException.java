@@ -18,12 +18,12 @@ package com.getaxonflow.sdk.exceptions;
 /**
  * Thrown when a plan update fails due to a version conflict (HTTP 409).
  *
- * <p>This indicates that the plan was modified by another client between
- * the time it was read and the time the update was attempted. The caller
- * should re-read the plan, resolve any conflicts, and retry with the
- * updated version number.
+ * <p>This indicates that the plan was modified by another client between the time it was read and
+ * the time the update was attempted. The caller should re-read the plan, resolve any conflicts, and
+ * retry with the updated version number.
  *
  * <p>Example usage:
+ *
  * <pre>{@code
  * try {
  *     axonflow.updatePlan(planId, request);
@@ -37,51 +37,52 @@ package com.getaxonflow.sdk.exceptions;
  */
 public class VersionConflictException extends AxonFlowException {
 
-    private static final long serialVersionUID = 1L;
+  private static final long serialVersionUID = 1L;
 
-    private final String planId;
-    private final int expectedVersion;
-    private final Integer currentVersion;
+  private final String planId;
+  private final int expectedVersion;
+  private final Integer currentVersion;
 
-    /**
-     * Creates a new VersionConflictException.
-     *
-     * @param message         the error message
-     * @param planId          the plan that had the conflict
-     * @param expectedVersion the version the client expected
-     * @param currentVersion  the actual current version on the server, or null if unknown
-     */
-    public VersionConflictException(String message, String planId, int expectedVersion, Integer currentVersion) {
-        super(message, 409, "VERSION_CONFLICT");
-        this.planId = planId;
-        this.expectedVersion = expectedVersion;
-        this.currentVersion = currentVersion;
-    }
+  /**
+   * Creates a new VersionConflictException.
+   *
+   * @param message the error message
+   * @param planId the plan that had the conflict
+   * @param expectedVersion the version the client expected
+   * @param currentVersion the actual current version on the server, or null if unknown
+   */
+  public VersionConflictException(
+      String message, String planId, int expectedVersion, Integer currentVersion) {
+    super(message, 409, "VERSION_CONFLICT");
+    this.planId = planId;
+    this.expectedVersion = expectedVersion;
+    this.currentVersion = currentVersion;
+  }
 
-    /**
-     * Returns the plan ID that had the version conflict.
-     *
-     * @return the plan ID
-     */
-    public String getPlanId() {
-        return planId;
-    }
+  /**
+   * Returns the plan ID that had the version conflict.
+   *
+   * @return the plan ID
+   */
+  public String getPlanId() {
+    return planId;
+  }
 
-    /**
-     * Returns the version the client expected.
-     *
-     * @return the expected version number
-     */
-    public int getExpectedVersion() {
-        return expectedVersion;
-    }
+  /**
+   * Returns the version the client expected.
+   *
+   * @return the expected version number
+   */
+  public int getExpectedVersion() {
+    return expectedVersion;
+  }
 
-    /**
-     * Returns the actual current version on the server.
-     *
-     * @return the current version, or null if unknown
-     */
-    public Integer getCurrentVersion() {
-        return currentVersion;
-    }
+  /**
+   * Returns the actual current version on the server.
+   *
+   * @return the current version, or null if unknown
+   */
+  public Integer getCurrentVersion() {
+    return currentVersion;
+  }
 }

@@ -17,7 +17,6 @@ package com.getaxonflow.sdk.simulation;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.Map;
 import java.util.Objects;
 
@@ -25,6 +24,7 @@ import java.util.Objects;
  * Request to simulate policy evaluation against a query.
  *
  * <p>Use the {@link Builder} to construct instances:
+ *
  * <pre>{@code
  * SimulatePoliciesRequest request = SimulatePoliciesRequest.builder()
  *     .query("Transfer $50,000 to external account")
@@ -35,72 +35,103 @@ import java.util.Objects;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public final class SimulatePoliciesRequest {
 
-    @JsonProperty("query")
-    private final String query;
+  @JsonProperty("query")
+  private final String query;
 
-    @JsonProperty("request_type")
-    private final String requestType;
+  @JsonProperty("request_type")
+  private final String requestType;
 
-    @JsonProperty("user")
-    private final Map<String, Object> user;
+  @JsonProperty("user")
+  private final Map<String, Object> user;
 
-    @JsonProperty("client")
-    private final Map<String, Object> client;
+  @JsonProperty("client")
+  private final Map<String, Object> client;
 
-    @JsonProperty("context")
-    private final Map<String, Object> context;
+  @JsonProperty("context")
+  private final Map<String, Object> context;
 
-    private SimulatePoliciesRequest(Builder builder) {
-        this.query = Objects.requireNonNull(builder.query, "query cannot be null");
-        if (this.query.isEmpty()) {
-            throw new IllegalArgumentException("query cannot be empty");
-        }
-        this.requestType = builder.requestType;
-        this.user = builder.user;
-        this.client = builder.client;
-        this.context = builder.context;
+  private SimulatePoliciesRequest(Builder builder) {
+    this.query = Objects.requireNonNull(builder.query, "query cannot be null");
+    if (this.query.isEmpty()) {
+      throw new IllegalArgumentException("query cannot be empty");
+    }
+    this.requestType = builder.requestType;
+    this.user = builder.user;
+    this.client = builder.client;
+    this.context = builder.context;
+  }
+
+  /**
+   * Creates a new builder for SimulatePoliciesRequest.
+   *
+   * @return a new builder
+   */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  public String getQuery() {
+    return query;
+  }
+
+  public String getRequestType() {
+    return requestType;
+  }
+
+  public Map<String, Object> getUser() {
+    return user;
+  }
+
+  public Map<String, Object> getClient() {
+    return client;
+  }
+
+  public Map<String, Object> getContext() {
+    return context;
+  }
+
+  /** Builder for {@link SimulatePoliciesRequest}. */
+  public static final class Builder {
+    private String query;
+    private String requestType;
+    private Map<String, Object> user;
+    private Map<String, Object> client;
+    private Map<String, Object> context;
+
+    public Builder query(String query) {
+      this.query = query;
+      return this;
+    }
+
+    public Builder requestType(String requestType) {
+      this.requestType = requestType;
+      return this;
+    }
+
+    public Builder user(Map<String, Object> user) {
+      this.user = user;
+      return this;
+    }
+
+    public Builder client(Map<String, Object> client) {
+      this.client = client;
+      return this;
+    }
+
+    public Builder context(Map<String, Object> context) {
+      this.context = context;
+      return this;
     }
 
     /**
-     * Creates a new builder for SimulatePoliciesRequest.
+     * Builds the SimulatePoliciesRequest.
      *
-     * @return a new builder
+     * @return the request
+     * @throws NullPointerException if query is null
+     * @throws IllegalArgumentException if query is empty
      */
-    public static Builder builder() {
-        return new Builder();
+    public SimulatePoliciesRequest build() {
+      return new SimulatePoliciesRequest(this);
     }
-
-    public String getQuery() { return query; }
-    public String getRequestType() { return requestType; }
-    public Map<String, Object> getUser() { return user; }
-    public Map<String, Object> getClient() { return client; }
-    public Map<String, Object> getContext() { return context; }
-
-    /**
-     * Builder for {@link SimulatePoliciesRequest}.
-     */
-    public static final class Builder {
-        private String query;
-        private String requestType;
-        private Map<String, Object> user;
-        private Map<String, Object> client;
-        private Map<String, Object> context;
-
-        public Builder query(String query) { this.query = query; return this; }
-        public Builder requestType(String requestType) { this.requestType = requestType; return this; }
-        public Builder user(Map<String, Object> user) { this.user = user; return this; }
-        public Builder client(Map<String, Object> client) { this.client = client; return this; }
-        public Builder context(Map<String, Object> context) { this.context = context; return this; }
-
-        /**
-         * Builds the SimulatePoliciesRequest.
-         *
-         * @return the request
-         * @throws NullPointerException if query is null
-         * @throws IllegalArgumentException if query is empty
-         */
-        public SimulatePoliciesRequest build() {
-            return new SimulatePoliciesRequest(this);
-        }
-    }
+  }
 }

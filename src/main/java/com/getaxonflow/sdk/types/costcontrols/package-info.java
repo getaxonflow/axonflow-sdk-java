@@ -18,11 +18,12 @@
  * Cost control types for the AxonFlow SDK.
  *
  * <p>This package contains all types needed for cost control operations including:
+ *
  * <ul>
- *   <li>Budget management (create, update, delete, list)</li>
- *   <li>Budget status and alerts</li>
- *   <li>Usage tracking (summary, breakdown, records)</li>
- *   <li>Pricing information</li>
+ *   <li>Budget management (create, update, delete, list)
+ *   <li>Budget status and alerts
+ *   <li>Usage tracking (summary, breakdown, records)
+ *   <li>Pricing information
  * </ul>
  *
  * @see com.getaxonflow.sdk.types.costcontrols.CostControlTypes
