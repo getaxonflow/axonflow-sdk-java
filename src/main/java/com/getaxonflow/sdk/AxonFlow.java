@@ -133,6 +133,17 @@ public final class AxonFlow implements Closeable {
 
   private AxonFlow(AxonFlowConfig config) {
     this.config = Objects.requireNonNull(config, "config cannot be null");
+
+    // Reject clientSecret without clientId — licensed mode must specify tenant
+    if (config.getClientSecret() != null
+        && !config.getClientSecret().isEmpty()
+        && (config.getClientId() == null || config.getClientId().isEmpty())) {
+      throw new ConfigurationException(
+          "clientId is required when clientSecret is set. "
+              + "Set clientId to your tenant identity to avoid data being stored under the wrong tenant.",
+          "clientId");
+    }
+
     this.httpClient = HttpClientFactory.create(config);
     this.objectMapper = createObjectMapper();
     this.retryExecutor = new RetryExecutor(config.getRetryConfig());
