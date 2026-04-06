@@ -98,14 +98,6 @@ public class TelemetryReporter {
       return;
     }
 
-    // Suppress telemetry for localhost endpoints unless explicitly enabled.
-    if (!Boolean.TRUE.equals(telemetryEnabled) && isLocalhostEndpoint(sdkEndpoint)) {
-      if (debug) {
-        logger.debug("Telemetry suppressed for localhost endpoint");
-      }
-      return;
-    }
-
     logger.info(
         "AxonFlow: anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry");
 
@@ -270,15 +262,6 @@ public class TelemetryReporter {
     if ("aarch64".equals(arch)) return "arm64";
     if ("x86_64".equals(arch) || "amd64".equals(arch)) return "x64";
     return arch;
-  }
-
-  /** Check whether the endpoint is a localhost address. */
-  static boolean isLocalhostEndpoint(String endpoint) {
-    if (endpoint == null || endpoint.isEmpty()) {
-      return false;
-    }
-    String lower = endpoint.toLowerCase();
-    return lower.contains("localhost") || lower.contains("127.0.0.1") || lower.contains("[::1]");
   }
 
   private TelemetryReporter() {

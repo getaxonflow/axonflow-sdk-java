@@ -145,7 +145,6 @@ class TelemetryReporterTest {
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
     // Call sendPing with custom checkpoint URL, no env opt-outs, with credentials
-    // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
     TelemetryReporter.sendPing(
         "production",
         "http://localhost:8080",
@@ -272,7 +271,7 @@ class TelemetryReporterTest {
 
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-    // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
+    // telemetryEnabled=true: explicit enable for this test
     TelemetryReporter.sendPing(
         "production",
         "http://localhost:8080",
@@ -371,7 +370,7 @@ class TelemetryReporterTest {
 
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-    // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
+    // telemetryEnabled=true: explicit enable for this test
     assertThatCode(
             () -> {
               TelemetryReporter.sendPing(
@@ -422,7 +421,7 @@ class TelemetryReporterTest {
 
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-    // telemetryEnabled=true overrides localhost guard (WireMock runs on localhost)
+    // telemetryEnabled=true: explicit enable for this test
     // Use localhost:1 so detectPlatformVersion gets immediate connection-refused
     // (localhost:8080 may have a running service that returns a version)
     TelemetryReporter.sendPing(
