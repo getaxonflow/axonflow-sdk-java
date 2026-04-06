@@ -276,16 +276,17 @@ public final class AxonFlow implements Closeable {
             },
             "healthCheck");
 
-    if (status.getSdkCompatibility() != null
-        && status.getSdkCompatibility().getMinSdkVersion() != null
+    String minJavaVersion =
+        status.getSdkCompatibility() != null
+            ? status.getSdkCompatibility().getMinSdkVersionFor("java")
+            : null;
+    if (minJavaVersion != null
         && !"unknown".equals(AxonFlowConfig.SDK_VERSION)
-        && compareSemver(
-                AxonFlowConfig.SDK_VERSION, status.getSdkCompatibility().getMinSdkVersion())
-            < 0) {
+        && compareSemver(AxonFlowConfig.SDK_VERSION, minJavaVersion) < 0) {
       logger.warn(
           "SDK version {} is below minimum supported version {}. Please upgrade.",
           AxonFlowConfig.SDK_VERSION,
-          status.getSdkCompatibility().getMinSdkVersion());
+          minJavaVersion);
     }
 
     return status;
@@ -2223,6 +2224,117 @@ public final class AxonFlow implements Closeable {
       String connectorType, List<Map<String, Object>> responseData, Map<String, Object> options) {
     return CompletableFuture.supplyAsync(
         () -> mcpCheckOutput(connectorType, responseData, options), asyncExecutor);
+  }
+
+  // ========================================================================
+  // Tool Input/Output Check Aliases
+  // ========================================================================
+
+  /**
+   * Alias for {@link #mcpCheckInput(String, String)}. Validates tool input against configured
+   * policies.
+   *
+   * @param connectorType name of the MCP connector type (e.g., "postgres")
+   * @param statement the statement to validate
+   * @return MCPCheckInputResponse with allowed status, block reason, and policy info
+   * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+   */
+  public MCPCheckInputResponse checkToolInput(String connectorType, String statement) {
+    return mcpCheckInput(connectorType, statement);
+  }
+
+  /**
+   * Alias for {@link #mcpCheckInput(String, String, Map)}. Validates tool input against configured
+   * policies.
+   *
+   * @param connectorType name of the MCP connector type (e.g., "postgres")
+   * @param statement the statement to validate
+   * @param options optional parameters: "operation" (String), "parameters" (Map)
+   * @return MCPCheckInputResponse with allowed status, block reason, and policy info
+   * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+   */
+  public MCPCheckInputResponse checkToolInput(
+      String connectorType, String statement, Map<String, Object> options) {
+    return mcpCheckInput(connectorType, statement, options);
+  }
+
+  /**
+   * Asynchronous alias for {@link #mcpCheckInputAsync(String, String)}.
+   *
+   * @param connectorType name of the MCP connector type
+   * @param statement the statement to validate
+   * @return a future containing the check result
+   */
+  public CompletableFuture<MCPCheckInputResponse> checkToolInputAsync(
+      String connectorType, String statement) {
+    return mcpCheckInputAsync(connectorType, statement);
+  }
+
+  /**
+   * Asynchronous alias for {@link #mcpCheckInputAsync(String, String, Map)}.
+   *
+   * @param connectorType name of the MCP connector type
+   * @param statement the statement to validate
+   * @param options optional parameters
+   * @return a future containing the check result
+   */
+  public CompletableFuture<MCPCheckInputResponse> checkToolInputAsync(
+      String connectorType, String statement, Map<String, Object> options) {
+    return mcpCheckInputAsync(connectorType, statement, options);
+  }
+
+  /**
+   * Alias for {@link #mcpCheckOutput(String, List)}. Validates tool output against configured
+   * policies.
+   *
+   * @param connectorType name of the MCP connector type (e.g., "postgres")
+   * @param responseData the response data rows to validate
+   * @return MCPCheckOutputResponse with allowed status, redacted data, and policy info
+   * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+   */
+  public MCPCheckOutputResponse checkToolOutput(
+      String connectorType, List<Map<String, Object>> responseData) {
+    return mcpCheckOutput(connectorType, responseData);
+  }
+
+  /**
+   * Alias for {@link #mcpCheckOutput(String, List, Map)}. Validates tool output against configured
+   * policies.
+   *
+   * @param connectorType name of the MCP connector type (e.g., "postgres")
+   * @param responseData the response data rows to validate
+   * @param options optional parameters: "message" (String), "metadata" (Map), "row_count" (int)
+   * @return MCPCheckOutputResponse with allowed status, redacted data, and policy info
+   * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
+   */
+  public MCPCheckOutputResponse checkToolOutput(
+      String connectorType, List<Map<String, Object>> responseData, Map<String, Object> options) {
+    return mcpCheckOutput(connectorType, responseData, options);
+  }
+
+  /**
+   * Asynchronous alias for {@link #mcpCheckOutputAsync(String, List)}.
+   *
+   * @param connectorType name of the MCP connector type
+   * @param responseData the response data rows to validate
+   * @return a future containing the check result
+   */
+  public CompletableFuture<MCPCheckOutputResponse> checkToolOutputAsync(
+      String connectorType, List<Map<String, Object>> responseData) {
+    return mcpCheckOutputAsync(connectorType, responseData);
+  }
+
+  /**
+   * Asynchronous alias for {@link #mcpCheckOutputAsync(String, List, Map)}.
+   *
+   * @param connectorType name of the MCP connector type
+   * @param responseData the response data rows to validate
+   * @param options optional parameters
+   * @return a future containing the check result
+   */
+  public CompletableFuture<MCPCheckOutputResponse> checkToolOutputAsync(
+      String connectorType, List<Map<String, Object>> responseData, Map<String, Object> options) {
+    return mcpCheckOutputAsync(connectorType, responseData, options);
   }
 
   // ========================================================================

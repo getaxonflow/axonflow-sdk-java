@@ -17,6 +17,7 @@ package com.getaxonflow.sdk.types;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Map;
 import java.util.Objects;
 
 /** SDK compatibility information returned by the AxonFlow platform health endpoint. */
@@ -24,24 +25,36 @@ import java.util.Objects;
 public final class SDKCompatibility {
 
   @JsonProperty("min_sdk_version")
-  private final String minSdkVersion;
+  private final Map<String, String> minSdkVersion;
 
   @JsonProperty("recommended_sdk_version")
-  private final String recommendedSdkVersion;
+  private final Map<String, String> recommendedSdkVersion;
 
   public SDKCompatibility(
-      @JsonProperty("min_sdk_version") String minSdkVersion,
-      @JsonProperty("recommended_sdk_version") String recommendedSdkVersion) {
+      @JsonProperty("min_sdk_version") Map<String, String> minSdkVersion,
+      @JsonProperty("recommended_sdk_version") Map<String, String> recommendedSdkVersion) {
     this.minSdkVersion = minSdkVersion;
     this.recommendedSdkVersion = recommendedSdkVersion;
   }
 
-  public String getMinSdkVersion() {
+  /** Returns the per-language minimum SDK version map (e.g. {"java":"5.0.0","python":"6.0.0"}). */
+  public Map<String, String> getMinSdkVersion() {
     return minSdkVersion;
   }
 
-  public String getRecommendedSdkVersion() {
+  /** Returns the minimum SDK version for a specific language, or null if not specified. */
+  public String getMinSdkVersionFor(String language) {
+    return minSdkVersion != null ? minSdkVersion.get(language) : null;
+  }
+
+  /** Returns the per-language recommended SDK version map. */
+  public Map<String, String> getRecommendedSdkVersion() {
     return recommendedSdkVersion;
+  }
+
+  /** Returns the recommended SDK version for a specific language, or null if not specified. */
+  public String getRecommendedSdkVersionFor(String language) {
+    return recommendedSdkVersion != null ? recommendedSdkVersion.get(language) : null;
   }
 
   @Override
@@ -60,10 +73,10 @@ public final class SDKCompatibility {
 
   @Override
   public String toString() {
-    return "SDKCompatibility{minSdkVersion='"
+    return "SDKCompatibility{minSdkVersion="
         + minSdkVersion
-        + "', recommendedSdkVersion='"
+        + ", recommendedSdkVersion="
         + recommendedSdkVersion
-        + "'}";
+        + "}";
   }
 }
