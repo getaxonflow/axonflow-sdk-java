@@ -44,6 +44,22 @@ class TelemetryEndpointTypeTest {
   }
 
   @Test
+  @DisplayName("localhost: expanded IPv6 loopback 0:0:0:0:0:0:0:1")
+  void localhostExpandedIPv6() {
+    // v5.3.0 fix: alternate loopback forms must match Python/Go SDK behavior.
+    assertEquals("localhost", TelemetryReporter.classifyEndpoint("http://[0:0:0:0:0:0:0:1]"));
+    assertEquals(
+        "localhost",
+        TelemetryReporter.classifyEndpoint("http://[0000:0000:0000:0000:0000:0000:0000:0001]"));
+  }
+
+  @Test
+  @DisplayName("localhost: IPv6 unspecified ::")
+  void localhostIPv6Unspecified() {
+    assertEquals("localhost", TelemetryReporter.classifyEndpoint("http://[::]:8080"));
+  }
+
+  @Test
   @DisplayName("localhost: 0.0.0.0")
   void localhostZero() {
     assertEquals("localhost", TelemetryReporter.classifyEndpoint("http://0.0.0.0:8080"));
@@ -94,6 +110,37 @@ class TelemetryEndpointTypeTest {
   @DisplayName("private: link-local 169.254")
   void privateLinkLocal() {
     assertEquals("private_network", TelemetryReporter.classifyEndpoint("http://169.254.169.254"));
+  }
+
+  @Test
+  @DisplayName("private: IPv6 ULA fc00::/7")
+  void privateIPv6ULA() {
+    // v5.3.0 fix (review finding P3): IPv6 ULA used to fall through to remote.
+    assertEquals("private_network", TelemetryReporter.classifyEndpoint("http://[fd00::1]:8080"));
+    assertEquals(
+        "private_network", TelemetryReporter.classifyEndpoint("http://[fd12:3456:789a::1]"));
+    assertEquals("private_network", TelemetryReporter.classifyEndpoint("http://[fc00::1]"));
+    assertEquals("private_network", TelemetryReporter.classifyEndpoint("http://[fcff:ffff::]"));
+  }
+
+  @Test
+  @DisplayName("private: IPv6 link-local fe80::/10")
+  void privateIPv6LinkLocal() {
+    assertEquals("private_network", TelemetryReporter.classifyEndpoint("http://[fe80::1]"));
+    assertEquals("private_network", TelemetryReporter.classifyEndpoint("http://[febf::1]"));
+  }
+
+  @Test
+  @DisplayName("remote: deprecated fec0::/10 site-local")
+  void remoteDeprecatedSiteLocal() {
+    assertEquals("remote", TelemetryReporter.classifyEndpoint("http://[fec0::1]"));
+  }
+
+  @Test
+  @DisplayName("remote: public IPv6 addresses")
+  void remotePublicIPv6() {
+    assertEquals("remote", TelemetryReporter.classifyEndpoint("http://[2001:4860:4860::8888]"));
+    assertEquals("remote", TelemetryReporter.classifyEndpoint("http://[2606:4700:4700::1111]"));
   }
 
   @Test
