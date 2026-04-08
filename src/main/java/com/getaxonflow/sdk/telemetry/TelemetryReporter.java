@@ -270,7 +270,6 @@ public class TelemetryReporter {
 
     if ("localhost".equals(host)
         || "0.0.0.0".equals(host)
-        || "::1".equals(host)
         || host.endsWith(".localhost")) {
       return EndpointType.LOCALHOST;
     }
@@ -295,8 +294,110 @@ public class TelemetryReporter {
       return EndpointType.REMOTE;
     }
 
+    // IPv6 classification.
+    //
+    // v5.3.0 fix (review finding P3): previously only the literal "::1"
+    // was recognized; ULA, link-local, and expanded loopback forms fell
+    // through to REMOTE. Python and Go SDKs classify them correctly via
+    // stdlib helpers — this hand-rolled version matches that behavior.
+    if (host.indexOf(':') >= 0) {
+      String expanded = expandIPv6(host);
+      if ("0000:0000:0000:0000:0000:0000:0000:0001".equals(expanded)) {
+        return EndpointType.LOCALHOST; // ::1 and all equivalent forms
+      }
+      if ("0000:0000:0000:0000:0000:0000:0000:0000".equals(expanded)) {
+        return EndpointType.LOCALHOST; // :: listen-all (symmetric with 0.0.0.0)
+      }
+      if (expanded.length() >= 4) {
+        String firstHextet = expanded.substring(0, 4);
+        // ULA fc00::/7 — first hex pair is fc or fd
+        if (firstHextet.startsWith("fc") || firstHextet.startsWith("fd")) {
+          return EndpointType.PRIVATE_NETWORK;
+        }
+        // Link-local fe80::/10 — first hextet in [fe80..febf]
+        if (firstHextet.compareTo("fe80") >= 0 && firstHextet.compareTo("febf") <= 0) {
+          return EndpointType.PRIVATE_NETWORK;
+        }
+      }
+      return EndpointType.REMOTE;
+    }
+
     // Public hostname (not an IP, not a known private suffix).
     return EndpointType.REMOTE;
+  }
+
+  /**
+   * Expand an IPv6 address to its full 8-hextet form with every hextet
+   * zero-padded to 4 hex digits. Returns the input unchanged on parse failure.
+   *
+   * <p>Examples:
+   *
+   * <pre>
+   *   ::1      → 0000:0000:0000:0000:0000:0000:0000:0001
+   *   fd00::1  → fd00:0000:0000:0000:0000:0000:0000:0001
+   *   fe80::a  → fe80:0000:0000:0000:0000:0000:0000:000a
+   * </pre>
+   *
+   * <p>This is NOT a general-purpose IPv6 parser — it assumes the input came
+   * from URI.getHost() after brackets are stripped.
+   */
+  static String expandIPv6(String addr) {
+    String[] head;
+    String[] tail;
+    int doubleColon = addr.indexOf("::");
+    if (doubleColon >= 0) {
+      String headStr = addr.substring(0, doubleColon);
+      String tailStr = addr.substring(doubleColon + 2);
+      if (headStr.indexOf("::") >= 0 || tailStr.indexOf("::") >= 0) {
+        return addr; // more than one "::" — invalid
+      }
+      head = headStr.isEmpty() ? new String[0] : headStr.split(":");
+      tail = tailStr.isEmpty() ? new String[0] : tailStr.split(":");
+    } else {
+      head = addr.split(":");
+      tail = new String[0];
+    }
+    int missing = 8 - head.length - tail.length;
+    if (missing < 0) {
+      return addr;
+    }
+    StringBuilder sb = new StringBuilder();
+    boolean first = true;
+    for (String h : head) {
+      if (!first) sb.append(':');
+      sb.append(padHextet(h));
+      first = false;
+    }
+    for (int i = 0; i < missing; i++) {
+      if (!first) sb.append(':');
+      sb.append("0000");
+      first = false;
+    }
+    for (String h : tail) {
+      if (!first) sb.append(':');
+      sb.append(padHextet(h));
+      first = false;
+    }
+    String result = sb.toString();
+    // Must end up with exactly 8 hextets (7 colons).
+    int colonCount = 0;
+    for (int i = 0; i < result.length(); i++) {
+      if (result.charAt(i) == ':') colonCount++;
+    }
+    if (colonCount != 7) {
+      return addr;
+    }
+    return result;
+  }
+
+  private static String padHextet(String h) {
+    if (h.length() >= 4) return h;
+    StringBuilder sb = new StringBuilder(4);
+    for (int i = h.length(); i < 4; i++) {
+      sb.append('0');
+    }
+    sb.append(h);
+    return sb.toString();
   }
 
   /**
