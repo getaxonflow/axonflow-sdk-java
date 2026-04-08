@@ -20,9 +20,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.getaxonflow.sdk.AxonFlowConfig;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -105,11 +109,12 @@ public class TelemetryReporter {
         (checkpointUrl != null && !checkpointUrl.isEmpty()) ? checkpointUrl : DEFAULT_ENDPOINT;
 
     final String finalSdkEndpoint = sdkEndpoint;
+    final String endpointType = classifyEndpoint(finalSdkEndpoint);
     CompletableFuture.runAsync(
         () -> {
           try {
             String platformVersion = detectPlatformVersion(finalSdkEndpoint);
-            String payload = buildPayload(mode, platformVersion);
+            String payload = buildPayload(mode, platformVersion, endpointType);
 
             OkHttpClient client =
                 new OkHttpClient.Builder()
@@ -184,6 +189,11 @@ public class TelemetryReporter {
 
   /** Builds the JSON payload for the telemetry ping. */
   static String buildPayload(String mode, String platformVersion) {
+    return buildPayload(mode, platformVersion, EndpointType.UNKNOWN);
+  }
+
+  /** Builds the JSON payload with an explicit endpoint_type classification. */
+  static String buildPayload(String mode, String platformVersion, String endpointType) {
     try {
       ObjectMapper mapper = new ObjectMapper();
       ObjectNode root = mapper.createObjectNode();
@@ -198,6 +208,7 @@ public class TelemetryReporter {
       root.put("arch", normalizeArch(System.getProperty("os.arch")));
       root.put("runtime_version", System.getProperty("java.version"));
       root.put("deployment_mode", mode);
+      root.put("endpoint_type", endpointType);
 
       ArrayNode features = mapper.createArrayNode();
       root.set("features", features);
@@ -209,6 +220,83 @@ public class TelemetryReporter {
       // Fallback minimal payload
       return "{\"sdk\":\"java\",\"sdk_version\":\"" + AxonFlowConfig.SDK_VERSION + "\"}";
     }
+  }
+
+  /**
+   * Endpoint type classifications for telemetry. See issue #1525.
+   *
+   * <p>The raw URL is never sent to the checkpoint service — only the classification.
+   */
+  public static final class EndpointType {
+    public static final String LOCALHOST = "localhost";
+    public static final String PRIVATE_NETWORK = "private_network";
+    public static final String REMOTE = "remote";
+    public static final String UNKNOWN = "unknown";
+
+    private EndpointType() {}
+  }
+
+  private static final Pattern IPV4_PATTERN =
+      Pattern.compile("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$");
+
+  /**
+   * Classifies the configured AxonFlow endpoint URL for analytics (#1525).
+   *
+   * <p>Returns one of {@link EndpointType#LOCALHOST}, {@link EndpointType#PRIVATE_NETWORK}, {@link
+   * EndpointType#REMOTE}, or {@link EndpointType#UNKNOWN}.
+   *
+   * <p>The raw URL is never sent — only the classification.
+   */
+  public static String classifyEndpoint(String url) {
+    if (url == null || url.isEmpty()) {
+      return EndpointType.UNKNOWN;
+    }
+    String host;
+    try {
+      URI u = new URI(url);
+      host = u.getHost();
+      if (host == null || host.isEmpty()) {
+        return EndpointType.UNKNOWN;
+      }
+    } catch (URISyntaxException e) {
+      return EndpointType.UNKNOWN;
+    }
+    host = host.toLowerCase();
+
+    // Strip IPv6 brackets if present.
+    if (host.startsWith("[") && host.endsWith("]")) {
+      host = host.substring(1, host.length() - 1);
+    }
+
+    if ("localhost".equals(host)
+        || "0.0.0.0".equals(host)
+        || "::1".equals(host)
+        || host.endsWith(".localhost")) {
+      return EndpointType.LOCALHOST;
+    }
+
+    if (host.endsWith(".local")
+        || host.endsWith(".internal")
+        || host.endsWith(".lan")
+        || host.endsWith(".intranet")) {
+      return EndpointType.PRIVATE_NETWORK;
+    }
+
+    // IPv4 classification.
+    Matcher m = IPV4_PATTERN.matcher(host);
+    if (m.matches()) {
+      int a = Integer.parseInt(m.group(1));
+      int b = Integer.parseInt(m.group(2));
+      if (a == 127) return EndpointType.LOCALHOST;
+      if (a == 10) return EndpointType.PRIVATE_NETWORK;
+      if (a == 192 && b == 168) return EndpointType.PRIVATE_NETWORK;
+      if (a == 172 && b >= 16 && b <= 31) return EndpointType.PRIVATE_NETWORK;
+      if (a == 169 && b == 254) return EndpointType.PRIVATE_NETWORK;
+      return EndpointType.REMOTE;
+    }
+
+    // Public hostname (not an IP, not a known private suffix).
+    return EndpointType.REMOTE;
   }
 
   /**
