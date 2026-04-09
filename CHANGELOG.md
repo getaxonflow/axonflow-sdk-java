@@ -13,21 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AxonFlowTry.register()` helper for self-registering a tenant
 - Checkpoint telemetry reports `endpoint_type: "community-saas"` when try mode is active
 
-### Changed
-
-- Renamed `AXONFLOW_DEMO` to `AXONFLOW_TRY` (demo mode → try mode)
-- Removed client-side random suffix from clientId (server generates UUID tenant_id)
-
-### Fixed
-
-- **IPv6 endpoint classification.** `classifyEndpoint` now handles IPv6 private ranges and expanded loopback forms that previously fell through to `REMOTE`, matching the Python and Go SDK implementations:
-  - IPv6 ULA (`fc00::/7`, RFC 4193) → `private_network`
-  - IPv6 link-local (`fe80::/10`) → `private_network`
-  - Expanded IPv6 loopback (`0:0:0:0:0:0:0:1`, zero-padded forms) → `localhost`
-  - IPv6 unspecified (`::`) → `localhost` (symmetric with `0.0.0.0`)
-  - Public IPv6 addresses (`2001::/3` space) → `remote`
-- A new `expandIPv6(addr)` helper expands `::` compression into a full 8-hextet form for prefix comparison. Not a general-purpose parser — assumes input came from `URI.getHost()` after brackets are stripped.
-
 ---
 
 ## [5.2.0] - 2026-04-08
