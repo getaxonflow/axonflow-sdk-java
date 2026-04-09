@@ -23,7 +23,6 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.UUID;
 
 /**
  * Configuration for the AxonFlow client.
@@ -80,8 +79,8 @@ public final class AxonFlowConfig {
   /** Default endpoint URL. */
   public static final String DEFAULT_ENDPOINT = "http://localhost:8080";
 
-  /** Demo mode endpoint URL. */
-  public static final String DEMO_ENDPOINT = "https://demo.getaxonflow.com";
+  /** Try mode endpoint URL. */
+  public static final String TRY_ENDPOINT = "https://try.getaxonflow.com";
 
   private final String endpoint;
   private final String clientId;
@@ -94,18 +93,15 @@ public final class AxonFlowConfig {
   private final CacheConfig cacheConfig;
   private final String userAgent;
   private final Boolean telemetry;
-  private final boolean demoMode;
+  private final boolean tryMode;
 
   private AxonFlowConfig(Builder builder) {
-    this.demoMode = "1".equals(System.getenv("AXONFLOW_DEMO"));
+    this.tryMode = "1".equals(System.getenv("AXONFLOW_TRY"));
     this.endpoint =
-        this.demoMode
-            ? normalizeUrl(DEMO_ENDPOINT)
+        this.tryMode
+            ? normalizeUrl(TRY_ENDPOINT)
             : normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
-    this.clientId =
-        this.demoMode && builder.clientId != null
-            ? builder.clientId + "-" + UUID.randomUUID().toString().replace("-", "").substring(0, 6)
-            : builder.clientId;
+    this.clientId = builder.clientId;
     this.clientSecret = builder.clientSecret;
     this.mode = builder.mode != null ? builder.mode : Mode.PRODUCTION;
     this.timeout = builder.timeout != null ? builder.timeout : DEFAULT_TIMEOUT;
@@ -124,9 +120,9 @@ public final class AxonFlowConfig {
     if (endpoint == null || endpoint.isEmpty()) {
       throw new ConfigurationException("endpoint is required", "endpoint");
     }
-    if (demoMode && (clientId == null || clientId.isEmpty())) {
+    if (tryMode && (clientId == null || clientId.isEmpty())) {
       throw new ConfigurationException(
-          "clientId is required in demo mode (AXONFLOW_DEMO=1)", "clientId");
+          "clientId is required in try mode (AXONFLOW_TRY=1)", "clientId");
     }
     // Credentials are optional for community/self-hosted deployments
     // Enterprise features require credentials (validated at method call time)
