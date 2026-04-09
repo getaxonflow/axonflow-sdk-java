@@ -231,6 +231,7 @@ public class TelemetryReporter {
     public static final String LOCALHOST = "localhost";
     public static final String PRIVATE_NETWORK = "private_network";
     public static final String REMOTE = "remote";
+    public static final String COMMUNITY_SAAS = "community-saas";
     public static final String UNKNOWN = "unknown";
 
     private EndpointType() {}
@@ -248,6 +249,7 @@ public class TelemetryReporter {
    * <p>The raw URL is never sent — only the classification.
    */
   public static String classifyEndpoint(String url) {
+    if ("1".equals(System.getenv("AXONFLOW_TRY"))) return EndpointType.COMMUNITY_SAAS;
     if (url == null || url.isEmpty()) {
       return EndpointType.UNKNOWN;
     }

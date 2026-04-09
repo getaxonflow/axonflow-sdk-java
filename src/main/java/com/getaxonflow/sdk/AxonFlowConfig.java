@@ -79,6 +79,9 @@ public final class AxonFlowConfig {
   /** Default endpoint URL. */
   public static final String DEFAULT_ENDPOINT = "http://localhost:8080";
 
+  /** Try mode endpoint URL. */
+  public static final String TRY_ENDPOINT = "https://try.getaxonflow.com";
+
   private final String endpoint;
   private final String clientId;
   private final String clientSecret;
@@ -90,9 +93,14 @@ public final class AxonFlowConfig {
   private final CacheConfig cacheConfig;
   private final String userAgent;
   private final Boolean telemetry;
+  private final boolean tryMode;
 
   private AxonFlowConfig(Builder builder) {
-    this.endpoint = normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
+    this.tryMode = "1".equals(System.getenv("AXONFLOW_TRY"));
+    this.endpoint =
+        this.tryMode
+            ? normalizeUrl(TRY_ENDPOINT)
+            : normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
     this.clientId = builder.clientId;
     this.clientSecret = builder.clientSecret;
     this.mode = builder.mode != null ? builder.mode : Mode.PRODUCTION;
@@ -111,6 +119,10 @@ public final class AxonFlowConfig {
   private void validate() {
     if (endpoint == null || endpoint.isEmpty()) {
       throw new ConfigurationException("endpoint is required", "endpoint");
+    }
+    if (tryMode && (clientId == null || clientId.isEmpty())) {
+      throw new ConfigurationException(
+          "clientId is required in try mode (AXONFLOW_TRY=1)", "clientId");
     }
     // Credentials are optional for community/self-hosted deployments
     // Enterprise features require credentials (validated at method call time)
