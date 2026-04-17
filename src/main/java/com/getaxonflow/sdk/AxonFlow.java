@@ -564,6 +564,60 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
+   * Fetches the full explanation for a previously-made policy decision.
+   *
+   * <p>Implements ADR-043 (Explainability Data Contract). Calls {@code GET
+   * /api/v1/decisions/:id/explain} and returns a {@link DecisionExplanation} including
+   * matched policies, risk level, reason, override availability, existing override ID (if
+   * any), and a rolling-24h session hit count for the matched rule.
+   *
+   * <p>The caller must either own the decision (user_email match) or belong to the same
+   * tenant as the decision's originator.
+   *
+   * <p>Example usage:
+   *
+   * <pre>{@code
+   * DecisionExplanation exp = axonflow.explainDecision("dec_wf123_step4");
+   * if (exp.isOverrideAvailable()) {
+   *     // offer the user a governed override action
+   * }
+   * }</pre>
+   *
+   * @param decisionId the global decision identifier returned in the original step gate or
+   *     policy evaluation response
+   * @return the decision explanation (frozen shape per ADR-043)
+   * @throws IllegalArgumentException if decisionId is null or empty
+   * @throws AxonFlowException if the request fails or the decision is past retention
+   */
+  public DecisionExplanation explainDecision(String decisionId) {
+    if (decisionId == null || decisionId.isEmpty()) {
+      throw new IllegalArgumentException("decisionId is required");
+    }
+    return retryExecutor.execute(
+        () -> {
+          // URL-encode because decision IDs from older workflows may contain slashes.
+          String encoded = java.net.URLEncoder.encode(decisionId, java.nio.charset.StandardCharsets.UTF_8);
+          String path = "/api/v1/decisions/" + encoded + "/explain";
+          Request httpRequest = buildOrchestratorRequest("GET", path, null);
+          try (Response response = httpClient.newCall(httpRequest).execute()) {
+            JsonNode node = parseResponseNode(response);
+            return objectMapper.treeToValue(node, DecisionExplanation.class);
+          }
+        },
+        "explainDecision");
+  }
+
+  /**
+   * Asynchronously fetches a decision explanation.
+   *
+   * @param decisionId the global decision identifier
+   * @return a future containing the decision explanation
+   */
+  public CompletableFuture<DecisionExplanation> explainDecisionAsync(String decisionId) {
+    return CompletableFuture.supplyAsync(() -> explainDecision(decisionId), asyncExecutor);
+  }
+
+  /**
    * Gets audit logs for a specific tenant.
    *
    * <p>Example usage:

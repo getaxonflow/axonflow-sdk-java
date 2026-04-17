@@ -55,6 +55,21 @@ public final class AuditSearchRequest {
   @JsonProperty("request_type")
   private final String requestType;
 
+  /** Filter by decision ID (ADR-043). Gathers every audit record tied to one decision. */
+  @JsonProperty("decision_id")
+  private final String decisionId;
+
+  /** Filter by matched policy name (ADR-043). */
+  @JsonProperty("policy_name")
+  private final String policyName;
+
+  /**
+   * Filter by session override ID (ADR-042). Reconstructs an override's full lifecycle:
+   * override_created → override_used → override_expired | override_revoked.
+   */
+  @JsonProperty("override_id")
+  private final String overrideId;
+
   @JsonProperty("limit")
   private final Integer limit;
 
@@ -67,6 +82,9 @@ public final class AuditSearchRequest {
     this.startTime = builder.startTime != null ? builder.startTime.toString() : null;
     this.endTime = builder.endTime != null ? builder.endTime.toString() : null;
     this.requestType = builder.requestType;
+    this.decisionId = builder.decisionId;
+    this.policyName = builder.policyName;
+    this.overrideId = builder.overrideId;
     this.limit = builder.limit != null ? Math.min(builder.limit, 1000) : 100;
     this.offset = builder.offset;
   }
@@ -89,6 +107,18 @@ public final class AuditSearchRequest {
 
   public String getRequestType() {
     return requestType;
+  }
+
+  public String getDecisionId() {
+    return decisionId;
+  }
+
+  public String getPolicyName() {
+    return policyName;
+  }
+
+  public String getOverrideId() {
+    return overrideId;
   }
 
   public Integer getLimit() {
@@ -148,6 +178,9 @@ public final class AuditSearchRequest {
     private Instant startTime;
     private Instant endTime;
     private String requestType;
+    private String decisionId;
+    private String policyName;
+    private String overrideId;
     private Integer limit;
     private Integer offset;
 
@@ -180,6 +213,30 @@ public final class AuditSearchRequest {
     /** Filter by request type (e.g., "llm_chat", "policy_check"). */
     public Builder requestType(String requestType) {
       this.requestType = requestType;
+      return this;
+    }
+
+    /**
+     * Filter by decision ID (ADR-043). Use to gather every audit record tied to a single
+     * decision — the explain-flow cross-reference pivot.
+     */
+    public Builder decisionId(String decisionId) {
+      this.decisionId = decisionId;
+      return this;
+    }
+
+    /** Filter by matched policy name (ADR-043). */
+    public Builder policyName(String policyName) {
+      this.policyName = policyName;
+      return this;
+    }
+
+    /**
+     * Filter by session override ID (ADR-042). Use to reconstruct an override's full
+     * lifecycle (override_created → override_used → override_expired | override_revoked).
+     */
+    public Builder overrideId(String overrideId) {
+      this.overrideId = overrideId;
       return this;
     }
 
