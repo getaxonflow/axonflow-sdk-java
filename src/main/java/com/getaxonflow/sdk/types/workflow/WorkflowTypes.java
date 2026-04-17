@@ -716,6 +716,158 @@ public final class WorkflowTypes {
     }
   }
 
+  /** A governance-aware resume boundary at a step-gate evaluation. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class Checkpoint {
+
+    @JsonProperty("id")
+    private final long id;
+
+    @JsonProperty("workflow_id")
+    private final String workflowId;
+
+    @JsonProperty("step_id")
+    private final String stepId;
+
+    @JsonProperty("step_index")
+    private final int stepIndex;
+
+    @JsonProperty("step_type")
+    private final String stepType;
+
+    @JsonProperty("checkpoint_type")
+    private final String checkpointType;
+
+    @JsonProperty("gate_decision")
+    private final String gateDecision;
+
+    @JsonProperty("gate_reason")
+    private final String gateReason;
+
+    @JsonProperty("is_resumable")
+    private final boolean resumable;
+
+    @JsonProperty("resume_count")
+    private final int resumeCount;
+
+    @JsonProperty("created_at")
+    private final String createdAt;
+
+    @JsonCreator
+    public Checkpoint(
+        @JsonProperty("id") long id,
+        @JsonProperty("workflow_id") String workflowId,
+        @JsonProperty("step_id") String stepId,
+        @JsonProperty("step_index") int stepIndex,
+        @JsonProperty("step_type") String stepType,
+        @JsonProperty("checkpoint_type") String checkpointType,
+        @JsonProperty("gate_decision") String gateDecision,
+        @JsonProperty("gate_reason") String gateReason,
+        @JsonProperty("is_resumable") boolean resumable,
+        @JsonProperty("resume_count") int resumeCount,
+        @JsonProperty("created_at") String createdAt) {
+      this.id = id;
+      this.workflowId = workflowId;
+      this.stepId = stepId;
+      this.stepIndex = stepIndex;
+      this.stepType = stepType;
+      this.checkpointType = checkpointType;
+      this.gateDecision = gateDecision;
+      this.gateReason = gateReason;
+      this.resumable = resumable;
+      this.resumeCount = resumeCount;
+      this.createdAt = createdAt;
+    }
+
+    public long getId() { return id; }
+    public String getWorkflowId() { return workflowId; }
+    public String getStepId() { return stepId; }
+    public int getStepIndex() { return stepIndex; }
+    public String getStepType() { return stepType; }
+    public String getCheckpointType() { return checkpointType; }
+    public String getGateDecision() { return gateDecision; }
+    public String getGateReason() { return gateReason; }
+    public boolean isResumable() { return resumable; }
+    public int getResumeCount() { return resumeCount; }
+    public String getCreatedAt() { return createdAt; }
+  }
+
+  /** Response from listing checkpoints. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class CheckpointListResponse {
+
+    @JsonProperty("checkpoints")
+    private final List<Checkpoint> checkpoints;
+
+    @JsonProperty("workflow_id")
+    private final String workflowId;
+
+    @JsonCreator
+    public CheckpointListResponse(
+        @JsonProperty("checkpoints") List<Checkpoint> checkpoints,
+        @JsonProperty("workflow_id") String workflowId) {
+      this.checkpoints = checkpoints != null
+          ? Collections.unmodifiableList(checkpoints)
+          : Collections.emptyList();
+      this.workflowId = workflowId;
+    }
+
+    public List<Checkpoint> getCheckpoints() { return checkpoints; }
+    public String getWorkflowId() { return workflowId; }
+  }
+
+  /** Response after resuming from a checkpoint. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class ResumeFromCheckpointResponse {
+
+    @JsonProperty("workflow_id")
+    private final String workflowId;
+
+    @JsonProperty("resumed_from_checkpoint")
+    private final String resumedFromCheckpoint;
+
+    @JsonProperty("resumed_from_index")
+    private final int resumedFromIndex;
+
+    @JsonProperty("new_decision")
+    private final String newDecision;
+
+    @JsonProperty("decision_source")
+    private final String decisionSource;
+
+    @JsonProperty("resume_count")
+    private final int resumeCount;
+
+    @JsonProperty("message")
+    private final String message;
+
+    @JsonCreator
+    public ResumeFromCheckpointResponse(
+        @JsonProperty("workflow_id") String workflowId,
+        @JsonProperty("resumed_from_checkpoint") String resumedFromCheckpoint,
+        @JsonProperty("resumed_from_index") int resumedFromIndex,
+        @JsonProperty("new_decision") String newDecision,
+        @JsonProperty("decision_source") String decisionSource,
+        @JsonProperty("resume_count") int resumeCount,
+        @JsonProperty("message") String message) {
+      this.workflowId = workflowId;
+      this.resumedFromCheckpoint = resumedFromCheckpoint;
+      this.resumedFromIndex = resumedFromIndex;
+      this.newDecision = newDecision;
+      this.decisionSource = decisionSource;
+      this.resumeCount = resumeCount;
+      this.message = message;
+    }
+
+    public String getWorkflowId() { return workflowId; }
+    public String getResumedFromCheckpoint() { return resumedFromCheckpoint; }
+    public int getResumedFromIndex() { return resumedFromIndex; }
+    public String getNewDecision() { return newDecision; }
+    public String getDecisionSource() { return decisionSource; }
+    public int getResumeCount() { return resumeCount; }
+    public String getMessage() { return message; }
+  }
+
   /** Information about a workflow step. */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class WorkflowStepInfo {
