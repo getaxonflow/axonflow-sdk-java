@@ -5,6 +5,23 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.0] - 2026-04-18
+
+### Added
+
+- **Execution boundary semantics** — `retryPolicy` field on `StepGateRequest`
+  (via builder: `.retryPolicy("reevaluate")`). Controls cached vs fresh
+  evaluation for the same step boundary.
+- **Step gate response metadata** — `cached` (boolean) and `decisionSource`
+  (String) fields on `StepGateResponse` via `isCached()` and
+  `getDecisionSource()`.
+- **Workflow checkpoints** — `getCheckpoints(workflowId)` lists step-gate
+  checkpoints. `resumeFromLastCheckpoint(workflowId)` resumes from last
+  checkpoint (Evaluation+). `resumeFromCheckpoint(workflowId, checkpointId)`
+  resumes from a specific checkpoint (Enterprise).
+- **Checkpoint types** — `Checkpoint`, `CheckpointListResponse`, and
+  `ResumeFromCheckpointResponse` with Jackson deserialization.
+
 ## [5.3.0] - 2026-04-09
 
 ### Added
