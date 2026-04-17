@@ -209,7 +209,9 @@ class LangGraphAdapterTest {
               Collections.emptyList(),
               "https://approve.me",
               null,
-              null);
+              null,
+              false,
+              "fresh");
       when(client.stepGate(anyString(), anyString(), any(StepGateRequest.class))).thenReturn(resp);
 
       assertThatThrownBy(() -> adapter.checkGate("deploy", "human_task"))
@@ -955,7 +957,7 @@ class LangGraphAdapterTest {
   private void mockStepGate(
       GateDecision decision, String stepId, String reason, List<String> policyIds) {
     StepGateResponse resp =
-        new StepGateResponse(decision, stepId, reason, policyIds, null, null, null);
+        new StepGateResponse(decision, stepId, reason, policyIds, null, null, null, false, "fresh");
     when(client.stepGate(anyString(), anyString(), any(StepGateRequest.class))).thenReturn(resp);
   }
 }

@@ -458,14 +458,28 @@ public final class WorkflowTypes {
     @JsonProperty("tool_context")
     private final ToolContext toolContext;
 
-    /** Backward-compatible constructor without toolContext. */
+    @JsonProperty("retry_policy")
+    private final String retryPolicy;
+
+    /** Backward-compatible constructor without toolContext or retryPolicy. */
     public StepGateRequest(
         String stepName,
         StepType stepType,
         Map<String, Object> stepInput,
         String model,
         String provider) {
-      this(stepName, stepType, stepInput, model, provider, null);
+      this(stepName, stepType, stepInput, model, provider, null, null);
+    }
+
+    /** Backward-compatible constructor without retryPolicy. */
+    public StepGateRequest(
+        String stepName,
+        StepType stepType,
+        Map<String, Object> stepInput,
+        String model,
+        String provider,
+        ToolContext toolContext) {
+      this(stepName, stepType, stepInput, model, provider, toolContext, null);
     }
 
     @JsonCreator
@@ -475,7 +489,8 @@ public final class WorkflowTypes {
         @JsonProperty("step_input") Map<String, Object> stepInput,
         @JsonProperty("model") String model,
         @JsonProperty("provider") String provider,
-        @JsonProperty("tool_context") ToolContext toolContext) {
+        @JsonProperty("tool_context") ToolContext toolContext,
+        @JsonProperty("retry_policy") String retryPolicy) {
       this.stepName = stepName;
       this.stepType = Objects.requireNonNull(stepType, "stepType is required");
       this.stepInput =
@@ -483,6 +498,7 @@ public final class WorkflowTypes {
       this.model = model;
       this.provider = provider;
       this.toolContext = toolContext;
+      this.retryPolicy = retryPolicy;
     }
 
     public String getStepName() {
@@ -509,6 +525,14 @@ public final class WorkflowTypes {
       return toolContext;
     }
 
+    /**
+     * Returns the retry policy for this step gate request.
+     * "idempotent" (default): return cached decision. "reevaluate": force fresh evaluation.
+     */
+    public String getRetryPolicy() {
+      return retryPolicy;
+    }
+
     public static Builder builder() {
       return new Builder();
     }
@@ -520,6 +544,7 @@ public final class WorkflowTypes {
       private String model;
       private String provider;
       private ToolContext toolContext;
+      private String retryPolicy;
 
       public Builder stepName(String stepName) {
         this.stepName = stepName;
@@ -551,8 +576,15 @@ public final class WorkflowTypes {
         return this;
       }
 
+      /** Set the retry policy: "idempotent" (default) or "reevaluate". */
+      public Builder retryPolicy(String retryPolicy) {
+        this.retryPolicy = retryPolicy;
+        return this;
+      }
+
       public StepGateRequest build() {
-        return new StepGateRequest(stepName, stepType, stepInput, model, provider, toolContext);
+        return new StepGateRequest(
+            stepName, stepType, stepInput, model, provider, toolContext, retryPolicy);
       }
     }
   }
@@ -582,6 +614,12 @@ public final class WorkflowTypes {
     @JsonProperty("policies_matched")
     private final List<PolicyMatch> policiesMatched;
 
+    @JsonProperty("cached")
+    private final boolean cached;
+
+    @JsonProperty("decision_source")
+    private final String decisionSource;
+
     @JsonCreator
     public StepGateResponse(
         @JsonProperty("decision") GateDecision decision,
@@ -590,7 +628,9 @@ public final class WorkflowTypes {
         @JsonProperty("policy_ids") List<String> policyIds,
         @JsonProperty("approval_url") String approvalUrl,
         @JsonProperty("policies_evaluated") List<PolicyMatch> policiesEvaluated,
-        @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched) {
+        @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched,
+        @JsonProperty("cached") boolean cached,
+        @JsonProperty("decision_source") String decisionSource) {
       this.decision = decision;
       this.stepId = stepId;
       this.reason = reason;
@@ -605,6 +645,8 @@ public final class WorkflowTypes {
           policiesMatched != null
               ? Collections.unmodifiableList(policiesMatched)
               : Collections.emptyList();
+      this.cached = cached;
+      this.decisionSource = decisionSource;
     }
 
     public GateDecision getDecision() {
@@ -645,6 +687,20 @@ public final class WorkflowTypes {
      */
     public List<PolicyMatch> getPoliciesMatched() {
       return policiesMatched;
+    }
+
+    /**
+     * Returns whether this response was served from a prior decision rather than a fresh evaluation.
+     */
+    public boolean isCached() {
+      return cached;
+    }
+
+    /**
+     * Returns how the decision was produced: "fresh" or "cached".
+     */
+    public String getDecisionSource() {
+      return decisionSource;
     }
 
     public boolean isAllowed() {
