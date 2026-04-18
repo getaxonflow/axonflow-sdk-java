@@ -458,14 +458,28 @@ public final class WorkflowTypes {
     @JsonProperty("tool_context")
     private final ToolContext toolContext;
 
-    /** Backward-compatible constructor without toolContext. */
+    @JsonProperty("retry_policy")
+    private final String retryPolicy;
+
+    /** Backward-compatible constructor without toolContext or retryPolicy. */
     public StepGateRequest(
         String stepName,
         StepType stepType,
         Map<String, Object> stepInput,
         String model,
         String provider) {
-      this(stepName, stepType, stepInput, model, provider, null);
+      this(stepName, stepType, stepInput, model, provider, null, null);
+    }
+
+    /** Backward-compatible constructor without retryPolicy. */
+    public StepGateRequest(
+        String stepName,
+        StepType stepType,
+        Map<String, Object> stepInput,
+        String model,
+        String provider,
+        ToolContext toolContext) {
+      this(stepName, stepType, stepInput, model, provider, toolContext, null);
     }
 
     @JsonCreator
@@ -475,7 +489,8 @@ public final class WorkflowTypes {
         @JsonProperty("step_input") Map<String, Object> stepInput,
         @JsonProperty("model") String model,
         @JsonProperty("provider") String provider,
-        @JsonProperty("tool_context") ToolContext toolContext) {
+        @JsonProperty("tool_context") ToolContext toolContext,
+        @JsonProperty("retry_policy") String retryPolicy) {
       this.stepName = stepName;
       this.stepType = Objects.requireNonNull(stepType, "stepType is required");
       this.stepInput =
@@ -483,6 +498,7 @@ public final class WorkflowTypes {
       this.model = model;
       this.provider = provider;
       this.toolContext = toolContext;
+      this.retryPolicy = retryPolicy;
     }
 
     public String getStepName() {
@@ -509,6 +525,14 @@ public final class WorkflowTypes {
       return toolContext;
     }
 
+    /**
+     * Returns the retry policy for this step gate request.
+     * "idempotent" (default): return cached decision. "reevaluate": force fresh evaluation.
+     */
+    public String getRetryPolicy() {
+      return retryPolicy;
+    }
+
     public static Builder builder() {
       return new Builder();
     }
@@ -520,6 +544,7 @@ public final class WorkflowTypes {
       private String model;
       private String provider;
       private ToolContext toolContext;
+      private String retryPolicy;
 
       public Builder stepName(String stepName) {
         this.stepName = stepName;
@@ -551,8 +576,15 @@ public final class WorkflowTypes {
         return this;
       }
 
+      /** Set the retry policy: "idempotent" (default) or "reevaluate". */
+      public Builder retryPolicy(String retryPolicy) {
+        this.retryPolicy = retryPolicy;
+        return this;
+      }
+
       public StepGateRequest build() {
-        return new StepGateRequest(stepName, stepType, stepInput, model, provider, toolContext);
+        return new StepGateRequest(
+            stepName, stepType, stepInput, model, provider, toolContext, retryPolicy);
       }
     }
   }
@@ -582,6 +614,12 @@ public final class WorkflowTypes {
     @JsonProperty("policies_matched")
     private final List<PolicyMatch> policiesMatched;
 
+    @JsonProperty("cached")
+    private final boolean cached;
+
+    @JsonProperty("decision_source")
+    private final String decisionSource;
+
     @JsonCreator
     public StepGateResponse(
         @JsonProperty("decision") GateDecision decision,
@@ -590,7 +628,9 @@ public final class WorkflowTypes {
         @JsonProperty("policy_ids") List<String> policyIds,
         @JsonProperty("approval_url") String approvalUrl,
         @JsonProperty("policies_evaluated") List<PolicyMatch> policiesEvaluated,
-        @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched) {
+        @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched,
+        @JsonProperty("cached") boolean cached,
+        @JsonProperty("decision_source") String decisionSource) {
       this.decision = decision;
       this.stepId = stepId;
       this.reason = reason;
@@ -605,6 +645,8 @@ public final class WorkflowTypes {
           policiesMatched != null
               ? Collections.unmodifiableList(policiesMatched)
               : Collections.emptyList();
+      this.cached = cached;
+      this.decisionSource = decisionSource;
     }
 
     public GateDecision getDecision() {
@@ -647,6 +689,20 @@ public final class WorkflowTypes {
       return policiesMatched;
     }
 
+    /**
+     * Returns whether this response was served from a prior decision rather than a fresh evaluation.
+     */
+    public boolean isCached() {
+      return cached;
+    }
+
+    /**
+     * Returns how the decision was produced: "fresh" or "cached".
+     */
+    public String getDecisionSource() {
+      return decisionSource;
+    }
+
     public boolean isAllowed() {
       return decision == GateDecision.ALLOW;
     }
@@ -658,6 +714,158 @@ public final class WorkflowTypes {
     public boolean requiresApproval() {
       return decision == GateDecision.REQUIRE_APPROVAL;
     }
+  }
+
+  /** A governance-aware resume boundary at a step-gate evaluation. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class Checkpoint {
+
+    @JsonProperty("id")
+    private final long id;
+
+    @JsonProperty("workflow_id")
+    private final String workflowId;
+
+    @JsonProperty("step_id")
+    private final String stepId;
+
+    @JsonProperty("step_index")
+    private final int stepIndex;
+
+    @JsonProperty("step_type")
+    private final String stepType;
+
+    @JsonProperty("checkpoint_type")
+    private final String checkpointType;
+
+    @JsonProperty("gate_decision")
+    private final String gateDecision;
+
+    @JsonProperty("gate_reason")
+    private final String gateReason;
+
+    @JsonProperty("is_resumable")
+    private final boolean resumable;
+
+    @JsonProperty("resume_count")
+    private final int resumeCount;
+
+    @JsonProperty("created_at")
+    private final String createdAt;
+
+    @JsonCreator
+    public Checkpoint(
+        @JsonProperty("id") long id,
+        @JsonProperty("workflow_id") String workflowId,
+        @JsonProperty("step_id") String stepId,
+        @JsonProperty("step_index") int stepIndex,
+        @JsonProperty("step_type") String stepType,
+        @JsonProperty("checkpoint_type") String checkpointType,
+        @JsonProperty("gate_decision") String gateDecision,
+        @JsonProperty("gate_reason") String gateReason,
+        @JsonProperty("is_resumable") boolean resumable,
+        @JsonProperty("resume_count") int resumeCount,
+        @JsonProperty("created_at") String createdAt) {
+      this.id = id;
+      this.workflowId = workflowId;
+      this.stepId = stepId;
+      this.stepIndex = stepIndex;
+      this.stepType = stepType;
+      this.checkpointType = checkpointType;
+      this.gateDecision = gateDecision;
+      this.gateReason = gateReason;
+      this.resumable = resumable;
+      this.resumeCount = resumeCount;
+      this.createdAt = createdAt;
+    }
+
+    public long getId() { return id; }
+    public String getWorkflowId() { return workflowId; }
+    public String getStepId() { return stepId; }
+    public int getStepIndex() { return stepIndex; }
+    public String getStepType() { return stepType; }
+    public String getCheckpointType() { return checkpointType; }
+    public String getGateDecision() { return gateDecision; }
+    public String getGateReason() { return gateReason; }
+    public boolean isResumable() { return resumable; }
+    public int getResumeCount() { return resumeCount; }
+    public String getCreatedAt() { return createdAt; }
+  }
+
+  /** Response from listing checkpoints. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class CheckpointListResponse {
+
+    @JsonProperty("checkpoints")
+    private final List<Checkpoint> checkpoints;
+
+    @JsonProperty("workflow_id")
+    private final String workflowId;
+
+    @JsonCreator
+    public CheckpointListResponse(
+        @JsonProperty("checkpoints") List<Checkpoint> checkpoints,
+        @JsonProperty("workflow_id") String workflowId) {
+      this.checkpoints = checkpoints != null
+          ? Collections.unmodifiableList(checkpoints)
+          : Collections.emptyList();
+      this.workflowId = workflowId;
+    }
+
+    public List<Checkpoint> getCheckpoints() { return checkpoints; }
+    public String getWorkflowId() { return workflowId; }
+  }
+
+  /** Response after resuming from a checkpoint. */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class ResumeFromCheckpointResponse {
+
+    @JsonProperty("workflow_id")
+    private final String workflowId;
+
+    @JsonProperty("resumed_from_checkpoint")
+    private final String resumedFromCheckpoint;
+
+    @JsonProperty("resumed_from_index")
+    private final int resumedFromIndex;
+
+    @JsonProperty("new_decision")
+    private final String newDecision;
+
+    @JsonProperty("decision_source")
+    private final String decisionSource;
+
+    @JsonProperty("resume_count")
+    private final int resumeCount;
+
+    @JsonProperty("message")
+    private final String message;
+
+    @JsonCreator
+    public ResumeFromCheckpointResponse(
+        @JsonProperty("workflow_id") String workflowId,
+        @JsonProperty("resumed_from_checkpoint") String resumedFromCheckpoint,
+        @JsonProperty("resumed_from_index") int resumedFromIndex,
+        @JsonProperty("new_decision") String newDecision,
+        @JsonProperty("decision_source") String decisionSource,
+        @JsonProperty("resume_count") int resumeCount,
+        @JsonProperty("message") String message) {
+      this.workflowId = workflowId;
+      this.resumedFromCheckpoint = resumedFromCheckpoint;
+      this.resumedFromIndex = resumedFromIndex;
+      this.newDecision = newDecision;
+      this.decisionSource = decisionSource;
+      this.resumeCount = resumeCount;
+      this.message = message;
+    }
+
+    public String getWorkflowId() { return workflowId; }
+    public String getResumedFromCheckpoint() { return resumedFromCheckpoint; }
+    public int getResumedFromIndex() { return resumedFromIndex; }
+    public String getNewDecision() { return newDecision; }
+    public String getDecisionSource() { return decisionSource; }
+    public int getResumeCount() { return resumeCount; }
+    public String getMessage() { return message; }
   }
 
   /** Information about a workflow step. */

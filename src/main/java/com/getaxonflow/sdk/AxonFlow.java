@@ -5136,6 +5136,79 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
+   * Lists step-gate checkpoints for a workflow. Available in all tiers.
+   *
+   * @param workflowId workflow ID
+   * @return checkpoint list
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.CheckpointListResponse getCheckpoints(
+      String workflowId) {
+    Objects.requireNonNull(workflowId, "workflowId cannot be null");
+    return retryExecutor.execute(
+        () -> {
+          Request httpRequest =
+              buildOrchestratorRequest("GET", "/api/v1/workflows/" + workflowId + "/checkpoints", null);
+          try (Response response = httpClient.newCall(httpRequest).execute()) {
+            return parseResponse(
+                response,
+                new TypeReference<
+                    com.getaxonflow.sdk.types.workflow.WorkflowTypes.CheckpointListResponse>() {});
+          }
+        },
+        "getCheckpoints");
+  }
+
+  /**
+   * Resumes a workflow from its last resumable checkpoint. Evaluation+ tier.
+   *
+   * @param workflowId workflow ID
+   * @return resume result with fresh decision
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse resumeFromLastCheckpoint(
+      String workflowId) {
+    Objects.requireNonNull(workflowId, "workflowId cannot be null");
+    return retryExecutor.execute(
+        () -> {
+          Request httpRequest =
+              buildOrchestratorRequest("POST", "/api/v1/workflows/" + workflowId + "/checkpoints/resume", "{}");
+          try (Response response = httpClient.newCall(httpRequest).execute()) {
+            return parseResponse(
+                response,
+                new TypeReference<
+                    com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse>() {});
+          }
+        },
+        "resumeFromLastCheckpoint");
+  }
+
+  /**
+   * Resumes a workflow from a specific checkpoint. Enterprise only.
+   *
+   * @param workflowId workflow ID
+   * @param checkpointId checkpoint database ID
+   * @return resume result with fresh decision
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse resumeFromCheckpoint(
+      String workflowId, long checkpointId) {
+    Objects.requireNonNull(workflowId, "workflowId cannot be null");
+    return retryExecutor.execute(
+        () -> {
+          Request httpRequest =
+              buildOrchestratorRequest(
+                  "POST",
+                  "/api/v1/workflows/" + workflowId + "/checkpoints/" + checkpointId + "/resume",
+                  "{}");
+          try (Response response = httpClient.newCall(httpRequest).execute()) {
+            return parseResponse(
+                response,
+                new TypeReference<
+                    com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse>() {});
+          }
+        },
+        "resumeFromCheckpoint");
+  }
+
+  /**
    * Lists workflows with optional filters.
    *
    * @param options filter and pagination options
