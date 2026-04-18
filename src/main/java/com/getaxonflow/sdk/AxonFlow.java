@@ -595,8 +595,14 @@ public final class AxonFlow implements Closeable {
     }
     return retryExecutor.execute(
         () -> {
-          // URL-encode because decision IDs from older workflows may contain slashes.
-          String encoded = java.net.URLEncoder.encode(decisionId, java.nio.charset.StandardCharsets.UTF_8);
+          // Path-segment encoding: URLEncoder is application/x-www-form-urlencoded
+          // (space -> '+'), which is wrong for path segments. Replacing '+' with
+          // '%20' converts the form-encoded output into a valid percent-encoded
+          // path segment, matching how Go / Python / TypeScript escape the
+          // decision_id in this path.
+          String encoded =
+              java.net.URLEncoder.encode(decisionId, java.nio.charset.StandardCharsets.UTF_8)
+                  .replace("+", "%20");
           String path = "/api/v1/decisions/" + encoded + "/explain";
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
           try (Response response = httpClient.newCall(httpRequest).execute()) {

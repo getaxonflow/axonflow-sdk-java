@@ -159,6 +159,36 @@ class DecisionExplainTest {
   }
 
   @Test
+  @DisplayName("path-encodes decision ID — space becomes %20 not + (path vs form encoding)")
+  void pathEncodesDecisionIdSpaceAsPercent20() {
+    // Decision IDs should never realistically contain spaces, but Go/Python/
+    // TypeScript all use path-segment escaping — Java must match so the
+    // request hits the same path in the unlikely event it does. Before the
+    // fix this was URLEncoder.encode() alone, which produced '+' and would
+    // have routed to a different audit_logs key.
+    stubFor(
+        get(urlEqualTo("/api/v1/decisions/dec%20with%20space/explain"))
+            .willReturn(aResponse().withStatus(200).withBody(EXPLAIN_BODY)));
+
+    axonflow.explainDecision("dec with space");
+
+    verify(getRequestedFor(urlEqualTo("/api/v1/decisions/dec%20with%20space/explain")));
+  }
+
+  @Test
+  @DisplayName("path-encodes decision ID — '+' in id is preserved as %2B")
+  void pathEncodesPlusAsPercent2B() {
+    // A literal '+' in the id must NOT be parsed as a space on the server.
+    stubFor(
+        get(urlEqualTo("/api/v1/decisions/dec%2Bplus/explain"))
+            .willReturn(aResponse().withStatus(200).withBody(EXPLAIN_BODY)));
+
+    axonflow.explainDecision("dec+plus");
+
+    verify(getRequestedFor(urlEqualTo("/api/v1/decisions/dec%2Bplus/explain")));
+  }
+
+  @Test
   @DisplayName("DecisionExplanation getters return null-safe values")
   void decisionExplanationGetters() {
     DecisionExplanation exp =
