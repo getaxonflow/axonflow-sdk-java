@@ -12,7 +12,57 @@ env:
   DO_NOT_TRACK: '1'
 
 jobs:
+  # Preflight: validate CHANGELOG has a section for the tag being released
+  # BEFORE Maven Central deploy happens. Maven Central is immutable —
+  # you cannot re-publish the same version — so a missing CHANGELOG section
+  # must fail the workflow cleanly instead of leaving a successfully-deployed
+  # artifact and a failed GitHub release with no recovery path.
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract CHANGELOG section
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          awk -v ver="$VERSION" '$0 ~ "^## \\["ver"\\]" {p=1; next} p && /^## \[/ {exit} p {print}' CHANGELOG.md > /tmp/release-body.md
+          if [ ! -s /tmp/release-body.md ]; then
+            echo "::error::No CHANGELOG.md section found for version $VERSION — refusing to publish."
+            echo "::error::Add a '## [$VERSION] - YYYY-MM-DD' section to CHANGELOG.md and re-tag."
+            exit 1
+          fi
+          {
+            echo "## AxonFlow Java SDK v${VERSION}"
+            echo ""
+            echo "### Installation"
+            echo ""
+            echo "**Maven:**"
+            echo '```xml'
+            echo "<dependency>"
+            echo "    <groupId>com.getaxonflow</groupId>"
+            echo "    <artifactId>axonflow-sdk</artifactId>"
+            echo "    <version>${VERSION}</version>"
+            echo "</dependency>"
+            echo '```'
+            echo ""
+            echo "**Gradle:**"
+            echo '```groovy'
+            echo "implementation 'com.getaxonflow:axonflow-sdk:${VERSION}'"
+            echo '```'
+            echo ""
+            cat /tmp/release-body.md
+          } > /tmp/release-body-final.md
+          echo "Release body: $(wc -l < /tmp/release-body-final.md) lines"
+
+      - name: Upload release body artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-body
+          path: /tmp/release-body-final.md
+          retention-days: 1
+
   release:
+    needs: preflight
     runs-on: ubuntu-latest
 
     steps:
@@ -114,31 +164,17 @@ jobs:
             sleep 60
           done
 
+      - name: Download release body artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-body
+          path: /tmp/release-body
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           name: Release ${{ steps.version.outputs.VERSION }}
-          body: |
-            ## AxonFlow Java SDK v${{ steps.version.outputs.VERSION }}
-
-            ### Installation
-
-            **Maven:**
-            ```xml
-            <dependency>
-                <groupId>com.getaxonflow</groupId>
-                <artifactId>axonflow-sdk</artifactId>
-                <version>${{ steps.version.outputs.VERSION }}</version>
-            </dependency>
-            ```
-
-            **Gradle:**
-            ```groovy
-            implementation 'com.getaxonflow:axonflow-sdk:${{ steps.version.outputs.VERSION }}'
-            ```
-
-            ### Changes
-            See [CHANGELOG.md](https://github.com/getaxonflow/axonflow-sdk-java/blob/main/CHANGELOG.md) for details.
+          body_path: /tmp/release-body/release-body-final.md
           files: |
             target/*.jar
           draft: false
