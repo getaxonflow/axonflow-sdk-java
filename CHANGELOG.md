@@ -5,6 +5,28 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.4.1] - 2026-04-20
+
+### Added
+
+- **`mapTimeout` field on `AxonFlowConfig`** — brings Java to parity with
+  the TypeScript, Python, and Go SDKs (all three already had a separate
+  MAP timeout). The shared `timeout` (default 60s) only covered single-
+  request endpoints; MAP plans routinely take 60-120s because they
+  chain multiple LLM calls end-to-end, and the global timeout was
+  cutting them off. New constant `DEFAULT_MAP_TIMEOUT = 120s`, new
+  builder method `AxonFlowConfig.builder().mapTimeout(Duration.ofSeconds(300))`,
+  and new environment variable `AXONFLOW_MAP_TIMEOUT_SECONDS`. All
+  plan-lifecycle methods (`generatePlan`, `executePlan`, `getPlanStatus`,
+  `updatePlan`, `cancelPlan`, `resumePlan`, `rollbackPlan`,
+  `getPlanVersions`) now use a plan-specific `OkHttpClient` clone with
+  `callTimeout` / `readTimeout` / `writeTimeout` set to `mapTimeout`.
+  Shares connection pool + interceptors + dispatcher with the main
+  client; only the timeout attributes differ. Keep `mapTimeout` ≤
+  server `AXONFLOW_MAP_MAX_TIMEOUT_SECONDS` (default 300s) ≤
+  front-door ALB `idle_timeout.timeout_seconds` (default 300s), or the
+  connection is killed mid-stream.
+
 ## [5.4.0] - 2026-04-18
 
 ### Added
