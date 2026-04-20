@@ -76,6 +76,19 @@ public final class AxonFlowConfig {
   /** Default timeout for HTTP requests. */
   public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
 
+  /**
+   * Default timeout for MAP (Multi-Agent Planning) requests.
+   *
+   * <p>MAP plans chain several LLM calls end-to-end and routinely run longer than a single
+   * request — a 5-step plan at ~15s/step takes 60-75s by itself. 120s matches the TypeScript /
+   * Python / Go SDK defaults. Override per-client via {@link Builder#mapTimeout(Duration)} or
+   * {@code AXONFLOW_MAP_TIMEOUT_SECONDS}. The orchestrator's plan budget caps at {@code
+   * AXONFLOW_MAP_MAX_TIMEOUT_SECONDS} (default 300s); the front-door ALB's {@code
+   * idle_timeout.timeout_seconds} must be {@code >=} that cap or the connection is killed
+   * mid-stream. Keep these three knobs moving together.
+   */
+  public static final Duration DEFAULT_MAP_TIMEOUT = Duration.ofSeconds(120);
+
   /** Default endpoint URL. */
   public static final String DEFAULT_ENDPOINT = "http://localhost:8080";
 
@@ -87,6 +100,7 @@ public final class AxonFlowConfig {
   private final String clientSecret;
   private final Mode mode;
   private final Duration timeout;
+  private final Duration mapTimeout;
   private final boolean debug;
   private final boolean insecureSkipVerify;
   private final RetryConfig retryConfig;
@@ -105,6 +119,7 @@ public final class AxonFlowConfig {
     this.clientSecret = builder.clientSecret;
     this.mode = builder.mode != null ? builder.mode : Mode.PRODUCTION;
     this.timeout = builder.timeout != null ? builder.timeout : DEFAULT_TIMEOUT;
+    this.mapTimeout = builder.mapTimeout != null ? builder.mapTimeout : DEFAULT_MAP_TIMEOUT;
     this.debug = builder.debug;
     this.insecureSkipVerify = builder.insecureSkipVerify;
     this.retryConfig = builder.retryConfig != null ? builder.retryConfig : RetryConfig.defaults();
@@ -168,6 +183,7 @@ public final class AxonFlowConfig {
    *   <li>AXONFLOW_CLIENT_SECRET - The client secret
    *   <li>AXONFLOW_MODE - Operating mode (production/sandbox)
    *   <li>AXONFLOW_TIMEOUT_SECONDS - Request timeout in seconds
+   *   <li>AXONFLOW_MAP_TIMEOUT_SECONDS - MAP plan timeout in seconds (default 120)
    *   <li>AXONFLOW_DEBUG - Enable debug mode (true/false)
    * </ul>
    *
@@ -206,6 +222,15 @@ public final class AxonFlowConfig {
       }
     }
 
+    String mapTimeoutStr = System.getenv("AXONFLOW_MAP_TIMEOUT_SECONDS");
+    if (mapTimeoutStr != null && !mapTimeoutStr.isEmpty()) {
+      try {
+        builder.mapTimeout(Duration.ofSeconds(Long.parseLong(mapTimeoutStr)));
+      } catch (NumberFormatException e) {
+        // Ignore invalid timeout, use default
+      }
+    }
+
     String debugStr = System.getenv("AXONFLOW_DEBUG");
     if ("true".equalsIgnoreCase(debugStr)) {
       builder.debug(true);
@@ -232,6 +257,19 @@ public final class AxonFlowConfig {
 
   public Duration getTimeout() {
     return timeout;
+  }
+
+  /**
+   * Returns the timeout for MAP (Multi-Agent Planning) requests.
+   *
+   * <p>Applied per-call to plan-lifecycle methods: {@code generatePlan}, {@code executePlan},
+   * {@code getPlan}, {@code updatePlan}, {@code cancelPlan}, and {@code resumePlan}. Defaults to
+   * {@link #DEFAULT_MAP_TIMEOUT} (120s).
+   *
+   * @return the MAP request timeout
+   */
+  public Duration getMapTimeout() {
+    return mapTimeout;
   }
 
   public boolean isDebug() {
@@ -312,6 +350,7 @@ public final class AxonFlowConfig {
     private String clientSecret;
     private Mode mode;
     private Duration timeout;
+    private Duration mapTimeout;
     private boolean debug;
     private boolean insecureSkipVerify;
     private RetryConfig retryConfig;
@@ -391,6 +430,24 @@ public final class AxonFlowConfig {
      */
     public Builder timeout(Duration timeout) {
       this.timeout = timeout;
+      return this;
+    }
+
+    /**
+     * Sets the MAP (Multi-Agent Planning) request timeout.
+     *
+     * <p>Applied per-call to plan-lifecycle methods (generatePlan, executePlan, getPlan,
+     * updatePlan, cancelPlan, resumePlan). Defaults to 120s, matching the TS / Python / Go SDKs.
+     * Raise for long-running plans but keep the orchestrator ({@code
+     * AXONFLOW_MAP_MAX_TIMEOUT_SECONDS}, default 300s) and front-door ALB ({@code
+     * idle_timeout.timeout_seconds}, default 300s) tuned consistently or the connection is cut
+     * mid-stream.
+     *
+     * @param mapTimeout the MAP timeout duration
+     * @return this builder
+     */
+    public Builder mapTimeout(Duration mapTimeout) {
+      this.mapTimeout = mapTimeout;
       return this;
     }
 

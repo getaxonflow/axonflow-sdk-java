@@ -38,6 +38,25 @@ class AxonFlowConfigTest {
     assertThat(config.isLocalhost()).isTrue();
     assertThat(config.getMode()).isEqualTo(Mode.PRODUCTION);
     assertThat(config.getTimeout()).isEqualTo(AxonFlowConfig.DEFAULT_TIMEOUT);
+    // MAP timeout defaults to 120s — matches TS / Python / Go SDKs. The
+    // shared `timeout` is for single-request endpoints; MAP plans chain
+    // multiple LLM calls and need their own budget.
+    assertThat(config.getMapTimeout()).isEqualTo(AxonFlowConfig.DEFAULT_MAP_TIMEOUT);
+    assertThat(AxonFlowConfig.DEFAULT_MAP_TIMEOUT).isEqualTo(Duration.ofSeconds(120));
+  }
+
+  @Test
+  @DisplayName("should accept custom mapTimeout on builder")
+  void shouldAcceptCustomMapTimeout() {
+    AxonFlowConfig config =
+        AxonFlowConfig.builder()
+            .endpoint("http://localhost:8080")
+            .mapTimeout(Duration.ofSeconds(300))
+            .build();
+
+    assertThat(config.getMapTimeout()).isEqualTo(Duration.ofSeconds(300));
+    // Overriding mapTimeout does not affect the regular request timeout.
+    assertThat(config.getTimeout()).isEqualTo(AxonFlowConfig.DEFAULT_TIMEOUT);
   }
 
   @Test

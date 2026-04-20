@@ -124,6 +124,17 @@ public final class AxonFlow implements Closeable {
 
   private final AxonFlowConfig config;
   private final OkHttpClient httpClient;
+
+  /**
+   * Clone of {@link #httpClient} with {@code callTimeout} overridden to {@code
+   * config.getMapTimeout()}. Used for every plan-lifecycle call (generate, execute, get, update,
+   * cancel, resume, rollback) where a single call may outlive the default request timeout. MAP
+   * plans chain multiple LLM calls end-to-end and commonly take 60-120s; the global timeout
+   * (default 60s) would cut them off. Shares the connection pool, interceptors, and dispatcher
+   * with {@link #httpClient} — only the call-timeout attribute differs.
+   */
+  private final OkHttpClient planHttpClient;
+
   private final ObjectMapper objectMapper;
   private final RetryExecutor retryExecutor;
   private final ResponseCache cache;
@@ -145,6 +156,13 @@ public final class AxonFlow implements Closeable {
     }
 
     this.httpClient = HttpClientFactory.create(config);
+    this.planHttpClient =
+        this.httpClient
+            .newBuilder()
+            .callTimeout(config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+            .readTimeout(config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+            .writeTimeout(config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+            .build();
     this.objectMapper = createObjectMapper();
     this.retryExecutor = new RetryExecutor(config.getRetryConfig());
     this.cache = new ResponseCache(config.getCacheConfig());
@@ -1298,7 +1316,7 @@ public final class AxonFlow implements Closeable {
           agentRequest.put("context", Map.of("domain", domain));
 
           Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
             return parsePlanResponse(response, request.getDomain());
           }
         },
@@ -1413,7 +1431,7 @@ public final class AxonFlow implements Closeable {
       agentRequest.put("context", Map.of("plan_id", planId));
 
       Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
-      try (Response response = httpClient.newCall(httpRequest).execute()) {
+      try (Response response = planHttpClient.newCall(httpRequest).execute()) {
         return parseExecutePlanResponse(response, planId);
       }
     } catch (AxonFlowException e) {
@@ -1511,7 +1529,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/plan/" + planId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
             return parseResponse(response, PlanResponse.class);
           }
         },
@@ -1557,7 +1575,7 @@ public final class AxonFlow implements Closeable {
           agentRequest.put("context", context);
 
           Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
             return parsePlanResponse(response, request.getDomain());
           }
         },
@@ -1584,7 +1602,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildRequest(
                   "POST", "/api/v1/plan/" + planId + "/cancel", body.isEmpty() ? null : body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
             return parseResponse(response, CancelPlanResponse.class);
           }
         },
@@ -1620,7 +1638,7 @@ public final class AxonFlow implements Closeable {
       return retryExecutor.execute(
           () -> {
             Request httpRequest = buildRequest("PUT", "/api/v1/plan/" + planId, request);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = planHttpClient.newCall(httpRequest).execute()) {
               return parseResponse(response, UpdatePlanResponse.class);
             }
           },
@@ -1645,7 +1663,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/plan/" + planId + "/versions", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
             return parseResponse(response, PlanVersionsResponse.class);
           }
         },
@@ -1668,7 +1686,7 @@ public final class AxonFlow implements Closeable {
           body.put("approved", approved != null ? approved : true);
 
           Request httpRequest = buildRequest("POST", "/api/v1/plan/" + planId + "/resume", body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
             return parseResponse(response, ResumePlanResponse.class);
           }
         },
@@ -1702,7 +1720,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildRequest("POST", "/api/v1/plan/" + planId + "/rollback/" + targetVersion, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
             return parseResponse(response, RollbackPlanResponse.class);
           }
         },
