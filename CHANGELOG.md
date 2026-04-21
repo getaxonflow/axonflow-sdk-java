@@ -5,6 +5,62 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`retry_context` and `idempotency_key` support on the step gate** —
+  `StepGateResponse` now carries a `RetryContext` object on every gate call with the
+  true `(workflow_id, step_id)` lifecycle: `gateCount`, `completionCount`,
+  `priorCompletionStatus` (`PriorCompletionStatus` enum —
+  `NONE` / `COMPLETED` / `GATED_NOT_COMPLETED`), `priorOutputAvailable`,
+  `priorOutput`, `priorCompletionAt`, `firstAttemptAt`, `lastAttemptAt`,
+  `lastDecision`, and `idempotencyKey`. Prefer these to the legacy `cached` /
+  `decisionSource` fields.
+- **`stepGate(workflowId, stepId, request, options)` overload** — new 4-arg overload
+  taking `StepGateOptions`. Use `StepGateOptions.includePriorOutput()` to send
+  `?include_prior_output=true` so `retryContext.priorOutput` is populated when a prior
+  `/complete` has landed. Existing 3-arg overload keeps its signature and delegates
+  with `StepGateOptions.defaults()`.
+- **`StepGateRequest.idempotencyKey`** — caller-supplied opaque business-level key
+  (max 255 chars; validated at construction). Immutable once recorded on the first gate
+  call for a `(workflow, step)`; subsequent gate/complete calls must pass the same key.
+- **`MarkStepCompletedRequest.idempotencyKey`** — must match the key set on the
+  corresponding gate call, if any. Mismatch (including missing-vs-set on either side)
+  surfaces as a typed `IdempotencyKeyMismatchException`.
+- **`IdempotencyKeyMismatchException`** — new typed exception in
+  `com.getaxonflow.sdk.exceptions`. Thrown by `stepGate` and `markStepCompleted` when
+  the platform returns HTTP 409 with `error.code == "IDEMPOTENCY_KEY_MISMATCH"`.
+  Surfaces `workflowId`, `stepId`, `expectedIdempotencyKey`, `receivedIdempotencyKey`,
+  plus inherited `statusCode=409` and `errorCode="IDEMPOTENCY_KEY_MISMATCH"`.
+- **`RetryContext`, `PriorCompletionStatus`, `StepGateOptions`** — exported in
+  `WorkflowTypes`.
+
+### Fixed
+
+- **409 dispatch on step gate/complete** — previously all 409 responses on
+  `markStepCompleted` fell through to a generic `AxonFlowException(..., 409,
+  "VERSION_CONFLICT")`, conflating step idempotency conflicts with plan version
+  conflicts. The step gate/complete call sites now inspect the 409 body and dispatch
+  to `IdempotencyKeyMismatchException` when `error.code` matches, falling back to a
+  generic `AxonFlowException` otherwise. Plan update paths (which also use 409) are
+  untouched.
+
+### Deprecated
+
+- **`StepGateResponse.isCached()`** and **`StepGateResponse.getDecisionSource()`** —
+  marked `@Deprecated`. Use `getRetryContext().getGateCount() > 1` and
+  `getRetryContext().getPriorCompletionStatus()` instead. Planned for removal in a
+  future major version.
+
+### Compatibility
+
+Companion to the platform change that introduces `retry_context` on
+`POST /api/v1/workflows/{workflow_id}/steps/{step_id}/gate`. Additive only — existing
+callers that never set `idempotencyKey` or pass `StepGateOptions` see no behavior
+change. Binary-compatibility preserved: old `StepGateRequest`, `StepGateResponse`, and
+`MarkStepCompletedRequest` constructors kept alongside new ones.
+
 ## [5.5.0] - 2026-04-20
 
 ### Added

@@ -5010,18 +5010,53 @@ public final class AxonFlow implements Closeable {
       String workflowId,
       String stepId,
       com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateRequest request) {
+    return stepGate(
+        workflowId,
+        stepId,
+        request,
+        com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateOptions.defaults());
+  }
+
+  /**
+   * Checks if a workflow step is allowed to proceed, with call-level options.
+   *
+   * <p>Pass {@link
+   * com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateOptions#includePriorOutput()} to send
+   * {@code ?include_prior_output=true} so the response's {@code retry_context.prior_output} is
+   * populated when a prior /complete has landed.
+   *
+   * @param workflowId workflow ID
+   * @param stepId step ID
+   * @param request step gate request
+   * @param options call-level options (e.g. {@code includePriorOutput})
+   * @return the step gate response
+   * @throws IdempotencyKeyMismatchException if {@code request.idempotencyKey} conflicts with the
+   *     key recorded on an earlier gate call for this (workflow, step)
+   * @since 5.6.0
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateResponse stepGate(
+      String workflowId,
+      String stepId,
+      com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateRequest request,
+      com.getaxonflow.sdk.types.workflow.WorkflowTypes.StepGateOptions options) {
     Objects.requireNonNull(workflowId, "workflowId cannot be null");
     Objects.requireNonNull(stepId, "stepId cannot be null");
     Objects.requireNonNull(request, "request cannot be null");
+    Objects.requireNonNull(options, "options cannot be null");
+
+    String path = "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/gate";
+    if (options.isIncludePriorOutput()) {
+      path += "?include_prior_output=true";
+    }
+    final String fullPath = path;
 
     return retryExecutor.execute(
         () -> {
-          Request httpRequest =
-              buildOrchestratorRequest(
-                  "POST",
-                  "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/gate",
-                  request);
+          Request httpRequest = buildOrchestratorRequest("POST", fullPath, request);
           try (Response response = httpClient.newCall(httpRequest).execute()) {
+            if (response.code() == 409) {
+              throw toIdempotencyOrGeneric409(response, workflowId, stepId);
+            }
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5055,6 +5090,9 @@ public final class AxonFlow implements Closeable {
                   "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/complete",
                   request != null ? request : Collections.emptyMap());
           try (Response response = httpClient.newCall(httpRequest).execute()) {
+            if (response.code() == 409) {
+              throw toIdempotencyOrGeneric409(response, workflowId, stepId);
+            }
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -5062,6 +5100,39 @@ public final class AxonFlow implements Closeable {
           }
         },
         "markStepCompleted");
+  }
+
+  /**
+   * Inspects a 409 response on a step gate/complete call. If the body carries {@code
+   * error.code == "IDEMPOTENCY_KEY_MISMATCH"}, returns a typed {@link
+   * IdempotencyKeyMismatchException}; otherwise falls back to a generic {@link AxonFlowException}.
+   *
+   * <p>Must only be called on responses with {@code response.code() == 409}. Consumes the response
+   * body.
+   */
+  private AxonFlowException toIdempotencyOrGeneric409(
+      Response response, String workflowId, String stepId) throws IOException {
+    String body = response.body() != null ? response.body().string() : "";
+    if (!body.isEmpty()) {
+      try {
+        JsonNode root = objectMapper.readTree(body);
+        JsonNode err = root.path("error");
+        if (err.path("code").asText("").equals("IDEMPOTENCY_KEY_MISMATCH")) {
+          JsonNode details = err.path("details");
+          String msg = err.path("message").asText("idempotency_key mismatch");
+          String detailsWorkflowId = details.path("workflow_id").asText(workflowId);
+          String detailsStepId = details.path("step_id").asText(stepId);
+          String expected = details.path("expected_idempotency_key").asText("");
+          String received = details.path("received_idempotency_key").asText("");
+          return new IdempotencyKeyMismatchException(
+              msg, detailsWorkflowId, detailsStepId, expected, received);
+        }
+      } catch (IOException ignored) {
+        // Fall through to generic 409 handling
+      }
+    }
+    String fallback = body.isEmpty() ? response.message() : body;
+    return new AxonFlowException(fallback, 409, null);
   }
 
   /**

@@ -438,6 +438,7 @@ public final class WorkflowTypes {
 
   /** Request to check if a step is allowed to proceed. */
   @JsonIgnoreProperties(ignoreUnknown = true)
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public static final class StepGateRequest {
 
     @JsonProperty("step_name")
@@ -461,6 +462,9 @@ public final class WorkflowTypes {
     @JsonProperty("retry_policy")
     private final String retryPolicy;
 
+    @JsonProperty("idempotency_key")
+    private final String idempotencyKey;
+
     /** Backward-compatible constructor without toolContext or retryPolicy. */
     public StepGateRequest(
         String stepName,
@@ -468,7 +472,7 @@ public final class WorkflowTypes {
         Map<String, Object> stepInput,
         String model,
         String provider) {
-      this(stepName, stepType, stepInput, model, provider, null, null);
+      this(stepName, stepType, stepInput, model, provider, null, null, null);
     }
 
     /** Backward-compatible constructor without retryPolicy. */
@@ -479,7 +483,19 @@ public final class WorkflowTypes {
         String model,
         String provider,
         ToolContext toolContext) {
-      this(stepName, stepType, stepInput, model, provider, toolContext, null);
+      this(stepName, stepType, stepInput, model, provider, toolContext, null, null);
+    }
+
+    /** Backward-compatible constructor without idempotencyKey (pre-5.6). */
+    public StepGateRequest(
+        String stepName,
+        StepType stepType,
+        Map<String, Object> stepInput,
+        String model,
+        String provider,
+        ToolContext toolContext,
+        String retryPolicy) {
+      this(stepName, stepType, stepInput, model, provider, toolContext, retryPolicy, null);
     }
 
     @JsonCreator
@@ -490,7 +506,8 @@ public final class WorkflowTypes {
         @JsonProperty("model") String model,
         @JsonProperty("provider") String provider,
         @JsonProperty("tool_context") ToolContext toolContext,
-        @JsonProperty("retry_policy") String retryPolicy) {
+        @JsonProperty("retry_policy") String retryPolicy,
+        @JsonProperty("idempotency_key") String idempotencyKey) {
       this.stepName = stepName;
       this.stepType = Objects.requireNonNull(stepType, "stepType is required");
       this.stepInput =
@@ -499,6 +516,10 @@ public final class WorkflowTypes {
       this.provider = provider;
       this.toolContext = toolContext;
       this.retryPolicy = retryPolicy;
+      if (idempotencyKey != null && idempotencyKey.length() > 255) {
+        throw new IllegalArgumentException("idempotencyKey must be at most 255 characters");
+      }
+      this.idempotencyKey = idempotencyKey;
     }
 
     public String getStepName() {
@@ -533,6 +554,19 @@ public final class WorkflowTypes {
       return retryPolicy;
     }
 
+    /**
+     * Returns the caller-supplied idempotency key, or {@code null} if none was set.
+     *
+     * <p>Once recorded on the first gate call for a {@code (workflow_id, step_id)}, the key is
+     * immutable — subsequent gate/complete calls must pass the same key or raise
+     * {@code IdempotencyKeyMismatchException}.
+     *
+     * @return the idempotency key, or null
+     */
+    public String getIdempotencyKey() {
+      return idempotencyKey;
+    }
+
     public static Builder builder() {
       return new Builder();
     }
@@ -545,6 +579,7 @@ public final class WorkflowTypes {
       private String provider;
       private ToolContext toolContext;
       private String retryPolicy;
+      private String idempotencyKey;
 
       public Builder stepName(String stepName) {
         this.stepName = stepName;
@@ -582,10 +617,188 @@ public final class WorkflowTypes {
         return this;
       }
 
+      /**
+       * Set the caller-supplied idempotency key (max 255 chars). Once set on the first gate call
+       * for a (workflow, step), it is immutable on all subsequent gate and complete calls.
+       */
+      public Builder idempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+        return this;
+      }
+
       public StepGateRequest build() {
         return new StepGateRequest(
-            stepName, stepType, stepInput, model, provider, toolContext, retryPolicy);
+            stepName,
+            stepType,
+            stepInput,
+            model,
+            provider,
+            toolContext,
+            retryPolicy,
+            idempotencyKey);
       }
+    }
+  }
+
+  /**
+   * State of the prior gate+complete cycle for a step.
+   *
+   * <p>See WCP_RETRY_IDEMPOTENCY_WIRE_CONTRACT.md §3.
+   */
+  public enum PriorCompletionStatus {
+    /** First gate call, no prior gates on this step. */
+    @JsonProperty("none")
+    NONE("none"),
+    /** A prior gate call and a prior /complete both landed for this (workflow, step). */
+    @JsonProperty("completed")
+    COMPLETED("completed"),
+    /** A prior gate landed but no /complete has followed for this (workflow, step). */
+    @JsonProperty("gated_not_completed")
+    GATED_NOT_COMPLETED("gated_not_completed");
+
+    private final String value;
+
+    PriorCompletionStatus(String value) {
+      this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+
+    @JsonCreator
+    public static PriorCompletionStatus fromValue(String value) {
+      for (PriorCompletionStatus status : values()) {
+        if (status.value.equals(value)) {
+          return status;
+        }
+      }
+      throw new IllegalArgumentException("Unknown prior completion status: " + value);
+    }
+  }
+
+  /**
+   * First-class state signal returned on every {@link StepGateResponse}.
+   *
+   * <p>Replaces the ambiguous {@code cached: bool} field. Prefer these fields to
+   * {@link StepGateResponse#isCached()} and {@link StepGateResponse#getDecisionSource()}.
+   */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class RetryContext {
+
+    @JsonProperty("gate_count")
+    private final int gateCount;
+
+    @JsonProperty("completion_count")
+    private final int completionCount;
+
+    @JsonProperty("prior_completion_status")
+    private final PriorCompletionStatus priorCompletionStatus;
+
+    @JsonProperty("prior_output_available")
+    private final boolean priorOutputAvailable;
+
+    @JsonProperty("prior_output")
+    private final Map<String, Object> priorOutput;
+
+    @JsonProperty("prior_completion_at")
+    private final Instant priorCompletionAt;
+
+    @JsonProperty("first_attempt_at")
+    private final Instant firstAttemptAt;
+
+    @JsonProperty("last_attempt_at")
+    private final Instant lastAttemptAt;
+
+    @JsonProperty("last_decision")
+    private final GateDecision lastDecision;
+
+    @JsonProperty("idempotency_key")
+    private final String idempotencyKey;
+
+    @JsonCreator
+    public RetryContext(
+        @JsonProperty("gate_count") int gateCount,
+        @JsonProperty("completion_count") int completionCount,
+        @JsonProperty("prior_completion_status") PriorCompletionStatus priorCompletionStatus,
+        @JsonProperty("prior_output_available") boolean priorOutputAvailable,
+        @JsonProperty("prior_output") Map<String, Object> priorOutput,
+        @JsonProperty("prior_completion_at") Instant priorCompletionAt,
+        @JsonProperty("first_attempt_at") Instant firstAttemptAt,
+        @JsonProperty("last_attempt_at") Instant lastAttemptAt,
+        @JsonProperty("last_decision") GateDecision lastDecision,
+        @JsonProperty("idempotency_key") String idempotencyKey) {
+      this.gateCount = gateCount;
+      this.completionCount = completionCount;
+      this.priorCompletionStatus = priorCompletionStatus;
+      this.priorOutputAvailable = priorOutputAvailable;
+      this.priorOutput =
+          priorOutput != null ? Collections.unmodifiableMap(priorOutput) : null;
+      this.priorCompletionAt = priorCompletionAt;
+      this.firstAttemptAt = firstAttemptAt;
+      this.lastAttemptAt = lastAttemptAt;
+      this.lastDecision = lastDecision;
+      this.idempotencyKey = idempotencyKey != null ? idempotencyKey : "";
+    }
+
+    /** Number of /gate calls for this (workflow, step), including the current call. Always &gt;= 1. */
+    public int getGateCount() {
+      return gateCount;
+    }
+
+    /** Number of successful /complete calls for this (workflow, step). */
+    public int getCompletionCount() {
+      return completionCount;
+    }
+
+    /** Whether a prior gate+complete cycle has landed. */
+    public PriorCompletionStatus getPriorCompletionStatus() {
+      return priorCompletionStatus;
+    }
+
+    /** {@code true} iff {@link #getPriorCompletionStatus()} == COMPLETED. */
+    public boolean isPriorOutputAvailable() {
+      return priorOutputAvailable;
+    }
+
+    /**
+     * Output from the prior /complete, or {@code null}. Non-null only when the gate call was made
+     * with {@code includePriorOutput=true} AND a prior /complete has landed.
+     */
+    public Map<String, Object> getPriorOutput() {
+      return priorOutput;
+    }
+
+    /** Timestamp of the prior /complete, or {@code null}. */
+    public Instant getPriorCompletionAt() {
+      return priorCompletionAt;
+    }
+
+    /** Timestamp of the first gate call for this (workflow, step). */
+    public Instant getFirstAttemptAt() {
+      return firstAttemptAt;
+    }
+
+    /** Timestamp of the current gate call. */
+    public Instant getLastAttemptAt() {
+      return lastAttemptAt;
+    }
+
+    /**
+     * Decision of the immediately prior gate call. On first call, equals the current call's
+     * {@code decision}.
+     */
+    public GateDecision getLastDecision() {
+      return lastDecision;
+    }
+
+    /**
+     * The key the caller set on this step (from the first gate call that supplied one), or the
+     * empty string {@code ""} if the caller never supplied one. Once set, immutable.
+     */
+    public String getIdempotencyKey() {
+      return idempotencyKey;
     }
   }
 
@@ -620,6 +833,33 @@ public final class WorkflowTypes {
     @JsonProperty("decision_source")
     private final String decisionSource;
 
+    @JsonProperty("retry_context")
+    private final RetryContext retryContext;
+
+    /** Pre-5.6 constructor without retryContext (kept for binary compatibility). */
+    public StepGateResponse(
+        GateDecision decision,
+        String stepId,
+        String reason,
+        List<String> policyIds,
+        String approvalUrl,
+        List<PolicyMatch> policiesEvaluated,
+        List<PolicyMatch> policiesMatched,
+        boolean cached,
+        String decisionSource) {
+      this(
+          decision,
+          stepId,
+          reason,
+          policyIds,
+          approvalUrl,
+          policiesEvaluated,
+          policiesMatched,
+          cached,
+          decisionSource,
+          null);
+    }
+
     @JsonCreator
     public StepGateResponse(
         @JsonProperty("decision") GateDecision decision,
@@ -630,7 +870,8 @@ public final class WorkflowTypes {
         @JsonProperty("policies_evaluated") List<PolicyMatch> policiesEvaluated,
         @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched,
         @JsonProperty("cached") boolean cached,
-        @JsonProperty("decision_source") String decisionSource) {
+        @JsonProperty("decision_source") String decisionSource,
+        @JsonProperty("retry_context") RetryContext retryContext) {
       this.decision = decision;
       this.stepId = stepId;
       this.reason = reason;
@@ -647,6 +888,7 @@ public final class WorkflowTypes {
               : Collections.emptyList();
       this.cached = cached;
       this.decisionSource = decisionSource;
+      this.retryContext = retryContext;
     }
 
     public GateDecision getDecision() {
@@ -691,16 +933,35 @@ public final class WorkflowTypes {
 
     /**
      * Returns whether this response was served from a prior decision rather than a fresh evaluation.
+     *
+     * @deprecated Use {@code getRetryContext().getGateCount() > 1} instead. Will be removed in a
+     *     future major version.
      */
+    @Deprecated
     public boolean isCached() {
       return cached;
     }
 
     /**
      * Returns how the decision was produced: "fresh" or "cached".
+     *
+     * @deprecated Use {@code getRetryContext().getPriorCompletionStatus()} instead. Will be removed
+     *     in a future major version.
      */
+    @Deprecated
     public String getDecisionSource() {
       return decisionSource;
+    }
+
+    /**
+     * Returns the retry context for this step gate response — the first-class state signal for
+     * {@code (workflow_id, step_id)}. Always populated on responses from platform v7.3.0+. May be
+     * {@code null} on responses from older platforms.
+     *
+     * @return the retry context, or {@code null} if the platform did not return one
+     */
+    public RetryContext getRetryContext() {
+      return retryContext;
     }
 
     public boolean isAllowed() {
@@ -1230,19 +1491,37 @@ public final class WorkflowTypes {
     @JsonProperty("cost_usd")
     private final Double costUsd;
 
+    @JsonProperty("idempotency_key")
+    private final String idempotencyKey;
+
+    /** Pre-5.6 constructor without idempotencyKey (kept for binary compatibility). */
+    public MarkStepCompletedRequest(
+        Map<String, Object> output,
+        Map<String, Object> metadata,
+        Integer tokensIn,
+        Integer tokensOut,
+        Double costUsd) {
+      this(output, metadata, tokensIn, tokensOut, costUsd, null);
+    }
+
     @JsonCreator
     public MarkStepCompletedRequest(
         @JsonProperty("output") Map<String, Object> output,
         @JsonProperty("metadata") Map<String, Object> metadata,
         @JsonProperty("tokens_in") Integer tokensIn,
         @JsonProperty("tokens_out") Integer tokensOut,
-        @JsonProperty("cost_usd") Double costUsd) {
+        @JsonProperty("cost_usd") Double costUsd,
+        @JsonProperty("idempotency_key") String idempotencyKey) {
       this.output = output != null ? Collections.unmodifiableMap(output) : Collections.emptyMap();
       this.metadata =
           metadata != null ? Collections.unmodifiableMap(metadata) : Collections.emptyMap();
       this.tokensIn = tokensIn;
       this.tokensOut = tokensOut;
       this.costUsd = costUsd;
+      if (idempotencyKey != null && idempotencyKey.length() > 255) {
+        throw new IllegalArgumentException("idempotencyKey must be at most 255 characters");
+      }
+      this.idempotencyKey = idempotencyKey;
     }
 
     public Map<String, Object> getOutput() {
@@ -1283,6 +1562,16 @@ public final class WorkflowTypes {
       return costUsd;
     }
 
+    /**
+     * Returns the caller-supplied idempotency key, or {@code null} if none was set.
+     *
+     * <p>Must match the key passed on the corresponding gate call, if any. Mismatch (including
+     * missing-vs-set on either side) yields {@code IdempotencyKeyMismatchException}.
+     */
+    public String getIdempotencyKey() {
+      return idempotencyKey;
+    }
+
     public static Builder builder() {
       return new Builder();
     }
@@ -1293,6 +1582,7 @@ public final class WorkflowTypes {
       private Integer tokensIn;
       private Integer tokensOut;
       private Double costUsd;
+      private String idempotencyKey;
 
       public Builder output(Map<String, Object> output) {
         this.output = output;
@@ -1319,9 +1609,51 @@ public final class WorkflowTypes {
         return this;
       }
 
-      public MarkStepCompletedRequest build() {
-        return new MarkStepCompletedRequest(output, metadata, tokensIn, tokensOut, costUsd);
+      /**
+       * Set the idempotency key (max 255 chars). Must match the key passed on the corresponding
+       * gate call, if any.
+       */
+      public Builder idempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+        return this;
       }
+
+      public MarkStepCompletedRequest build() {
+        return new MarkStepCompletedRequest(
+            output, metadata, tokensIn, tokensOut, costUsd, idempotencyKey);
+      }
+    }
+  }
+
+  /**
+   * Options for the step gate call that live outside the request body.
+   *
+   * <p>Currently carries {@code includePriorOutput}, sent as {@code ?include_prior_output=true}.
+   */
+  public static final class StepGateOptions {
+    private final boolean includePriorOutput;
+
+    private StepGateOptions(boolean includePriorOutput) {
+      this.includePriorOutput = includePriorOutput;
+    }
+
+    /** Default options: no query params. Equivalent to not passing options at all. */
+    public static StepGateOptions defaults() {
+      return new StepGateOptions(false);
+    }
+
+    /**
+     * Opt in to receiving {@code retry_context.prior_output} populated on the response when a
+     * prior /complete has landed. Default is {@code false} because prior output may be large
+     * and/or contain sensitive data.
+     */
+    public static StepGateOptions includePriorOutput() {
+      return new StepGateOptions(true);
+    }
+
+    /** Returns whether {@code ?include_prior_output=true} should be sent on the gate call. */
+    public boolean isIncludePriorOutput() {
+      return includePriorOutput;
     }
   }
 
