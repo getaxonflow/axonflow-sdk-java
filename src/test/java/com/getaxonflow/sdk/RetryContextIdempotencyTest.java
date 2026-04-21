@@ -291,8 +291,10 @@ class RetryContextIdempotencyTest {
   }
 
   @Test
-  @DisplayName("RetryContext preserves null idempotency_key (contract §3: \"string or null\")")
-  void retryContextAcceptsNullIdempotencyKey() {
+  @DisplayName("RetryContext coerces legacy null idempotency_key to empty string")
+  void retryContextCoercesNullIdempotencyKeyToEmpty() {
+    // Contract §3 says idempotency_key is always emitted as a string (empty when unset).
+    // Older platform versions could send null; SDK coerces to "" for a stable non-null API.
     String body =
         "{"
             + "\"decision\":\"allow\","
@@ -315,7 +317,7 @@ class RetryContextIdempotencyTest {
         axonflow
             .stepGate("wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
             .getRetryContext();
-    assertThat(rc.getIdempotencyKey()).isNull();
+    assertThat(rc.getIdempotencyKey()).isEmpty();
   }
 
   @Test

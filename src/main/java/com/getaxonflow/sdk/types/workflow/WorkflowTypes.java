@@ -739,7 +739,9 @@ public final class WorkflowTypes {
       this.firstAttemptAt = firstAttemptAt;
       this.lastAttemptAt = lastAttemptAt;
       this.lastDecision = lastDecision;
-      this.idempotencyKey = idempotencyKey;
+      // Contract §3: idempotency_key is always emitted as a string, "" when unset.
+      // Coerce null (older platform responses) to "" for a stable non-null API.
+      this.idempotencyKey = idempotencyKey != null ? idempotencyKey : "";
     }
 
     /** Number of /gate calls for this (workflow, step), including the current call. Always &gt;= 1. */
@@ -794,10 +796,12 @@ public final class WorkflowTypes {
     }
 
     /**
-     * The key the caller set on this step (from the first gate call that supplied one), or
-     * {@code null} if the caller never supplied one. Once set, immutable.
+     * The key the caller set on this step (from the first gate call that supplied one), or the
+     * empty string {@code ""} if the caller never supplied one. Never {@code null} — contract §3
+     * specifies the field is always emitted as a string, and the constructor coerces any legacy
+     * null from older platforms to {@code ""}. Once set on a step, the key is immutable.
      *
-     * @return the idempotency key, or {@code null}
+     * @return the idempotency key (never null; empty string if unset)
      */
     public String getIdempotencyKey() {
       return idempotencyKey;
