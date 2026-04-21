@@ -739,7 +739,7 @@ public final class WorkflowTypes {
       this.firstAttemptAt = firstAttemptAt;
       this.lastAttemptAt = lastAttemptAt;
       this.lastDecision = lastDecision;
-      this.idempotencyKey = idempotencyKey != null ? idempotencyKey : "";
+      this.idempotencyKey = idempotencyKey;
     }
 
     /** Number of /gate calls for this (workflow, step), including the current call. Always &gt;= 1. */
@@ -794,8 +794,10 @@ public final class WorkflowTypes {
     }
 
     /**
-     * The key the caller set on this step (from the first gate call that supplied one), or the
-     * empty string {@code ""} if the caller never supplied one. Once set, immutable.
+     * The key the caller set on this step (from the first gate call that supplied one), or
+     * {@code null} if the caller never supplied one. Once set, immutable.
+     *
+     * @return the idempotency key, or {@code null}
      */
     public String getIdempotencyKey() {
       return idempotencyKey;

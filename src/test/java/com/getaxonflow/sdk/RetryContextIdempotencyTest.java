@@ -291,6 +291,34 @@ class RetryContextIdempotencyTest {
   }
 
   @Test
+  @DisplayName("RetryContext preserves null idempotency_key (contract §3: \"string or null\")")
+  void retryContextAcceptsNullIdempotencyKey() {
+    String body =
+        "{"
+            + "\"decision\":\"allow\","
+            + "\"step_id\":\"step_1\","
+            + "\"retry_context\":{"
+            + "\"gate_count\":1,"
+            + "\"completion_count\":0,"
+            + "\"prior_completion_status\":\"none\","
+            + "\"prior_output_available\":false,"
+            + "\"prior_output\":null,"
+            + "\"prior_completion_at\":null,"
+            + "\"first_attempt_at\":\"2026-04-21T15:30:00.000Z\","
+            + "\"last_attempt_at\":\"2026-04-21T15:30:00.000Z\","
+            + "\"last_decision\":\"allow\","
+            + "\"idempotency_key\":null"
+            + "}}";
+    stubFor(post(urlEqualTo(GATE_PATH)).willReturn(aResponse().withStatus(200).withBody(body)));
+
+    RetryContext rc =
+        axonflow
+            .stepGate("wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
+            .getRetryContext();
+    assertThat(rc.getIdempotencyKey()).isNull();
+  }
+
+  @Test
   @DisplayName("stepGate 409 IDEMPOTENCY_KEY_MISMATCH surfaces typed exception")
   void stepGateIdempotencyMismatch() {
     String errorBody =
