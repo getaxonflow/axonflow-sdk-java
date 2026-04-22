@@ -5623,7 +5623,11 @@ public final class AxonFlow implements Closeable {
             hasQuery = true;
           }
           if (planId != null && !planId.isEmpty()) {
-            path.append(hasQuery ? '&' : '?').append("plan_id=").append(planId);
+            path.append(hasQuery ? '&' : '?')
+                .append("plan_id=")
+                .append(
+                    java.net.URLEncoder.encode(
+                        planId, java.nio.charset.StandardCharsets.UTF_8));
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);

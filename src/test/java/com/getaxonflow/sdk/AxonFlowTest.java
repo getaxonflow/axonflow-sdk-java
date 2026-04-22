@@ -2444,6 +2444,26 @@ class AxonFlowTest {
   }
 
   @Test
+  @DisplayName("getPendingPlanApprovals URL-encodes plan_id with special characters")
+  void getPendingPlanApprovalsUrlEncodesPlanId() {
+    // A plan_id containing characters that would break a raw concatenation
+    // must be URL-encoded on the wire. URLEncoder encodes ' ' -> '+' and
+    // '&' -> '%26'; the stub asserts the encoded form lands on the server.
+    stubFor(
+        get(urlEqualTo("/api/v1/plans/approvals/pending?plan_id=plan+a%26b"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"pending_approvals\":[],\"count\":0}")));
+
+    com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+        axonflow.getPendingPlanApprovals(0, "plan a&b");
+
+    assertThat(response.getCount()).isEqualTo(0);
+  }
+
+  @Test
   @DisplayName("getPendingPlanApprovalsAsync should return future")
   void getPendingPlanApprovalsAsyncShouldReturnFuture() throws Exception {
     stubFor(
