@@ -269,9 +269,9 @@ class WCPApprovalTypesTest {
     PendingApprovalsResponse response =
         new PendingApprovalsResponse(Collections.singletonList(approval), 1);
 
-    assertThat(response.getApprovals()).hasSize(1);
-    assertThat(response.getTotal()).isEqualTo(1);
-    assertThat(response.getApprovals().get(0).getWorkflowId()).isEqualTo("wf-1");
+    assertThat(response.getPendingApprovals()).hasSize(1);
+    assertThat(response.getCount()).isEqualTo(1);
+    assertThat(response.getPendingApprovals().get(0).getWorkflowId()).isEqualTo("wf-1");
   }
 
   @Test
@@ -279,8 +279,8 @@ class WCPApprovalTypesTest {
   void pendingApprovalsResponseShouldHandleNullList() {
     PendingApprovalsResponse response = new PendingApprovalsResponse(null, 0);
 
-    assertThat(response.getApprovals()).isEmpty();
-    assertThat(response.getTotal()).isEqualTo(0);
+    assertThat(response.getPendingApprovals()).isEmpty();
+    assertThat(response.getCount()).isEqualTo(0);
   }
 
   @Test
@@ -288,20 +288,21 @@ class WCPApprovalTypesTest {
   void pendingApprovalsResponseShouldDeserialize() throws Exception {
     String json =
         "{"
-            + "\"approvals\":["
+            + "\"pending_approvals\":["
             + "  {\"workflow_id\":\"wf-1\",\"workflow_name\":\"Review\","
-            + "   \"step_id\":\"s-1\",\"step_name\":\"Generate\","
-            + "   \"step_type\":\"llm_call\",\"created_at\":\"2026-02-07T10:00:00Z\"}"
+            + "   \"step_id\":\"s-1\",\"step_index\":0,\"step_name\":\"Generate\","
+            + "   \"step_type\":\"llm_call\",\"decision\":\"require_approval\","
+            + "   \"created_at\":\"2026-02-07T10:00:00Z\"}"
             + "],"
-            + "\"total\":1"
+            + "\"count\":1"
             + "}";
 
     PendingApprovalsResponse response =
         objectMapper.readValue(json, PendingApprovalsResponse.class);
 
-    assertThat(response.getApprovals()).hasSize(1);
-    assertThat(response.getTotal()).isEqualTo(1);
-    assertThat(response.getApprovals().get(0).getWorkflowId()).isEqualTo("wf-1");
+    assertThat(response.getPendingApprovals()).hasSize(1);
+    assertThat(response.getCount()).isEqualTo(1);
+    assertThat(response.getPendingApprovals().get(0).getWorkflowId()).isEqualTo("wf-1");
   }
 
   @Test
@@ -314,7 +315,7 @@ class WCPApprovalTypesTest {
     assertThatThrownBy(
             () ->
                 response
-                    .getApprovals()
+                    .getPendingApprovals()
                     .add(
                         new PendingApproval(
                             "wf-2", "N", "s-2", "S", "tool_call", "2026-02-07T11:00:00Z")))
@@ -341,7 +342,7 @@ class WCPApprovalTypesTest {
     PendingApprovalsResponse response = new PendingApprovalsResponse(Collections.emptyList(), 0);
     String str = response.toString();
 
-    assertThat(str).contains("total=0");
-    assertThat(str).contains("approvals=");
+    assertThat(str).contains("count=0");
+    assertThat(str).contains("pendingApprovals=");
   }
 }

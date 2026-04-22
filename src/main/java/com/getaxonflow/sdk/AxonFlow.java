@@ -5449,7 +5449,8 @@ public final class AxonFlow implements Closeable {
    * Approves a workflow step that requires human approval.
    *
    * <p>Call this when a step gate returns {@code require_approval} to approve the step and allow
-   * the workflow to proceed.
+   * the workflow to proceed. Prefer the two-arg overload when you can pass a comment — the
+   * server requires a comment (min 10 chars) as an audit justification.
    *
    * @param workflowId workflow ID
    * @param stepId step ID
@@ -5458,16 +5459,37 @@ public final class AxonFlow implements Closeable {
    */
   public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse approveStep(
       String workflowId, String stepId) {
+    return approveStep(workflowId, stepId, null);
+  }
+
+  /**
+   * Approves a workflow step that requires human approval, with an audit comment.
+   *
+   * <p>The server requires {@code comment} with a minimum of 10 characters — it's the
+   * audit-trail justification that every approval carries into the workflow history.
+   *
+   * @param workflowId workflow ID
+   * @param stepId step ID
+   * @param comment audit justification for the approval (min 10 chars server-side)
+   * @return the approval response
+   * @throws AxonFlowException if the approval fails
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse approveStep(
+      String workflowId, String stepId, String comment) {
     Objects.requireNonNull(workflowId, "workflowId cannot be null");
     Objects.requireNonNull(stepId, "stepId cannot be null");
 
     return retryExecutor.execute(
         () -> {
+          Map<String, Object> body = new HashMap<>();
+          if (comment != null && !comment.isEmpty()) {
+            body.put("comment", comment);
+          }
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST",
-                  "/api/v1/workflow-control/" + workflowId + "/steps/" + stepId + "/approve",
-                  Collections.emptyMap());
+                  "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/approve",
+                  body);
           try (Response response = httpClient.newCall(httpRequest).execute()) {
             return parseResponse(
                 response,
@@ -5487,7 +5509,21 @@ public final class AxonFlow implements Closeable {
    */
   public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse>
       approveStepAsync(String workflowId, String stepId) {
-    return CompletableFuture.supplyAsync(() -> approveStep(workflowId, stepId), asyncExecutor);
+    return approveStepAsync(workflowId, stepId, null);
+  }
+
+  /**
+   * Asynchronously approves a workflow step with an audit comment.
+   *
+   * @param workflowId workflow ID
+   * @param stepId step ID
+   * @param comment audit justification
+   * @return a future containing the approval response
+   */
+  public CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.ApproveStepResponse>
+      approveStepAsync(String workflowId, String stepId, String comment) {
+    return CompletableFuture.supplyAsync(
+        () -> approveStep(workflowId, stepId, comment), asyncExecutor);
   }
 
   /**
@@ -5532,7 +5568,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST",
-                  "/api/v1/workflow-control/" + workflowId + "/steps/" + stepId + "/reject",
+                  "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/reject",
                   body);
           try (Response response = httpClient.newCall(httpRequest).execute()) {
             return parseResponse(
@@ -5581,7 +5617,7 @@ public final class AxonFlow implements Closeable {
       getPendingApprovals(int limit) {
     return retryExecutor.execute(
         () -> {
-          StringBuilder path = new StringBuilder("/api/v1/workflow-control/pending-approvals");
+          StringBuilder path = new StringBuilder("/api/v1/workflows/approvals/pending");
           if (limit > 0) {
             path.append("?limit=").append(limit);
           }
@@ -5596,6 +5632,87 @@ public final class AxonFlow implements Closeable {
           }
         },
         "getPendingApprovals");
+  }
+
+  /**
+   * Gets MAP-plane pending approvals — the counterpart of {@link #getPendingApprovals(int)}.
+   *
+   * <p>Lists pending approvals for MAP-backed workflows ({@code GET /api/v1/plans/approvals/pending}).
+   * Every returned entry has {@code planId} populated; WCP-only approvals are not returned.
+   *
+   * <p>Requires an Evaluation or Enterprise license (same tier gate as the MAP step approve/reject
+   * endpoints).
+   *
+   * @param limit maximum number of pending approvals to return (0 for server default)
+   * @param planId optional plan id filter — when non-null, scopes the listing to a single plan
+   * @return the pending approvals response
+   * @throws AxonFlowException if the request fails
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse
+      getPendingPlanApprovals(int limit, String planId) {
+    return retryExecutor.execute(
+        () -> {
+          StringBuilder path = new StringBuilder("/api/v1/plans/approvals/pending");
+          boolean hasQuery = false;
+          if (limit > 0) {
+            path.append("?limit=").append(limit);
+            hasQuery = true;
+          }
+          if (planId != null && !planId.isEmpty()) {
+            path.append(hasQuery ? '&' : '?')
+                .append("plan_id=")
+                .append(
+                    java.net.URLEncoder.encode(
+                        planId, java.nio.charset.StandardCharsets.UTF_8));
+          }
+
+          Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+          try (Response response = httpClient.newCall(httpRequest).execute()) {
+            return parseResponse(
+                response,
+                new TypeReference<
+                    com.getaxonflow.sdk.types.workflow.WorkflowTypes
+                        .PendingApprovalsResponse>() {});
+          }
+        },
+        "getPendingPlanApprovals");
+  }
+
+  /**
+   * Gets all MAP-plane pending approvals with the server default limit and no plan filter.
+   *
+   * @return the pending approvals response
+   * @throws AxonFlowException if the request fails
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse
+      getPendingPlanApprovals() {
+    return getPendingPlanApprovals(0, null);
+  }
+
+  /**
+   * Gets MAP-plane pending approvals with a limit and no plan filter.
+   *
+   * @param limit maximum number of pending approvals to return
+   * @return the pending approvals response
+   * @throws AxonFlowException if the request fails
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse
+      getPendingPlanApprovals(int limit) {
+    return getPendingPlanApprovals(limit, null);
+  }
+
+  /**
+   * Asynchronously gets MAP-plane pending approvals.
+   *
+   * @param limit maximum number of pending approvals to return
+   * @param planId optional plan id filter
+   * @return a future containing the pending approvals response
+   */
+  public CompletableFuture<
+          com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse>
+      getPendingPlanApprovalsAsync(int limit, String planId) {
+    return CompletableFuture.supplyAsync(
+        () -> getPendingPlanApprovals(limit, planId), asyncExecutor);
   }
 
   /**

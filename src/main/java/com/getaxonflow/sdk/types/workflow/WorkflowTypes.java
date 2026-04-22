@@ -1688,12 +1688,27 @@ public final class WorkflowTypes {
   // WCP Approval Types
   // ========================================================================
 
-  /** Response from approving a workflow step. */
+  /**
+   * Response from approving a workflow step.
+   *
+   * <p>Starting with v5.7.0 the server returns the rich step-gate shape on approve: {@code
+   * decision} resolves to {@code "allow"} once approved, {@code retryContext} mirrors the gate
+   * response retry state, {@code approvedBy} / {@code approvedAt} carry the reviewer identity,
+   * {@code approvalId} is the deterministic HITL queue entry UUID, and {@code policiesMatched}
+   * reconstructs the governance trail. Legacy fields ({@code workflowId}, {@code stepId}, {@code
+   * status}) remain for back-compat.
+   *
+   * <p>See ADR-046 (HITL response parity) — the same shape is returned by the WCP endpoint and the
+   * MAP plan-scoped equivalent, which is why the new {@code planId} field exists.
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class ApproveStepResponse {
 
     @JsonProperty("workflow_id")
     private final String workflowId;
+
+    @JsonProperty("plan_id")
+    private final String planId;
 
     @JsonProperty("step_id")
     private final String stepId;
@@ -1701,26 +1716,133 @@ public final class WorkflowTypes {
     @JsonProperty("status")
     private final String status;
 
+    @JsonProperty("decision")
+    private final String decision;
+
+    @JsonProperty("reason")
+    private final String reason;
+
+    @JsonProperty("approval_status")
+    private final String approvalStatus;
+
+    @JsonProperty("approval_id")
+    private final String approvalId;
+
+    @JsonProperty("approved_by")
+    private final String approvedBy;
+
+    @JsonProperty("approved_at")
+    private final String approvedAt;
+
+    @JsonProperty("policies_matched")
+    private final List<PolicyMatch> policiesMatched;
+
+    @JsonProperty("retry_context")
+    private final RetryContext retryContext;
+
+    @JsonProperty("message")
+    private final String message;
+
     @JsonCreator
     public ApproveStepResponse(
         @JsonProperty("workflow_id") String workflowId,
+        @JsonProperty("plan_id") String planId,
         @JsonProperty("step_id") String stepId,
-        @JsonProperty("status") String status) {
+        @JsonProperty("status") String status,
+        @JsonProperty("decision") String decision,
+        @JsonProperty("reason") String reason,
+        @JsonProperty("approval_status") String approvalStatus,
+        @JsonProperty("approval_id") String approvalId,
+        @JsonProperty("approved_by") String approvedBy,
+        @JsonProperty("approved_at") String approvedAt,
+        @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched,
+        @JsonProperty("retry_context") RetryContext retryContext,
+        @JsonProperty("message") String message) {
       this.workflowId = workflowId;
+      this.planId = planId;
       this.stepId = stepId;
       this.status = status;
+      this.decision = decision;
+      this.reason = reason;
+      this.approvalStatus = approvalStatus;
+      this.approvalId = approvalId;
+      this.approvedBy = approvedBy;
+      this.approvedAt = approvedAt;
+      this.policiesMatched = policiesMatched;
+      this.retryContext = retryContext;
+      this.message = message;
+    }
+
+    /**
+     * Back-compat constructor used by callers that only know the legacy (workflow_id, step_id,
+     * status) shape. Every rich field (decision, retry_context, approval metadata) defaults to
+     * null. Retained so existing test fixtures keep compiling after v5.7.0.
+     */
+    public ApproveStepResponse(String workflowId, String stepId, String status) {
+      this(workflowId, null, stepId, status, null, null, null, null, null, null, null, null, null);
     }
 
     public String getWorkflowId() {
       return workflowId;
     }
 
+    /** MAP plan id — populated on plan-scoped responses, null otherwise. */
+    public String getPlanId() {
+      return planId;
+    }
+
     public String getStepId() {
       return stepId;
     }
 
+    /** Legacy status field — mirrors {@link #getApprovalStatus()}. Retained for back-compat. */
     public String getStatus() {
       return status;
+    }
+
+    /** Post-approval decision: {@code "allow"} on successful approval. */
+    public String getDecision() {
+      return decision;
+    }
+
+    /** Decision reason text (prefixed with {@code "Approved: "} on the approve path). */
+    public String getReason() {
+      return reason;
+    }
+
+    /** Terminal approval status: {@code pending}, {@code approved}, {@code rejected}. */
+    public String getApprovalStatus() {
+      return approvalStatus;
+    }
+
+    /** HITL queue entry UUID (deterministic UUID v5 over {@code (workflow_id, step_id)}). */
+    public String getApprovalId() {
+      return approvalId;
+    }
+
+    /** Identity (X-User-ID) that approved the step. */
+    public String getApprovedBy() {
+      return approvedBy;
+    }
+
+    /** ISO 8601 timestamp when the approval was persisted. */
+    public String getApprovedAt() {
+      return approvedAt;
+    }
+
+    /** Policies that triggered the original {@code require_approval} decision. */
+    public List<PolicyMatch> getPoliciesMatched() {
+      return policiesMatched;
+    }
+
+    /** Retry / idempotency state — mirrors the gate response retry_context. */
+    public RetryContext getRetryContext() {
+      return retryContext;
+    }
+
+    /** Human-readable status summary. */
+    public String getMessage() {
+      return message;
     }
 
     @Override
@@ -1729,13 +1851,36 @@ public final class WorkflowTypes {
       if (o == null || getClass() != o.getClass()) return false;
       ApproveStepResponse that = (ApproveStepResponse) o;
       return Objects.equals(workflowId, that.workflowId)
+          && Objects.equals(planId, that.planId)
           && Objects.equals(stepId, that.stepId)
-          && Objects.equals(status, that.status);
+          && Objects.equals(status, that.status)
+          && Objects.equals(decision, that.decision)
+          && Objects.equals(reason, that.reason)
+          && Objects.equals(approvalStatus, that.approvalStatus)
+          && Objects.equals(approvalId, that.approvalId)
+          && Objects.equals(approvedBy, that.approvedBy)
+          && Objects.equals(approvedAt, that.approvedAt)
+          && Objects.equals(policiesMatched, that.policiesMatched)
+          && Objects.equals(retryContext, that.retryContext)
+          && Objects.equals(message, that.message);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(workflowId, stepId, status);
+      return Objects.hash(
+          workflowId,
+          planId,
+          stepId,
+          status,
+          decision,
+          reason,
+          approvalStatus,
+          approvalId,
+          approvedBy,
+          approvedAt,
+          policiesMatched,
+          retryContext,
+          message);
     }
 
     @Override
@@ -1747,19 +1892,34 @@ public final class WorkflowTypes {
           + ", stepId='"
           + stepId
           + '\''
-          + ", status='"
-          + status
+          + ", decision='"
+          + decision
+          + '\''
+          + ", approvalStatus='"
+          + approvalStatus
+          + '\''
+          + ", approvedBy='"
+          + approvedBy
           + '\''
           + '}';
     }
   }
 
-  /** Response from rejecting a workflow step. */
+  /**
+   * Response from rejecting a workflow step.
+   *
+   * <p>Starting with v5.7.0 the server returns the rich step-gate shape on reject: {@code decision}
+   * resolves to {@code "block"}, {@code rejectedBy} / {@code rejectedAt} carry the reviewer
+   * identity, and {@code retryContext} mirrors the gate response state. See ADR-046.
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class RejectStepResponse {
 
     @JsonProperty("workflow_id")
     private final String workflowId;
+
+    @JsonProperty("plan_id")
+    private final String planId;
 
     @JsonProperty("step_id")
     private final String stepId;
@@ -1767,18 +1927,77 @@ public final class WorkflowTypes {
     @JsonProperty("status")
     private final String status;
 
+    @JsonProperty("decision")
+    private final String decision;
+
+    @JsonProperty("reason")
+    private final String reason;
+
+    @JsonProperty("approval_status")
+    private final String approvalStatus;
+
+    @JsonProperty("approval_id")
+    private final String approvalId;
+
+    @JsonProperty("rejected_by")
+    private final String rejectedBy;
+
+    @JsonProperty("rejected_at")
+    private final String rejectedAt;
+
+    @JsonProperty("policies_matched")
+    private final List<PolicyMatch> policiesMatched;
+
+    @JsonProperty("retry_context")
+    private final RetryContext retryContext;
+
+    @JsonProperty("message")
+    private final String message;
+
     @JsonCreator
     public RejectStepResponse(
         @JsonProperty("workflow_id") String workflowId,
+        @JsonProperty("plan_id") String planId,
         @JsonProperty("step_id") String stepId,
-        @JsonProperty("status") String status) {
+        @JsonProperty("status") String status,
+        @JsonProperty("decision") String decision,
+        @JsonProperty("reason") String reason,
+        @JsonProperty("approval_status") String approvalStatus,
+        @JsonProperty("approval_id") String approvalId,
+        @JsonProperty("rejected_by") String rejectedBy,
+        @JsonProperty("rejected_at") String rejectedAt,
+        @JsonProperty("policies_matched") List<PolicyMatch> policiesMatched,
+        @JsonProperty("retry_context") RetryContext retryContext,
+        @JsonProperty("message") String message) {
       this.workflowId = workflowId;
+      this.planId = planId;
       this.stepId = stepId;
       this.status = status;
+      this.decision = decision;
+      this.reason = reason;
+      this.approvalStatus = approvalStatus;
+      this.approvalId = approvalId;
+      this.rejectedBy = rejectedBy;
+      this.rejectedAt = rejectedAt;
+      this.policiesMatched = policiesMatched;
+      this.retryContext = retryContext;
+      this.message = message;
+    }
+
+    /**
+     * Back-compat constructor matching the legacy (workflow_id, step_id, status) shape.
+     * Rich fields default to null. Retained so existing test fixtures keep compiling.
+     */
+    public RejectStepResponse(String workflowId, String stepId, String status) {
+      this(workflowId, null, stepId, status, null, null, null, null, null, null, null, null, null);
     }
 
     public String getWorkflowId() {
       return workflowId;
+    }
+
+    public String getPlanId() {
+      return planId;
     }
 
     public String getStepId() {
@@ -1789,19 +2008,78 @@ public final class WorkflowTypes {
       return status;
     }
 
+    public String getDecision() {
+      return decision;
+    }
+
+    public String getReason() {
+      return reason;
+    }
+
+    public String getApprovalStatus() {
+      return approvalStatus;
+    }
+
+    public String getApprovalId() {
+      return approvalId;
+    }
+
+    public String getRejectedBy() {
+      return rejectedBy;
+    }
+
+    public String getRejectedAt() {
+      return rejectedAt;
+    }
+
+    public List<PolicyMatch> getPoliciesMatched() {
+      return policiesMatched;
+    }
+
+    public RetryContext getRetryContext() {
+      return retryContext;
+    }
+
+    public String getMessage() {
+      return message;
+    }
+
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       RejectStepResponse that = (RejectStepResponse) o;
       return Objects.equals(workflowId, that.workflowId)
+          && Objects.equals(planId, that.planId)
           && Objects.equals(stepId, that.stepId)
-          && Objects.equals(status, that.status);
+          && Objects.equals(status, that.status)
+          && Objects.equals(decision, that.decision)
+          && Objects.equals(reason, that.reason)
+          && Objects.equals(approvalStatus, that.approvalStatus)
+          && Objects.equals(approvalId, that.approvalId)
+          && Objects.equals(rejectedBy, that.rejectedBy)
+          && Objects.equals(rejectedAt, that.rejectedAt)
+          && Objects.equals(policiesMatched, that.policiesMatched)
+          && Objects.equals(retryContext, that.retryContext)
+          && Objects.equals(message, that.message);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(workflowId, stepId, status);
+      return Objects.hash(
+          workflowId,
+          planId,
+          stepId,
+          status,
+          decision,
+          reason,
+          approvalStatus,
+          approvalId,
+          rejectedBy,
+          rejectedAt,
+          policiesMatched,
+          retryContext,
+          message);
     }
 
     @Override
@@ -1813,14 +2091,28 @@ public final class WorkflowTypes {
           + ", stepId='"
           + stepId
           + '\''
-          + ", status='"
-          + status
+          + ", decision='"
+          + decision
+          + '\''
+          + ", approvalStatus='"
+          + approvalStatus
+          + '\''
+          + ", rejectedBy='"
+          + rejectedBy
           + '\''
           + '}';
     }
   }
 
-  /** A pending approval for a workflow step. */
+  /**
+   * A pending approval for a workflow step.
+   *
+   * <p>Populated by both {@code getPendingApprovals} (WCP plane) and
+   * {@code getPendingPlanApprovals} (MAP plane). The {@code planId} field is
+   * the one intentional asymmetry between the two planes — populated on
+   * MAP-plane entries, {@code null} on WCP-plane entries (mirrors ADR-046
+   * parity rule).
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class PendingApproval {
 
@@ -1830,8 +2122,14 @@ public final class WorkflowTypes {
     @JsonProperty("workflow_name")
     private final String workflowName;
 
+    @JsonProperty("plan_id")
+    private final String planId;
+
     @JsonProperty("step_id")
     private final String stepId;
+
+    @JsonProperty("step_index")
+    private final int stepIndex;
 
     @JsonProperty("step_name")
     private final String stepName;
@@ -1839,22 +2137,55 @@ public final class WorkflowTypes {
     @JsonProperty("step_type")
     private final String stepType;
 
+    @JsonProperty("decision")
+    private final String decision;
+
+    @JsonProperty("decision_reason")
+    private final String decisionReason;
+
+    @JsonProperty("approval_status")
+    private final String approvalStatus;
+
     @JsonProperty("created_at")
     private final String createdAt;
+
+    /**
+     * Back-compat constructor — callers passing the pre-v7.4.0 field set still compile. plan_id,
+     * step_index, decision, decision_reason, and approval_status default to null / 0.
+     */
+    public PendingApproval(
+        String workflowId,
+        String workflowName,
+        String stepId,
+        String stepName,
+        String stepType,
+        String createdAt) {
+      this(workflowId, workflowName, null, stepId, 0, stepName, stepType, null, null, null, createdAt);
+    }
 
     @JsonCreator
     public PendingApproval(
         @JsonProperty("workflow_id") String workflowId,
         @JsonProperty("workflow_name") String workflowName,
+        @JsonProperty("plan_id") String planId,
         @JsonProperty("step_id") String stepId,
+        @JsonProperty("step_index") int stepIndex,
         @JsonProperty("step_name") String stepName,
         @JsonProperty("step_type") String stepType,
+        @JsonProperty("decision") String decision,
+        @JsonProperty("decision_reason") String decisionReason,
+        @JsonProperty("approval_status") String approvalStatus,
         @JsonProperty("created_at") String createdAt) {
       this.workflowId = workflowId;
       this.workflowName = workflowName;
+      this.planId = planId;
       this.stepId = stepId;
+      this.stepIndex = stepIndex;
       this.stepName = stepName;
       this.stepType = stepType;
+      this.decision = decision;
+      this.decisionReason = decisionReason;
+      this.approvalStatus = approvalStatus;
       this.createdAt = createdAt;
     }
 
@@ -1866,8 +2197,21 @@ public final class WorkflowTypes {
       return workflowName;
     }
 
+    /**
+     * MAP plan id — populated on MAP-plane entries, null on WCP-plane entries.
+     *
+     * @return the plan id, or null for WCP-plane entries
+     */
+    public String getPlanId() {
+      return planId;
+    }
+
     public String getStepId() {
       return stepId;
+    }
+
+    public int getStepIndex() {
+      return stepIndex;
     }
 
     public String getStepName() {
@@ -1876,6 +2220,18 @@ public final class WorkflowTypes {
 
     public String getStepType() {
       return stepType;
+    }
+
+    public String getDecision() {
+      return decision;
+    }
+
+    public String getDecisionReason() {
+      return decisionReason;
+    }
+
+    public String getApprovalStatus() {
+      return approvalStatus;
     }
 
     public String getCreatedAt() {
@@ -1887,17 +2243,33 @@ public final class WorkflowTypes {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       PendingApproval that = (PendingApproval) o;
-      return Objects.equals(workflowId, that.workflowId)
+      return stepIndex == that.stepIndex
+          && Objects.equals(workflowId, that.workflowId)
           && Objects.equals(workflowName, that.workflowName)
+          && Objects.equals(planId, that.planId)
           && Objects.equals(stepId, that.stepId)
           && Objects.equals(stepName, that.stepName)
           && Objects.equals(stepType, that.stepType)
+          && Objects.equals(decision, that.decision)
+          && Objects.equals(decisionReason, that.decisionReason)
+          && Objects.equals(approvalStatus, that.approvalStatus)
           && Objects.equals(createdAt, that.createdAt);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(workflowId, workflowName, stepId, stepName, stepType, createdAt);
+      return Objects.hash(
+          workflowId,
+          workflowName,
+          planId,
+          stepId,
+          stepIndex,
+          stepName,
+          stepType,
+          decision,
+          decisionReason,
+          approvalStatus,
+          createdAt);
     }
 
     @Override
@@ -1909,14 +2281,25 @@ public final class WorkflowTypes {
           + ", workflowName='"
           + workflowName
           + '\''
+          + ", planId='"
+          + planId
+          + '\''
           + ", stepId='"
           + stepId
           + '\''
+          + ", stepIndex="
+          + stepIndex
           + ", stepName='"
           + stepName
           + '\''
           + ", stepType='"
           + stepType
+          + '\''
+          + ", decision='"
+          + decision
+          + '\''
+          + ", approvalStatus='"
+          + approvalStatus
           + '\''
           + ", createdAt='"
           + createdAt
@@ -1925,31 +2308,36 @@ public final class WorkflowTypes {
     }
   }
 
-  /** Response containing a list of pending approvals. */
+  /**
+   * Response containing a list of pending approvals. Shape matches the server wire contract:
+   * {@code pending_approvals} array plus {@code count}.
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class PendingApprovalsResponse {
 
-    @JsonProperty("approvals")
-    private final List<PendingApproval> approvals;
+    @JsonProperty("pending_approvals")
+    private final List<PendingApproval> pendingApprovals;
 
-    @JsonProperty("total")
-    private final int total;
+    @JsonProperty("count")
+    private final int count;
 
     @JsonCreator
     public PendingApprovalsResponse(
-        @JsonProperty("approvals") List<PendingApproval> approvals,
-        @JsonProperty("total") int total) {
-      this.approvals =
-          approvals != null ? Collections.unmodifiableList(approvals) : Collections.emptyList();
-      this.total = total;
+        @JsonProperty("pending_approvals") List<PendingApproval> pendingApprovals,
+        @JsonProperty("count") int count) {
+      this.pendingApprovals =
+          pendingApprovals != null
+              ? Collections.unmodifiableList(pendingApprovals)
+              : Collections.emptyList();
+      this.count = count;
     }
 
-    public List<PendingApproval> getApprovals() {
-      return approvals;
+    public List<PendingApproval> getPendingApprovals() {
+      return pendingApprovals;
     }
 
-    public int getTotal() {
-      return total;
+    public int getCount() {
+      return count;
     }
 
     @Override
@@ -1957,17 +2345,22 @@ public final class WorkflowTypes {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       PendingApprovalsResponse that = (PendingApprovalsResponse) o;
-      return total == that.total && Objects.equals(approvals, that.approvals);
+      return count == that.count && Objects.equals(pendingApprovals, that.pendingApprovals);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(approvals, total);
+      return Objects.hash(pendingApprovals, count);
     }
 
     @Override
     public String toString() {
-      return "PendingApprovalsResponse{" + "approvals=" + approvals + ", total=" + total + '}';
+      return "PendingApprovalsResponse{"
+          + "pendingApprovals="
+          + pendingApprovals
+          + ", count="
+          + count
+          + '}';
     }
   }
 }

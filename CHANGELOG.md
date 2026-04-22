@@ -7,9 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.7.0] - 2026-04-22
 
+### Added
+
+- **Rich `ApproveStepResponse` / `RejectStepResponse`** — both classes now carry
+  the same shape as the step-gate response: `decision` resolves to `"allow"` or
+  `"block"`, `retryContext` mirrors the gate response retry state, `approvedBy`
+  / `approvedAt` / `rejectedBy` / `rejectedAt` carry reviewer identity,
+  `approvalId` is the deterministic HITL queue UUID, `policiesMatched`
+  reconstructs the governance trail. The legacy `workflowId` / `stepId` /
+  `status` fields remain for back-compat.
+- **`planId` on approve/reject responses** — populated when the response comes
+  from the MAP plan-scoped endpoint; empty on WCP plane responses. Same types
+  work across both endpoints.
+- **Back-compat 3-arg constructors** — `new ApproveStepResponse(workflowId, stepId, status)`
+  and `new RejectStepResponse(workflowId, stepId, status)` still compile, so
+  existing test fixtures and SDK consumers keep working without changes.
+- **`getPendingPlanApprovals` / `getPendingPlanApprovalsAsync`** — new client
+  methods that list MAP-plane pending approvals
+  (`GET /api/v1/plans/approvals/pending`), the counterpart of
+  `getPendingApprovals` for the WCP plane. The two-arg form accepts an
+  optional `planId` filter so reviewer tools can scope the listing to one
+  plan. Available on Evaluation+ licenses (same tier gate as the MAP step
+  approve/reject endpoints).
+- **`PendingApproval.planId`** — populated on MAP-plane entries, null on
+  WCP-plane entries. Mirrors the approve/reject asymmetry. `PendingApproval`
+  also gains `stepIndex`, `decision`, `decisionReason`, and `approvalStatus`
+  so reviewer tools can render the full approval context without a second
+  request. The existing 6-arg back-compat constructor still works; new
+  fields default to null / 0 for callers that don't pass them.
+
+### Fixed
+
+- **`approveStep` / `rejectStep` / `getPendingApprovals` endpoint URLs** —
+  all three previously targeted non-existent paths under
+  `/api/v1/workflow-control/` and would fail against a real AxonFlow server.
+  Corrected to the canonical `/api/v1/workflows/{id}/steps/{step_id}/(approve|reject)`
+  and `/api/v1/workflows/approvals/pending` routes. Customers using these
+  methods against a live deployment were receiving 404s; this release makes
+  them work.
+- **`PendingApprovalsResponse` getters and JSON field names aligned with the
+  wire shape** — the class previously declared `getApprovals()` / `getTotal()`
+  over a JSON body with keys `approvals` / `total`, which never matched the
+  server (`pending_approvals` / `count`). Getters renamed to
+  `getPendingApprovals()` / `getCount()` with the correct JSON bindings.
+  Callers that read `response.getApprovals()` or `response.getTotal()` need
+  to update to the new getter names.
+
 ### Deprecated
 
 - `DO_NOT_TRACK=1` as an AxonFlow telemetry opt-out — scheduled for removal after 2026-05-05 in the next major release. Use `AXONFLOW_TELEMETRY=off` instead. The SDK emits a one-line migration warning when `DO_NOT_TRACK=1` is the active control and `AXONFLOW_TELEMETRY=off` is not also set.
+
+### Unchanged
+
+- `approveStep(workflowId, stepId)` / `rejectStep(workflowId, stepId, reason)`
+  method signatures on `AxonFlow` are unchanged — only the response fields grew.
 
 ## [5.6.0] - 2026-04-21
 
