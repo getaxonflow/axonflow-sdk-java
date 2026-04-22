@@ -2104,7 +2104,15 @@ public final class WorkflowTypes {
     }
   }
 
-  /** A pending approval for a workflow step. */
+  /**
+   * A pending approval for a workflow step.
+   *
+   * <p>Populated by both {@code getPendingApprovals} (WCP plane) and
+   * {@code getPendingPlanApprovals} (MAP plane). The {@code planId} field is
+   * the one intentional asymmetry between the two planes — populated on
+   * MAP-plane entries, {@code null} on WCP-plane entries (mirrors ADR-046
+   * parity rule).
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class PendingApproval {
 
@@ -2114,8 +2122,14 @@ public final class WorkflowTypes {
     @JsonProperty("workflow_name")
     private final String workflowName;
 
+    @JsonProperty("plan_id")
+    private final String planId;
+
     @JsonProperty("step_id")
     private final String stepId;
+
+    @JsonProperty("step_index")
+    private final int stepIndex;
 
     @JsonProperty("step_name")
     private final String stepName;
@@ -2123,22 +2137,55 @@ public final class WorkflowTypes {
     @JsonProperty("step_type")
     private final String stepType;
 
+    @JsonProperty("decision")
+    private final String decision;
+
+    @JsonProperty("decision_reason")
+    private final String decisionReason;
+
+    @JsonProperty("approval_status")
+    private final String approvalStatus;
+
     @JsonProperty("created_at")
     private final String createdAt;
+
+    /**
+     * Back-compat constructor — callers passing the pre-v7.4.0 field set still compile. plan_id,
+     * step_index, decision, decision_reason, and approval_status default to null / 0.
+     */
+    public PendingApproval(
+        String workflowId,
+        String workflowName,
+        String stepId,
+        String stepName,
+        String stepType,
+        String createdAt) {
+      this(workflowId, workflowName, null, stepId, 0, stepName, stepType, null, null, null, createdAt);
+    }
 
     @JsonCreator
     public PendingApproval(
         @JsonProperty("workflow_id") String workflowId,
         @JsonProperty("workflow_name") String workflowName,
+        @JsonProperty("plan_id") String planId,
         @JsonProperty("step_id") String stepId,
+        @JsonProperty("step_index") int stepIndex,
         @JsonProperty("step_name") String stepName,
         @JsonProperty("step_type") String stepType,
+        @JsonProperty("decision") String decision,
+        @JsonProperty("decision_reason") String decisionReason,
+        @JsonProperty("approval_status") String approvalStatus,
         @JsonProperty("created_at") String createdAt) {
       this.workflowId = workflowId;
       this.workflowName = workflowName;
+      this.planId = planId;
       this.stepId = stepId;
+      this.stepIndex = stepIndex;
       this.stepName = stepName;
       this.stepType = stepType;
+      this.decision = decision;
+      this.decisionReason = decisionReason;
+      this.approvalStatus = approvalStatus;
       this.createdAt = createdAt;
     }
 
@@ -2150,8 +2197,21 @@ public final class WorkflowTypes {
       return workflowName;
     }
 
+    /**
+     * MAP plan id — populated on MAP-plane entries, null on WCP-plane entries.
+     *
+     * @return the plan id, or null for WCP-plane entries
+     */
+    public String getPlanId() {
+      return planId;
+    }
+
     public String getStepId() {
       return stepId;
+    }
+
+    public int getStepIndex() {
+      return stepIndex;
     }
 
     public String getStepName() {
@@ -2160,6 +2220,18 @@ public final class WorkflowTypes {
 
     public String getStepType() {
       return stepType;
+    }
+
+    public String getDecision() {
+      return decision;
+    }
+
+    public String getDecisionReason() {
+      return decisionReason;
+    }
+
+    public String getApprovalStatus() {
+      return approvalStatus;
     }
 
     public String getCreatedAt() {
@@ -2171,17 +2243,33 @@ public final class WorkflowTypes {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       PendingApproval that = (PendingApproval) o;
-      return Objects.equals(workflowId, that.workflowId)
+      return stepIndex == that.stepIndex
+          && Objects.equals(workflowId, that.workflowId)
           && Objects.equals(workflowName, that.workflowName)
+          && Objects.equals(planId, that.planId)
           && Objects.equals(stepId, that.stepId)
           && Objects.equals(stepName, that.stepName)
           && Objects.equals(stepType, that.stepType)
+          && Objects.equals(decision, that.decision)
+          && Objects.equals(decisionReason, that.decisionReason)
+          && Objects.equals(approvalStatus, that.approvalStatus)
           && Objects.equals(createdAt, that.createdAt);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(workflowId, workflowName, stepId, stepName, stepType, createdAt);
+      return Objects.hash(
+          workflowId,
+          workflowName,
+          planId,
+          stepId,
+          stepIndex,
+          stepName,
+          stepType,
+          decision,
+          decisionReason,
+          approvalStatus,
+          createdAt);
     }
 
     @Override
@@ -2193,14 +2281,25 @@ public final class WorkflowTypes {
           + ", workflowName='"
           + workflowName
           + '\''
+          + ", planId='"
+          + planId
+          + '\''
           + ", stepId='"
           + stepId
           + '\''
+          + ", stepIndex="
+          + stepIndex
           + ", stepName='"
           + stepName
           + '\''
           + ", stepType='"
           + stepType
+          + '\''
+          + ", decision='"
+          + decision
+          + '\''
+          + ", approvalStatus='"
+          + approvalStatus
           + '\''
           + ", createdAt='"
           + createdAt
@@ -2209,31 +2308,36 @@ public final class WorkflowTypes {
     }
   }
 
-  /** Response containing a list of pending approvals. */
+  /**
+   * Response containing a list of pending approvals. Shape matches the server wire contract:
+   * {@code pending_approvals} array plus {@code count}.
+   */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class PendingApprovalsResponse {
 
-    @JsonProperty("approvals")
-    private final List<PendingApproval> approvals;
+    @JsonProperty("pending_approvals")
+    private final List<PendingApproval> pendingApprovals;
 
-    @JsonProperty("total")
-    private final int total;
+    @JsonProperty("count")
+    private final int count;
 
     @JsonCreator
     public PendingApprovalsResponse(
-        @JsonProperty("approvals") List<PendingApproval> approvals,
-        @JsonProperty("total") int total) {
-      this.approvals =
-          approvals != null ? Collections.unmodifiableList(approvals) : Collections.emptyList();
-      this.total = total;
+        @JsonProperty("pending_approvals") List<PendingApproval> pendingApprovals,
+        @JsonProperty("count") int count) {
+      this.pendingApprovals =
+          pendingApprovals != null
+              ? Collections.unmodifiableList(pendingApprovals)
+              : Collections.emptyList();
+      this.count = count;
     }
 
-    public List<PendingApproval> getApprovals() {
-      return approvals;
+    public List<PendingApproval> getPendingApprovals() {
+      return pendingApprovals;
     }
 
-    public int getTotal() {
-      return total;
+    public int getCount() {
+      return count;
     }
 
     @Override
@@ -2241,17 +2345,22 @@ public final class WorkflowTypes {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       PendingApprovalsResponse that = (PendingApprovalsResponse) o;
-      return total == that.total && Objects.equals(approvals, that.approvals);
+      return count == that.count && Objects.equals(pendingApprovals, that.pendingApprovals);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(approvals, total);
+      return Objects.hash(pendingApprovals, count);
     }
 
     @Override
     public String toString() {
-      return "PendingApprovalsResponse{" + "approvals=" + approvals + ", total=" + total + '}';
+      return "PendingApprovalsResponse{"
+          + "pendingApprovals="
+          + pendingApprovals
+          + ", count="
+          + count
+          + '}';
     }
   }
 }

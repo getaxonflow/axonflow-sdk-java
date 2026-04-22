@@ -5466,7 +5466,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST",
-                  "/api/v1/workflow-control/" + workflowId + "/steps/" + stepId + "/approve",
+                  "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/approve",
                   Collections.emptyMap());
           try (Response response = httpClient.newCall(httpRequest).execute()) {
             return parseResponse(
@@ -5532,7 +5532,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST",
-                  "/api/v1/workflow-control/" + workflowId + "/steps/" + stepId + "/reject",
+                  "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/reject",
                   body);
           try (Response response = httpClient.newCall(httpRequest).execute()) {
             return parseResponse(
@@ -5581,7 +5581,7 @@ public final class AxonFlow implements Closeable {
       getPendingApprovals(int limit) {
     return retryExecutor.execute(
         () -> {
-          StringBuilder path = new StringBuilder("/api/v1/workflow-control/pending-approvals");
+          StringBuilder path = new StringBuilder("/api/v1/workflows/approvals/pending");
           if (limit > 0) {
             path.append("?limit=").append(limit);
           }
@@ -5596,6 +5596,83 @@ public final class AxonFlow implements Closeable {
           }
         },
         "getPendingApprovals");
+  }
+
+  /**
+   * Gets MAP-plane pending approvals — the counterpart of {@link #getPendingApprovals(int)}.
+   *
+   * <p>Lists pending approvals for MAP-backed workflows ({@code GET /api/v1/plans/approvals/pending}).
+   * Every returned entry has {@code planId} populated; WCP-only approvals are not returned.
+   *
+   * <p>Requires an Evaluation or Enterprise license (same tier gate as the MAP step approve/reject
+   * endpoints).
+   *
+   * @param limit maximum number of pending approvals to return (0 for server default)
+   * @param planId optional plan id filter — when non-null, scopes the listing to a single plan
+   * @return the pending approvals response
+   * @throws AxonFlowException if the request fails
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse
+      getPendingPlanApprovals(int limit, String planId) {
+    return retryExecutor.execute(
+        () -> {
+          StringBuilder path = new StringBuilder("/api/v1/plans/approvals/pending");
+          boolean hasQuery = false;
+          if (limit > 0) {
+            path.append("?limit=").append(limit);
+            hasQuery = true;
+          }
+          if (planId != null && !planId.isEmpty()) {
+            path.append(hasQuery ? '&' : '?').append("plan_id=").append(planId);
+          }
+
+          Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+          try (Response response = httpClient.newCall(httpRequest).execute()) {
+            return parseResponse(
+                response,
+                new TypeReference<
+                    com.getaxonflow.sdk.types.workflow.WorkflowTypes
+                        .PendingApprovalsResponse>() {});
+          }
+        },
+        "getPendingPlanApprovals");
+  }
+
+  /**
+   * Gets all MAP-plane pending approvals with the server default limit and no plan filter.
+   *
+   * @return the pending approvals response
+   * @throws AxonFlowException if the request fails
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse
+      getPendingPlanApprovals() {
+    return getPendingPlanApprovals(0, null);
+  }
+
+  /**
+   * Gets MAP-plane pending approvals with a limit and no plan filter.
+   *
+   * @param limit maximum number of pending approvals to return
+   * @return the pending approvals response
+   * @throws AxonFlowException if the request fails
+   */
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse
+      getPendingPlanApprovals(int limit) {
+    return getPendingPlanApprovals(limit, null);
+  }
+
+  /**
+   * Asynchronously gets MAP-plane pending approvals.
+   *
+   * @param limit maximum number of pending approvals to return
+   * @param planId optional plan id filter
+   * @return a future containing the pending approvals response
+   */
+  public CompletableFuture<
+          com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse>
+      getPendingPlanApprovalsAsync(int limit, String planId) {
+    return CompletableFuture.supplyAsync(
+        () -> getPendingPlanApprovals(limit, planId), asyncExecutor);
   }
 
   /**

@@ -2212,7 +2212,7 @@ class AxonFlowTest {
   @DisplayName("approveStep should return approval response")
   void approveStepShouldReturnResponse() {
     stubFor(
-        post(urlEqualTo("/api/v1/workflow-control/wf-123/steps/step-1/approve"))
+        post(urlEqualTo("/api/v1/workflows/wf-123/steps/step-1/approve"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
@@ -2232,7 +2232,7 @@ class AxonFlowTest {
   @DisplayName("approveStepAsync should return future")
   void approveStepAsyncShouldReturnFuture() throws Exception {
     stubFor(
-        post(urlEqualTo("/api/v1/workflow-control/wf-456/steps/step-2/approve"))
+        post(urlEqualTo("/api/v1/workflows/wf-456/steps/step-2/approve"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
@@ -2266,7 +2266,7 @@ class AxonFlowTest {
   @DisplayName("rejectStep should return rejection response")
   void rejectStepShouldReturnResponse() {
     stubFor(
-        post(urlEqualTo("/api/v1/workflow-control/wf-123/steps/step-1/reject"))
+        post(urlEqualTo("/api/v1/workflows/wf-123/steps/step-1/reject"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
@@ -2286,7 +2286,7 @@ class AxonFlowTest {
   @DisplayName("rejectStepAsync should return future")
   void rejectStepAsyncShouldReturnFuture() throws Exception {
     stubFor(
-        post(urlEqualTo("/api/v1/workflow-control/wf-789/steps/step-3/reject"))
+        post(urlEqualTo("/api/v1/workflows/wf-789/steps/step-3/reject"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
@@ -2306,60 +2306,174 @@ class AxonFlowTest {
   @DisplayName("getPendingApprovals should return pending approvals")
   void getPendingApprovalsShouldReturnApprovals() {
     stubFor(
-        get(urlEqualTo("/api/v1/workflow-control/pending-approvals"))
+        get(urlEqualTo("/api/v1/workflows/approvals/pending"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withBody(
-                        "{\"approvals\":[{\"workflow_id\":\"wf-1\",\"workflow_name\":\"Review\","
-                            + "\"step_id\":\"s-1\",\"step_name\":\"Generate\","
-                            + "\"step_type\":\"llm_call\",\"created_at\":\"2026-02-07T10:00:00Z\"}],\"total\":1}")));
+                        "{\"pending_approvals\":[{\"workflow_id\":\"wf-1\",\"workflow_name\":\"Review\","
+                            + "\"step_id\":\"s-1\",\"step_index\":0,\"step_name\":\"Generate\","
+                            + "\"step_type\":\"llm_call\",\"decision\":\"require_approval\","
+                            + "\"created_at\":\"2026-02-07T10:00:00Z\"}],\"count\":1}")));
 
     com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
         axonflow.getPendingApprovals();
 
-    assertThat(response.getTotal()).isEqualTo(1);
-    assertThat(response.getApprovals()).hasSize(1);
-    assertThat(response.getApprovals().get(0).getWorkflowId()).isEqualTo("wf-1");
-    assertThat(response.getApprovals().get(0).getStepName()).isEqualTo("Generate");
+    assertThat(response.getCount()).isEqualTo(1);
+    assertThat(response.getPendingApprovals()).hasSize(1);
+    assertThat(response.getPendingApprovals().get(0).getWorkflowId()).isEqualTo("wf-1");
+    assertThat(response.getPendingApprovals().get(0).getStepName()).isEqualTo("Generate");
+    // WCP entries must NOT carry plan_id
+    assertThat(response.getPendingApprovals().get(0).getPlanId()).isNull();
   }
 
   @Test
   @DisplayName("getPendingApprovals with limit should add query parameter")
   void getPendingApprovalsWithLimitShouldAddQueryParam() {
     stubFor(
-        get(urlEqualTo("/api/v1/workflow-control/pending-approvals?limit=10"))
+        get(urlEqualTo("/api/v1/workflows/approvals/pending?limit=10"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("{\"approvals\":[],\"total\":0}")));
+                    .withBody("{\"pending_approvals\":[],\"count\":0}")));
 
     com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
         axonflow.getPendingApprovals(10);
 
-    assertThat(response.getTotal()).isEqualTo(0);
-    assertThat(response.getApprovals()).isEmpty();
+    assertThat(response.getCount()).isEqualTo(0);
+    assertThat(response.getPendingApprovals()).isEmpty();
   }
 
   @Test
   @DisplayName("getPendingApprovalsAsync should return future")
   void getPendingApprovalsAsyncShouldReturnFuture() throws Exception {
     stubFor(
-        get(urlEqualTo("/api/v1/workflow-control/pending-approvals?limit=5"))
+        get(urlEqualTo("/api/v1/workflows/approvals/pending?limit=5"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
-                    .withBody("{\"approvals\":[],\"total\":0}")));
+                    .withBody("{\"pending_approvals\":[],\"count\":0}")));
 
     CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse>
         future = axonflow.getPendingApprovalsAsync(5);
     com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
         future.get();
 
-    assertThat(response.getTotal()).isEqualTo(0);
+    assertThat(response.getCount()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("getPendingPlanApprovals should return MAP-plane approvals with plan_id")
+  void getPendingPlanApprovalsShouldReturnMapApprovals() {
+    stubFor(
+        get(urlEqualTo("/api/v1/plans/approvals/pending"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"pending_approvals\":[{\"workflow_id\":\"wf_map_abc\","
+                            + "\"workflow_name\":\"map-confirm-plan-abc\","
+                            + "\"plan_id\":\"plan-abc\","
+                            + "\"step_id\":\"step_0_analyze\",\"step_index\":0,"
+                            + "\"step_name\":\"Analyze transaction\",\"step_type\":\"tool_call\","
+                            + "\"decision\":\"require_approval\","
+                            + "\"created_at\":\"2026-04-22T10:00:00Z\"}],\"count\":1}")));
+
+    com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+        axonflow.getPendingPlanApprovals();
+
+    assertThat(response.getCount()).isEqualTo(1);
+    assertThat(response.getPendingApprovals()).hasSize(1);
+    assertThat(response.getPendingApprovals().get(0).getPlanId()).isEqualTo("plan-abc");
+    assertThat(response.getPendingApprovals().get(0).getStepName()).isEqualTo("Analyze transaction");
+  }
+
+  @Test
+  @DisplayName("getPendingPlanApprovals with plan_id filter should propagate to query string")
+  void getPendingPlanApprovalsWithPlanIdFilterShouldEncodeQuery() {
+    stubFor(
+        get(urlEqualTo("/api/v1/plans/approvals/pending?plan_id=plan-abc"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"pending_approvals\":[],\"count\":0}")));
+
+    com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+        axonflow.getPendingPlanApprovals(0, "plan-abc");
+
+    assertThat(response.getCount()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("getPendingPlanApprovals with limit and plan_id should encode both")
+  void getPendingPlanApprovalsWithLimitAndPlanIdShouldEncodeBoth() {
+    stubFor(
+        get(urlEqualTo("/api/v1/plans/approvals/pending?limit=3&plan_id=plan-x"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"pending_approvals\":[],\"count\":0}")));
+
+    com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+        axonflow.getPendingPlanApprovals(3, "plan-x");
+
+    assertThat(response.getCount()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("getPendingPlanApprovals with limit only omits plan_id")
+  void getPendingPlanApprovalsWithLimitOnlyOmitsPlanId() {
+    stubFor(
+        get(urlEqualTo("/api/v1/plans/approvals/pending?limit=5"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"pending_approvals\":[],\"count\":0}")));
+
+    com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+        axonflow.getPendingPlanApprovals(5);
+
+    assertThat(response.getCount()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("getPendingPlanApprovalsAsync should return future")
+  void getPendingPlanApprovalsAsyncShouldReturnFuture() throws Exception {
+    stubFor(
+        get(urlEqualTo("/api/v1/plans/approvals/pending"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"pending_approvals\":[],\"count\":0}")));
+
+    CompletableFuture<com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse>
+        future = axonflow.getPendingPlanApprovalsAsync(0, null);
+    com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApprovalsResponse response =
+        future.get();
+
+    assertThat(response.getCount()).isEqualTo(0);
+  }
+
+  @Test
+  @DisplayName("PendingApproval back-compat constructor preserves legacy field set")
+  void pendingApprovalBackCompatConstructor() {
+    com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApproval approval =
+        new com.getaxonflow.sdk.types.workflow.WorkflowTypes.PendingApproval(
+            "wf-1", "Review", "s-1", "Generate", "llm_call", "2026-02-07T10:00:00Z");
+    assertThat(approval.getWorkflowId()).isEqualTo("wf-1");
+    assertThat(approval.getStepName()).isEqualTo("Generate");
+    // New fields default to null / 0 for the legacy constructor
+    assertThat(approval.getPlanId()).isNull();
+    assertThat(approval.getStepIndex()).isEqualTo(0);
+    assertThat(approval.getDecision()).isNull();
   }
 
   // ========================================================================
