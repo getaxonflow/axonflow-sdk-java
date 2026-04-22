@@ -146,8 +146,11 @@ public class TelemetryReporter {
    * <p>Priority order:
    *
    * <ol>
-   *   <li>{@code DO_NOT_TRACK=1} environment variable disables telemetry
-   *   <li>{@code AXONFLOW_TELEMETRY=off} environment variable disables telemetry
+   *   <li>{@code DO_NOT_TRACK=1} environment variable disables telemetry (<strong>deprecated</strong>,
+   *       removed after 2026-05-05 in the next major release; emits a one-line warning when it's
+   *       the active control so operators can migrate)
+   *   <li>{@code AXONFLOW_TELEMETRY=off} environment variable disables telemetry (canonical
+   *       AxonFlow-specific opt-out)
    *   <li>Config override ({@code Boolean.TRUE} or {@code Boolean.FALSE}) takes precedence
    *   <li>Default: ON for all modes except sandbox
    * </ol>
@@ -175,6 +178,17 @@ public class TelemetryReporter {
       String doNotTrack,
       String axonflowTelemetry) {
     if (doNotTrack != null && "1".equals(doNotTrack.trim())) {
+      // Only warn when DO_NOT_TRACK is the active control. If AXONFLOW_TELEMETRY=off is also set,
+      // the caller has already migrated.
+      boolean alreadyMigrated =
+          axonflowTelemetry != null && "off".equalsIgnoreCase(axonflowTelemetry.trim());
+      if (!alreadyMigrated) {
+        logger.warn(
+            "DO_NOT_TRACK=1 is deprecated as an AxonFlow telemetry opt-out and will be removed"
+                + " after 2026-05-05 in the next major release. Set AXONFLOW_TELEMETRY=off to opt"
+                + " out going forward. See https://docs.getaxonflow.com/docs/telemetry for"
+                + " details.");
+      }
       return false;
     }
     if (axonflowTelemetry != null && "off".equalsIgnoreCase(axonflowTelemetry.trim())) {
