@@ -7,9 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [5.7.0] - 2026-04-22
 
+### Added
+
+- **Rich `ApproveStepResponse` / `RejectStepResponse`** — both classes now carry
+  the same shape as the step-gate response: `decision` resolves to `"allow"` or
+  `"block"`, `retryContext` mirrors the gate response retry state, `approvedBy`
+  / `approvedAt` / `rejectedBy` / `rejectedAt` carry reviewer identity,
+  `approvalId` is the deterministic HITL queue UUID, `policiesMatched`
+  reconstructs the governance trail. The legacy `workflowId` / `stepId` /
+  `status` fields remain for back-compat.
+- **`planId` on approve/reject responses** — populated when the response comes
+  from the MAP plan-scoped endpoint; empty on WCP plane responses. Same types
+  work across both endpoints.
+- **Back-compat 3-arg constructors** — `new ApproveStepResponse(workflowId, stepId, status)`
+  and `new RejectStepResponse(workflowId, stepId, status)` still compile, so
+  existing test fixtures and SDK consumers keep working without changes.
+
 ### Deprecated
 
 - `DO_NOT_TRACK=1` as an AxonFlow telemetry opt-out — scheduled for removal after 2026-05-05 in the next major release. Use `AXONFLOW_TELEMETRY=off` instead. The SDK emits a one-line migration warning when `DO_NOT_TRACK=1` is the active control and `AXONFLOW_TELEMETRY=off` is not also set.
+
+### Unchanged
+
+- `approveStep(workflowId, stepId)` / `rejectStep(workflowId, stepId, reason)`
+  method signatures on `AxonFlow` are unchanged — only the response fields grew.
 
 ## [5.6.0] - 2026-04-21
 
