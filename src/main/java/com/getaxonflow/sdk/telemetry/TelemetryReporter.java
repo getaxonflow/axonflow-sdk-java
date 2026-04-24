@@ -23,7 +23,6 @@ import com.getaxonflow.sdk.AxonFlowConfig;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -58,6 +57,14 @@ public class TelemetryReporter {
 
   static final String DEFAULT_ENDPOINT = "https://checkpoint.getaxonflow.com/v1/ping";
   private static final int TIMEOUT_SECONDS = 3;
+  /**
+   * Minimum remaining HTTP budget (milliseconds). Below this, skip the operation rather than issue
+   * a request that is almost guaranteed to time out before any useful work completes. Keeps the
+   * telemetry path from making "essentially zero budget" calls when the shared deadline is nearly
+   * spent.
+   */
+  private static final long MIN_BUDGET_MS = 100L;
+
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
   /**
@@ -108,36 +115,62 @@ public class TelemetryReporter {
     String endpoint =
         (checkpointUrl != null && !checkpointUrl.isEmpty()) ? checkpointUrl : DEFAULT_ENDPOINT;
 
-    final String finalSdkEndpoint = sdkEndpoint;
-    final String endpointType = classifyEndpoint(finalSdkEndpoint);
-    CompletableFuture.runAsync(
-        () -> {
-          try {
-            String platformVersion = detectPlatformVersion(finalSdkEndpoint);
-            String payload = buildPayload(mode, platformVersion, endpointType);
+    String endpointType = classifyEndpoint(sdkEndpoint);
 
-            OkHttpClient client =
-                new OkHttpClient.Builder()
-                    .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .build();
+    // Send synchronously with a single bounded deadline shared across the
+    // /health probe and the checkpoint POST. A CompletableFuture.runAsync
+    // here would default to ForkJoinPool.commonPool (daemon threads) which
+    // die at JVM exit, silently dropping the ping for short-lived JVMs (CLI
+    // binaries, Lambda handlers, serverless cold-starts, quickstart scripts).
+    // See axonflow-enterprise#1706.
+    //
+    // Blocks the caller briefly (~350ms warm / ~1.3s cold on a reachable
+    // checkpoint; bounded at TIMEOUT_SECONDS on an unreachable one). That is
+    // acceptable for a control-plane SDK's construction path, and matches
+    // the pattern shipped for the Go SDK in axonflow-enterprise#1693.
+    try {
+      long deadlineMs =
+          System.nanoTime() / 1_000_000L + TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS);
 
-            RequestBody body = RequestBody.create(payload, JSON);
-            Request request = new Request.Builder().url(endpoint).post(body).build();
+      // Health probe gets up to 1s of the remaining budget, so the POST
+      // always has room even when the probe fully consumes its slice.
+      long healthBudgetMs =
+          Math.min(
+              TimeUnit.SECONDS.toMillis(1),
+              Math.max(0L, deadlineMs - System.nanoTime() / 1_000_000L));
+      String platformVersion =
+          (sdkEndpoint != null && !sdkEndpoint.isEmpty() && healthBudgetMs > MIN_BUDGET_MS)
+              ? detectPlatformVersion(sdkEndpoint, healthBudgetMs)
+              : null;
 
-            try (Response response = client.newCall(request).execute()) {
-              if (debug) {
-                logger.debug("Telemetry ping sent, status={}", response.code());
-              }
-            }
-          } catch (Exception e) {
-            // Silent failure - telemetry must never disrupt SDK operation
-            if (debug) {
-              logger.debug("Telemetry ping failed (silent): {}", e.getMessage());
-            }
-          }
-        });
+      String payload = buildPayload(mode, platformVersion, endpointType);
+
+      long postBudgetMs = Math.max(0L, deadlineMs - System.nanoTime() / 1_000_000L);
+      if (postBudgetMs < MIN_BUDGET_MS) {
+        return;
+      }
+
+      OkHttpClient client =
+          new OkHttpClient.Builder()
+              .connectTimeout(postBudgetMs, TimeUnit.MILLISECONDS)
+              .readTimeout(postBudgetMs, TimeUnit.MILLISECONDS)
+              .writeTimeout(postBudgetMs, TimeUnit.MILLISECONDS)
+              .build();
+
+      RequestBody body = RequestBody.create(payload, JSON);
+      Request request = new Request.Builder().url(endpoint).post(body).build();
+
+      try (Response response = client.newCall(request).execute()) {
+        if (debug) {
+          logger.debug("Telemetry ping sent, status={}", response.code());
+        }
+      }
+    } catch (Exception e) {
+      // Silent failure - telemetry must never disrupt SDK operation
+      if (debug) {
+        logger.debug("Telemetry ping failed (silent): {}", e.getMessage());
+      }
+    }
   }
 
   /**
@@ -418,16 +451,20 @@ public class TelemetryReporter {
 
   /**
    * Detect platform version by calling the agent's /health endpoint. Returns null on any failure.
+   *
+   * <p>The {@code budgetMs} parameter is derived from the shared telemetry deadline so the health
+   * probe and the checkpoint POST don't stack into a larger combined budget. See
+   * axonflow-enterprise#1706.
    */
-  static String detectPlatformVersion(String sdkEndpoint) {
+  static String detectPlatformVersion(String sdkEndpoint, long budgetMs) {
     if (sdkEndpoint == null || sdkEndpoint.isEmpty()) {
       return null;
     }
     try {
       OkHttpClient client =
           new OkHttpClient.Builder()
-              .connectTimeout(2, TimeUnit.SECONDS)
-              .readTimeout(2, TimeUnit.SECONDS)
+              .connectTimeout(budgetMs, TimeUnit.MILLISECONDS)
+              .readTimeout(budgetMs, TimeUnit.MILLISECONDS)
               .build();
 
       Request request = new Request.Builder().url(sdkEndpoint + "/health").get().build();
