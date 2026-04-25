@@ -54,6 +54,34 @@ _CLASS_DECL_RE = re.compile(
 )
 _JSON_PROPERTY_RE = re.compile(r'@JsonProperty\(\s*"([^"]+)"\s*\)')
 
+# Matches a Java instance field declaration that uses Jackson's
+# default field-name mapping (no @JsonProperty alias). The pattern:
+#   - the leading modifier sequence (group 1) — captured so we can
+#     post-filter declarations that include `static` (constants
+#     don't go on the wire)
+#   - a type expression: identifier with optional `.qualifier`,
+#     optional `<...>` generics, optional `[]` array
+#   - the field name (group 2)
+#   - terminated by `;` or `=` (initializer)
+#
+# `static` IS allowed in the modifier set (otherwise the regex would
+# anchor at `final` in `private static final ...`); we drop the
+# match in code when `static` appears in group 1.
+# Methods are excluded by the absence of `(` before the terminator.
+_FIELD_DECL_RE = re.compile(
+    r"((?:(?:private|protected|public|static|final|transient|volatile)\s+)+)"
+    r"(?:[\w.]+(?:\s*<[^<>;]*>)?(?:\s*\[\s*\])?)\s+"
+    r"(\w+)\s*[;=]"
+)
+# Cap on lookback distance from a field declaration to a
+# preceding @JsonProperty(...) annotation: if the most recent
+# annotation sits within this many characters of the field's
+# declaration position, the field is considered "annotated" and we
+# defer to the @JsonProperty value rather than the field name.
+# 250 chars covers an annotation on the line immediately above plus
+# JavaDoc and other annotations like @JsonInclude in between.
+_JSON_PROPERTY_LOOKBACK = 250
+
 
 def load_all_schemas(spec_dir: Path) -> tuple[
     dict[str, list[str]],
@@ -258,11 +286,57 @@ def _extract_types_from_java(content: str) -> dict[str, list[str]]:
     # blanked range (string literal, comment, text block) — the
     # cleaner replaces those with whitespace, so cleaned[m.start()]
     # is a space rather than the original `@`.
-    props: list[tuple[int, str]] = [
+    annot_props: list[tuple[int, str]] = [
         (m.start(), m.group(1))
         for m in _JSON_PROPERTY_RE.finditer(content)
         if m.start() < len(cleaned) and cleaned[m.start()] == "@"
     ]
+
+    # Plain (unannotated) field declarations. Jackson defaults to
+    # using the field name as the wire key when @JsonProperty is
+    # absent. Without this discovery, the wire-shape gate
+    # under-counts SDK fields wherever the SDK relies on Jackson's
+    # default name-mapping (which is correct for fields whose Java
+    # name already matches the wire — `id`, `threshold`, `message`,
+    # etc.). Match on the cleaned text so commented-out or in-string
+    # field-shaped patterns don't false-fire. Skip declarations
+    # whose modifier sequence contains `static` — those are
+    # class-level constants, never serialized.
+    field_decls = [
+        fm for fm in _FIELD_DECL_RE.finditer(cleaned)
+        if "static" not in fm.group(1)
+    ]
+
+    # Build the merged property stream. Each entry is (position,
+    # wire_name). For plain field decls, "absorb" any @JsonProperty
+    # whose position falls within the look-back window — that pair
+    # is annotated and the annotation's wire name takes precedence.
+    consumed_annot_indices: set[int] = set()
+    plain_props: list[tuple[int, str]] = []
+    for fm in field_decls:
+        field_pos = fm.start()
+        field_name = fm.group(2)
+        # Find the latest annotation that hasn't been consumed and is
+        # within the lookback window.
+        annotated = False
+        for idx, (ap, _) in enumerate(annot_props):
+            if idx in consumed_annot_indices:
+                continue
+            if ap >= field_pos:
+                break
+            if field_pos - ap <= _JSON_PROPERTY_LOOKBACK:
+                consumed_annot_indices.add(idx)
+                annotated = True
+                # Don't break — multiple annotations can stack
+                # (e.g. @JsonInclude + @JsonProperty); keep marking
+                # them consumed so they don't double-attribute.
+        if not annotated:
+            plain_props.append((field_pos, field_name))
+
+    # The full property stream is annotation-derived names + plain
+    # field names, ordered by source position so the depth walker
+    # attributes them in declaration order.
+    props: list[tuple[int, str]] = sorted(annot_props + plain_props)
 
     # Walk the cleaned source. Two queues: decls already seen but
     # whose body `{` hasn't been hit yet (pending), and active type

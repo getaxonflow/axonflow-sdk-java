@@ -202,21 +202,12 @@
       "spec_only": []
     },
     "Budget": {
-      "sdk_only": [],
+      "sdk_only": [
+        "enabled"
+      ],
       "spec_only": [
-        "id",
-        "name",
         "org_id",
-        "period",
-        "scope",
         "tenant_id"
-      ]
-    },
-    "BudgetStatus": {
-      "sdk_only": [],
-      "spec_only": [
-        "budget",
-        "percentage"
       ]
     },
     "CancelPlanResponse": {
@@ -260,16 +251,8 @@
         "organization_id"
       ],
       "spec_only": [
-        "action",
-        "category",
-        "description",
-        "enabled",
-        "name",
-        "pattern",
         "priority",
-        "severity",
-        "tags",
-        "tier"
+        "tags"
       ]
     },
     "CreateWorkflowResponse": {
@@ -283,18 +266,15 @@
     },
     "DynamicPolicy": {
       "sdk_only": [
+        "category",
         "created_at",
         "organization_id",
+        "priority",
+        "tier",
+        "type",
         "updated_at"
       ],
-      "spec_only": [
-        "actions",
-        "conditions",
-        "description",
-        "enabled",
-        "id",
-        "name"
-      ]
+      "spec_only": []
     },
     "DynamicPolicyInfo": {
       "sdk_only": [
@@ -427,6 +407,15 @@
         "workflow_execution_id"
       ]
     },
+    "PolicyAction": {
+      "sdk_only": [
+        "value"
+      ],
+      "spec_only": [
+        "config",
+        "type"
+      ]
+    },
     "PolicyInfo": {
       "sdk_only": [
         "code_artifact",
@@ -446,7 +435,9 @@
       ]
     },
     "PolicyOverride": {
-      "sdk_only": [],
+      "sdk_only": [
+        "active"
+      ],
       "spec_only": [
         "enabled_override",
         "id"
@@ -462,8 +453,7 @@
         "change_summary",
         "id",
         "policy_id",
-        "snapshot",
-        "version"
+        "snapshot"
       ]
     },
     "ResumePlanResponse": {
@@ -482,19 +472,8 @@
     "StaticPolicy": {
       "sdk_only": [],
       "spec_only": [
-        "action",
-        "category",
-        "description",
-        "enabled",
-        "id",
-        "name",
-        "override",
-        "pattern",
         "policy_id",
-        "priority",
-        "severity",
-        "tier",
-        "version"
+        "priority"
       ]
     },
     "StepGateRequest": {
@@ -517,37 +496,49 @@
         "metadata"
       ]
     },
+    "UpdateStaticPolicyRequest": {
+      "sdk_only": [
+        "category"
+      ],
+      "spec_only": [
+        "priority",
+        "tags"
+      ]
+    },
     "UsageBreakdown": {
       "sdk_only": [
+        "period",
         "period_end",
         "period_start"
       ],
-      "spec_only": [
-        "items"
-      ]
+      "spec_only": []
     },
     "UsageBreakdownItem": {
       "sdk_only": [],
       "spec_only": [
-        "group_by",
-        "percentage"
+        "group_by"
       ]
     },
     "UsageRecord": {
-      "sdk_only": [],
+      "sdk_only": [
+        "timestamp"
+      ],
       "spec_only": [
         "created_at",
         "error_message",
-        "id",
         "latency_ms",
-        "model",
-        "provider",
         "success",
         "team_id",
         "tenant_id",
         "user_id",
         "workflow_id"
       ]
+    },
+    "UsageSummary": {
+      "sdk_only": [
+        "period"
+      ],
+      "spec_only": []
     },
     "WorkflowStatusResponse": {
       "sdk_only": [],
@@ -608,12 +599,14 @@
     "PlanVersionEntry",
     "PlanVersionsResponse",
     "PlatformCapability",
+    "PolicyAction",
     "PolicyEvaluationResult",
     "PolicyInfo",
     "PolicyMatch",
     "PolicyMatchInfo",
     "PolicyOverride",
     "PolicyVersion",
+    "PricingInfo",
     "RateLimitInfo",
     "ResumeFromCheckpointResponse",
     "ResumePlanResponse",
@@ -627,6 +620,7 @@
     "ToolContext",
     "UpdatePlanRequest",
     "UpdatePlanResponse",
+    "UpdateStaticPolicyRequest",
     "UpdateWebhookRequest",
     "UsageBreakdown",
     "UsageBreakdownItem",
