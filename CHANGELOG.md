@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Version alignment check** (`.github/workflows/validate-version-alignment.yml`). CI now fails any PR or push to `main` where `pom.xml`'s `<version>` drifts from the first released `## [X.Y.Z]` section in `CHANGELOG.md`. Matches the pattern in the platform repo and the Go SDK.
+- **Wire-shape contract gate** (`.github/workflows/wire-shape-contract.yml`). CI fails any PR that introduces drift between Java `@JsonProperty` annotations and the OpenAPI specs pinned at `tests/fixtures/wire-shape-baseline.json::openapi_specs_sha`. Four gates: cross-spec schema divergence, intra-file schema duplicates, per-type SDK-vs-spec drift, and registered-type rename-escape. The pinned spec SHA is itself guarded by a `spec-pin-bump` PR label so a single PR can't both move the SHA and silence drift. Source-discovery walks brace depth so nested classes (e.g. `WorkflowTypes.CreateWorkflowRequest`) and inner enums are attributed to the correct type rather than the file's outer class. Mirrors the Python, Go, and TypeScript gates.
 
 ## [5.7.0] - 2026-04-22
 
