@@ -100,6 +100,18 @@ def main() -> int:
                     lines.append(f"      baseline: {exp}")
                     lines.append(f"      observed: {obs}")
             cross_problems.append("\n".join(lines))
+    # Reverse pass: a baselined cross-spec divergence that is no longer
+    # observed must be removed from the baseline. Otherwise the stale
+    # fingerprint shields a future reintroduction of the same old
+    # incompatible shape from the gate.
+    for name in baselined_cross:
+        if name not in cross_spec:
+            cross_problems.append(
+                f"  {name}: baselined cross-spec divergence no longer "
+                f"observed — remove from "
+                f"baseline.cross_spec_duplicates.{name} so a future "
+                f"reintroduction of the same shape is caught as new."
+            )
     if cross_problems:
         print("Cross-spec schema divergence gate failed:\n", file=sys.stderr)
         for p in cross_problems:
