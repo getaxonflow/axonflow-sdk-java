@@ -72,13 +72,27 @@ jobs:
           PR_SHA: ${{ steps.specs_sha.outputs.sha }}
         run: |
           set -e
-          BASE_SHA=$(
-            git show "origin/${BASE_REF}:tests/fixtures/wire-shape-baseline.json" 2>/dev/null \
-              | python3 -c "import json, sys; print(json.load(sys.stdin).get('openapi_specs_sha','') or '')" \
-              || true
-          )
+          BASE_FILE=$(mktemp)
+          if git show "origin/${BASE_REF}:tests/fixtures/wire-shape-baseline.json" > "$BASE_FILE" 2>/dev/null; then
+            # File exists on the base branch. It MUST parse — a malformed
+            # baseline file would otherwise let `BASE_SHA` come back empty
+            # and route this PR through the "first pin introduction"
+            # bypass below, silently authorizing a SHA bump.
+            BASE_SHA=$(python3 -c "import json, sys; print(json.load(open(sys.argv[1])).get('openapi_specs_sha','') or '')" "$BASE_FILE")
+          else
+            # File genuinely absent on the base branch (first-time
+            # introduction). Distinguishing this from "file present but
+            # unparseable" is what guards the bypass.
+            BASE_SHA=""
+          fi
+          rm -f "$BASE_FILE"
           if [ -z "$BASE_SHA" ]; then
-            echo "::notice::Base branch has no openapi_specs_sha yet; treating this PR as first pin introduction."
+            if git cat-file -e "origin/${BASE_REF}:tests/fixtures/wire-shape-baseline.json" 2>/dev/null; then
+              echo "::error::tests/fixtures/wire-shape-baseline.json on origin/${BASE_REF} parsed with empty openapi_specs_sha."
+              echo "::error::This is unrecoverable from inside the gate. Re-run scripts/wire_shape/refresh.py on main."
+              exit 1
+            fi
+            echo "::notice::Base branch has no wire-shape-baseline.json yet; treating this PR as first pin introduction."
             exit 0
           fi
           if [ "$BASE_SHA" = "$PR_SHA" ]; then

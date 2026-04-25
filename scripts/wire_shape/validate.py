@@ -35,20 +35,12 @@ from lib import (  # noqa: E402
 )
 
 
-def _specs_dir() -> Path | None:
+def main() -> int:
     env = os.environ.get("AXONFLOW_OPENAPI_SPECS_DIR")
     if not env:
-        return None
-    p = Path(env)
-    return p if p.is_dir() else None
-
-
-def main() -> int:
-    specs = _specs_dir()
-    if specs is None:
+        # No env at all → local dev / unconfigured CI. Skip.
         print(
-            "⏭️  AXONFLOW_OPENAPI_SPECS_DIR not set to a directory; "
-            "wire-shape gate skipped."
+            "⏭️  AXONFLOW_OPENAPI_SPECS_DIR not set; wire-shape gate skipped."
         )
         print(
             "    The dedicated CI job clones getaxonflow/axonflow at the "
@@ -56,6 +48,22 @@ def main() -> int:
             "validator."
         )
         return 0
+    specs = Path(env)
+    if not specs.is_dir():
+        # Env set but path is bogus. CI probably failed to check out the
+        # specs at the pinned SHA; treating that as a skip would let a
+        # broken pipeline produce a green check. Fail loudly instead.
+        print(
+            f"❌ AXONFLOW_OPENAPI_SPECS_DIR={env} is not a directory.",
+            file=sys.stderr,
+        )
+        print(
+            "   The wire-shape job's specs-checkout step must run before "
+            "this validator. A misconfigured path silently disables the "
+            "gate, which we refuse to do.",
+            file=sys.stderr,
+        )
+        return 1
 
     merged, cross_spec, intra_file = load_all_schemas(specs)
     if not merged:

@@ -20,6 +20,14 @@ Design decisions specific to Java:
 - Avoids the `mvn compile` round-trip in CI and stays dependency-free
   beyond PyYAML. If nested-generic or annotation-inside-string edge
   cases start causing false positives, switch to `javalang`.
+- Record-parameter annotations (`record Foo(@JsonProperty("x") int x)`)
+  are attributed to the record because the parser tracks pending
+  decls between their token and their body `{`.
+- Anonymous inner classes (`new Foo() { @JsonProperty("x") ... }`) do
+  NOT have a `class` keyword, so their annotations leak to the
+  enclosing type. This SDK does not put `@JsonProperty` inside
+  anonymous inners; if that ever lands, the `<anon>` sentinel pattern
+  is the place to add coverage.
 """
 
 from __future__ import annotations
@@ -178,8 +186,26 @@ def _strip_strings_and_comments(src: str) -> str:
                 j += 2
             i = j
             continue
-        # String / char literal. Handles escapes; skips newlines (text
-        # blocks in Java 15+ break this but none of our SDK types use them).
+        # Java 15+ text block: `"""..."""`. Without explicit handling,
+        # the leading `"""` looks like quote-emptyString-quote, then
+        # content runs as live source until a stray `"` rebalances.
+        if c == '"' and src[i : i + 3] == '"""':
+            j = i + 3
+            out[i] = out[i + 1] = out[i + 2] = " "
+            while j < n and src[j : j + 3] != '"""':
+                if src[j] != "\n":
+                    out[j] = " "
+                j += 1
+            if j < n:
+                out[j] = out[j + 1] = out[j + 2] = " "
+                j += 3
+            i = j
+            continue
+        # String / char literal. Handles escapes; preserves newlines so
+        # offsets line up with the original text. Java string literals
+        # cannot span newlines (text blocks above are the only multi-
+        # line form), so a bare newline mid-quote is a malformed source
+        # we let fall through.
         if c == '"' or c == "'":
             quote = c
             j = i + 1
@@ -228,19 +254,24 @@ def _extract_types_from_java(content: str) -> dict[str, list[str]]:
     # @JsonProperty annotations: match on the RAW content so the
     # wire-name string literal is preserved. Positions line up with
     # `cleaned` because string-stripping replaces in place without
-    # changing length.
+    # changing length. Filter out matches whose `@` falls inside a
+    # blanked range (string literal, comment, text block) — the
+    # cleaner replaces those with whitespace, so cleaned[m.start()]
+    # is a space rather than the original `@`.
     props: list[tuple[int, str]] = [
-        (m.start(), m.group(1)) for m in _JSON_PROPERTY_RE.finditer(content)
+        (m.start(), m.group(1))
+        for m in _JSON_PROPERTY_RE.finditer(content)
+        if m.start() < len(cleaned) and cleaned[m.start()] == "@"
     ]
 
-    # Walk the cleaned source, tracking a stack of (open_brace_pos, type_name).
-    # When we see `class X` followed (after modifiers/generics) by `{`,
-    # push X onto the stack at that depth. Pop on matching `}`.
-    stack: list[str] = []
-    # Map from brace_depth_at_open -> type_name, so we only pop type
-    # frames when the matching `}` fires (not every random `{` in
-    # method bodies / initializers).
-    type_frames: dict[int, str] = {}
+    # Walk the cleaned source. Two queues: decls already seen but
+    # whose body `{` hasn't been hit yet (pending), and active type
+    # frames (stack). Annotations attribute to the innermost pending
+    # decl (record-parameter case) if any, otherwise the innermost
+    # active frame. This keeps record(@JsonProperty(...) X x) {} from
+    # silently dropping its annotations.
+    pending_decls: list[str] = []
+    stack: list[tuple[int, str]] = []  # (depth_at_open, type_name)
     depth = 0
     next_decl_idx = 0
     next_prop_idx = 0
@@ -249,41 +280,47 @@ def _extract_types_from_java(content: str) -> dict[str, list[str]]:
     i = 0
     n = len(cleaned)
     while i < n:
-        c = cleaned[i]
+        # Promote any decls whose name token has now been passed.
+        while next_decl_idx < len(decls) and decls[next_decl_idx][0] <= i:
+            pending_decls.append(decls[next_decl_idx][1])
+            next_decl_idx += 1
 
-        # Consume any pending annotation at or before this index.
+        # Consume any annotation at this position. Pending-decl wins
+        # so record params attribute correctly.
         while next_prop_idx < len(props) and props[next_prop_idx][0] <= i:
             _, wire = props[next_prop_idx]
-            if stack:
-                result.setdefault(stack[-1], []).append(wire)
+            owner = (
+                pending_decls[-1] if pending_decls
+                else stack[-1][1] if stack
+                else None
+            )
+            if owner is not None:
+                result.setdefault(owner, []).append(wire)
             next_prop_idx += 1
 
+        c = cleaned[i]
         if c == "{":
-            # Is this the opening brace of the most recent unconsumed
-            # class declaration? i.e. the declaration's class-name
-            # token ended before this `{` and no other `{` has consumed it.
-            if (
-                next_decl_idx < len(decls)
-                and decls[next_decl_idx][0] <= i
-            ):
-                name = decls[next_decl_idx][1]
-                stack.append(name)
-                type_frames[depth] = name
-                next_decl_idx += 1
+            if pending_decls:
+                # This brace opens the body of the oldest pending decl.
+                name = pending_decls.pop(0)
+                stack.append((depth, name))
             depth += 1
         elif c == "}":
             depth -= 1
-            if depth in type_frames:
-                type_frames.pop(depth)
-                if stack:
-                    stack.pop()
+            if stack and stack[-1][0] == depth:
+                stack.pop()
         i += 1
 
     # Consume any trailing annotations (defensive; shouldn't happen).
     while next_prop_idx < len(props):
         _, wire = props[next_prop_idx]
-        if stack:
-            result.setdefault(stack[-1], []).append(wire)
+        owner = (
+            pending_decls[-1] if pending_decls
+            else stack[-1][1] if stack
+            else None
+        )
+        if owner is not None:
+            result.setdefault(owner, []).append(wire)
         next_prop_idx += 1
 
     return {k: sorted(set(v)) for k, v in result.items() if v}
@@ -323,24 +360,42 @@ def empty_baseline() -> dict[str, Any]:
 def load_baseline() -> dict[str, Any]:
     if not BASELINE_PATH.exists():
         return empty_baseline()
-    with BASELINE_PATH.open() as f:
-        parsed = json.load(f)
+    try:
+        with BASELINE_PATH.open() as f:
+            parsed = json.load(f)
+    except json.JSONDecodeError as e:
+        # Truncated mid-write, hand-edited and corrupted, or otherwise
+        # not parseable. Fail loudly with a regeneration hint instead
+        # of letting the validator bail with an opaque traceback.
+        raise SystemExit(
+            f"❌ tests/fixtures/wire-shape-baseline.json is malformed "
+            f"({e.__class__.__name__}: {e}).\n"
+            f"   Regenerate via:\n"
+            f"     python3 scripts/wire_shape/refresh.py "
+            f"<axonflow community specs dir>"
+        ) from None
     base = empty_baseline()
     base.update(parsed)
-    base["cross_spec_duplicates"] = parsed.get("cross_spec_duplicates", {})
-    base["intra_file_duplicates"] = parsed.get("intra_file_duplicates", {})
-    base["registered_types"] = parsed.get("registered_types", [])
-    base["per_type_drift"] = parsed.get("per_type_drift", {})
     return base
 
 
 def write_baseline(baseline: dict[str, Any]) -> None:
     BASELINE_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = BASELINE_PATH.with_suffix(f".json.tmp.{os.getpid()}")
-    with tmp.open("w") as f:
-        json.dump(baseline, f, indent=2, sort_keys=True)
-        f.write("\n")
-    tmp.replace(BASELINE_PATH)
+    try:
+        with tmp.open("w") as f:
+            json.dump(baseline, f, indent=2, sort_keys=True)
+            f.write("\n")
+        tmp.replace(BASELINE_PATH)
+    except BaseException:
+        # If anything fails between open() and replace(), don't leave
+        # a stray .tmp.<pid> sidecar — the next run from the same PID
+        # would collide and confuse a future writer.
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def difference(a: list[str], b: list[str]) -> list[str]:
