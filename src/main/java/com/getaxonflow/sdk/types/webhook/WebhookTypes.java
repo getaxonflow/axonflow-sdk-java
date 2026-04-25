@@ -261,25 +261,32 @@ public final class WebhookTypes {
       return updatedAt;
     }
 
+    /**
+     * Identity-based equality on {@code id}.
+     *
+     * <p>A {@code WebhookSubscription} is an entity, not a value object — two
+     * instances with the same {@code id} represent the same subscription on
+     * the server, regardless of whether one view has loaded {@code secret}
+     * (returned by {@code createWebhook} only) and another has not, or
+     * whether {@code updatedAt} or {@code active} have moved between
+     * fetches. Field-by-field equality would split same-id views into
+     * different objects and break {@code Set}/{@code Map} membership and
+     * cache invalidation in caller code.
+     *
+     * <p>If you need content-equality (for example to detect rotated
+     * secrets), compare the relevant getters directly.
+     */
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       WebhookSubscription that = (WebhookSubscription) o;
-      return active == that.active
-          && Objects.equals(id, that.id)
-          && Objects.equals(url, that.url)
-          && Objects.equals(events, that.events)
-          && Objects.equals(tenantId, that.tenantId)
-          && Objects.equals(orgId, that.orgId)
-          && Objects.equals(secret, that.secret)
-          && Objects.equals(createdAt, that.createdAt)
-          && Objects.equals(updatedAt, that.updatedAt);
+      return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(id, url, events, active, tenantId, orgId, secret, createdAt, updatedAt);
+      return Objects.hash(id);
     }
 
     @Override

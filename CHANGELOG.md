@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`WebhookSubscription.secret`** — HMAC-SHA256 signing key now exposed on the response from `createWebhook`. Required to verify the `X-AxonFlow-Signature` header on inbound webhook deliveries; without it, callers can't validate payload authenticity. Also adds `tenantId` and `orgId` (ownership scoping). The 6-arg constructor is preserved as a source-compat overload that delegates to the 9-arg with nulls for the new fields. `toString()` redacts `secret` to avoid log leakage.
 - **`BudgetAlert.acknowledged`** — alert dismissal flag. Also adds `@JsonProperty` annotations on previously-unannotated fields (`id`, `threshold`, `message`) so the wire-shape gate can see them; Jackson's default name mapping was correct, but the validator's discovery walks `@JsonProperty` only.
 
+### Changed
+
+- **`WebhookSubscription` equality is now identity-based on `id`.** A `WebhookSubscription` is an entity, not a value object — two instances with the same `id` represent the same subscription, regardless of whether one view has loaded `secret` (returned by `createWebhook` only) and another has not, or whether `updatedAt`/`active` have moved between fetches. Previously `equals()`/`hashCode()` compared every field; that meant a webhook constructed locally with the legacy 6-arg constructor would have compared **unequal** to the same logical webhook deserialized from a server response that included `secret`/`tenantId`/`orgId`. `Set<WebhookSubscription>`, `Map` keying, and identity-tracking caches all break under that semantics. Identity-based equality fixes those at the source. If you need content-equality (e.g. to detect a rotated secret), compare the relevant getters directly. Same change applies to `hashCode()`. `toString()` is unchanged (still includes the full state with `secret` redacted).
+
 ## [5.7.0] - 2026-04-22
 
 ### Added
