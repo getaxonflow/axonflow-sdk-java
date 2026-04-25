@@ -212,15 +212,6 @@
         "tenant_id"
       ]
     },
-    "BudgetAlert": {
-      "sdk_only": [],
-      "spec_only": [
-        "acknowledged",
-        "id",
-        "message",
-        "threshold"
-      ]
-    },
     "BudgetStatus": {
       "sdk_only": [],
       "spec_only": [
@@ -556,14 +547,6 @@
         "tenant_id",
         "user_id",
         "workflow_id"
-      ]
-    },
-    "WebhookSubscription": {
-      "sdk_only": [],
-      "spec_only": [
-        "org_id",
-        "secret",
-        "tenant_id"
       ]
     },
     "WorkflowStatusResponse": {

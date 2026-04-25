@@ -556,6 +556,7 @@ public final class CostControlTypes {
 
   /** A budget alert. */
   public static class BudgetAlert {
+    @JsonProperty("id")
     private String id;
 
     @JsonProperty("budget_id")
@@ -564,6 +565,7 @@ public final class CostControlTypes {
     @JsonProperty("alert_type")
     private String alertType;
 
+    @JsonProperty("threshold")
     private Integer threshold;
 
     @JsonProperty("percentage_reached")
@@ -572,10 +574,15 @@ public final class CostControlTypes {
     @JsonProperty("amount_usd")
     private Double amountUsd;
 
+    @JsonProperty("message")
     private String message;
 
     @JsonProperty("created_at")
     private String createdAt;
+
+    /** Whether the alert has been dismissed by an operator. */
+    @JsonProperty("acknowledged")
+    private Boolean acknowledged;
 
     public BudgetAlert() {}
 
@@ -609,6 +616,11 @@ public final class CostControlTypes {
 
     public String getCreatedAt() {
       return createdAt;
+    }
+
+    /** Whether the alert has been dismissed by an operator. */
+    public Boolean getAcknowledged() {
+      return acknowledged;
     }
   }
 
