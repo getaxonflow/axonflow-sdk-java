@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.1.0] - 2026-04-25 — Plugin Batch 1 / ADR-043 explainability fields on MCP responses
+## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 
-Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1 / ADR-042 / ADR-043) but the SDK didn't declare. Pure Cat B field-additions on existing methods — additive only, no breaking changes. The pre-existing constructors are preserved as source-compat overloads. Documented in OpenAPI via platform v7.4.3 (axonflow-enterprise#1714); SDK catches up here.
+Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1) but the SDK didn't declare. Pure field-additions on existing methods — additive only, no breaking changes. The pre-existing constructors are preserved as source-compat overloads. Documented in OpenAPI via platform v7.4.3.
 
 Coordinated cycle: TypeScript v6.1.0 / Python v6.8.0 / Go v5.8.0 ship same day with the same field set.
 
@@ -34,7 +34,7 @@ Both `MCPCheckInputResponse` and `MCPCheckOutputResponse` retain their v6.0.0 co
 
 ### Deferred
 
-`client.explainDecision(decisionId)` and the full `ExplainRule` / `DecisionExplanation` type surface are tracked separately as feature work — see axonflow-enterprise#1716. This release ships only field-surfacing on existing methods.
+`client.explainDecision(decisionId)` and the full `ExplainRule` / `DecisionExplanation` type surface are tracked separately as feature work. This release ships only field-surfacing on existing methods.
 
 ## [6.0.0] - 2026-04-25 — Major: WebhookSubscription identity-based equality
 
@@ -731,7 +731,7 @@ AxonFlowClient client = AxonFlowClient.builder()
 ### Breaking Changes
 
 - **BREAKING**: Renamed `agentUrl` to `endpoint` in `AxonFlowConfig.Builder`
-- **BREAKING**: Removed `orchestratorUrl` and `portalUrl` config options (Agent now proxies all routes per ADR-026)
+- **BREAKING**: Removed `orchestratorUrl` and `portalUrl` config options (Agent now proxies all routes)
 - **BREAKING**: Dynamic policy API path changed from `/api/v1/policies/dynamic` to `/api/v1/dynamic-policies`
 
 ### Added
