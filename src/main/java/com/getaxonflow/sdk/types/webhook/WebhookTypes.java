@@ -164,6 +164,15 @@ public final class WebhookTypes {
     @JsonProperty("active")
     private final boolean active;
 
+    @JsonProperty("tenant_id")
+    private final String tenantId;
+
+    @JsonProperty("org_id")
+    private final String orgId;
+
+    @JsonProperty("secret")
+    private final String secret;
+
     @JsonProperty("created_at")
     private final String createdAt;
 
@@ -177,13 +186,35 @@ public final class WebhookTypes {
         @JsonProperty("events") List<String> events,
         @JsonProperty("active") boolean active,
         @JsonProperty("created_at") String createdAt,
-        @JsonProperty("updated_at") String updatedAt) {
+        @JsonProperty("updated_at") String updatedAt,
+        @JsonProperty("tenant_id") String tenantId,
+        @JsonProperty("org_id") String orgId,
+        @JsonProperty("secret") String secret) {
       this.id = id;
       this.url = url;
       this.events = events != null ? Collections.unmodifiableList(events) : Collections.emptyList();
       this.active = active;
       this.createdAt = createdAt;
       this.updatedAt = updatedAt;
+      this.tenantId = tenantId;
+      this.orgId = orgId;
+      this.secret = secret;
+    }
+
+    /**
+     * Source-compat overload that omits the v6 wire-canonical fields
+     * (tenantId, orgId, secret). Existing user code calling the
+     * 6-arg constructor continues to compile; new code should pass
+     * the security-relevant secret + scoping fields explicitly.
+     */
+    public WebhookSubscription(
+        String id,
+        String url,
+        List<String> events,
+        boolean active,
+        String createdAt,
+        String updatedAt) {
+      this(id, url, events, active, createdAt, updatedAt, null, null, null);
     }
 
     public String getId() {
@@ -202,6 +233,26 @@ public final class WebhookTypes {
       return active;
     }
 
+    /** Tenant ID that owns this subscription. */
+    public String getTenantId() {
+      return tenantId;
+    }
+
+    /** Organization ID that owns this subscription. */
+    public String getOrgId() {
+      return orgId;
+    }
+
+    /**
+     * HMAC-SHA256 signing key for verifying inbound webhook payload
+     * signatures (X-AxonFlow-Signature header). Returned by the
+     * `createWebhook` call on initial creation; required for callers
+     * to validate payload authenticity.
+     */
+    public String getSecret() {
+      return secret;
+    }
+
     public String getCreatedAt() {
       return createdAt;
     }
@@ -210,22 +261,32 @@ public final class WebhookTypes {
       return updatedAt;
     }
 
+    /**
+     * Identity-based equality on {@code id}.
+     *
+     * <p>A {@code WebhookSubscription} is an entity, not a value object — two
+     * instances with the same {@code id} represent the same subscription on
+     * the server, regardless of whether one view has loaded {@code secret}
+     * (returned by {@code createWebhook} only) and another has not, or
+     * whether {@code updatedAt} or {@code active} have moved between
+     * fetches. Field-by-field equality would split same-id views into
+     * different objects and break {@code Set}/{@code Map} membership and
+     * cache invalidation in caller code.
+     *
+     * <p>If you need content-equality (for example to detect rotated
+     * secrets), compare the relevant getters directly.
+     */
     @Override
     public boolean equals(Object o) {
       if (this == o) return true;
       if (o == null || getClass() != o.getClass()) return false;
       WebhookSubscription that = (WebhookSubscription) o;
-      return active == that.active
-          && Objects.equals(id, that.id)
-          && Objects.equals(url, that.url)
-          && Objects.equals(events, that.events)
-          && Objects.equals(createdAt, that.createdAt)
-          && Objects.equals(updatedAt, that.updatedAt);
+      return Objects.equals(id, that.id);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(id, url, events, active, createdAt, updatedAt);
+      return Objects.hash(id);
     }
 
     @Override
@@ -241,6 +302,13 @@ public final class WebhookTypes {
           + events
           + ", active="
           + active
+          + ", tenantId='"
+          + tenantId
+          + '\''
+          + ", orgId='"
+          + orgId
+          + '\''
+          + ", secret='***'"
           + ", createdAt='"
           + createdAt
           + '\''
