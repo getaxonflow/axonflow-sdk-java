@@ -18,14 +18,20 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Response from the MCP output policy check endpoint.
  *
- * <p>Indicates whether the output data passes configured policies. May include redacted data if PII
- * redaction policies are active, and exfiltration check information if data volume limits are
- * configured.
+ * <p>Indicates whether the output data passes configured policies. May include redacted data
+ * (tabular) or a redacted message (text) if PII redaction policies are active, and exfiltration
+ * check information if data volume limits are configured.
+ *
+ * <p>The three Plugin Batch 1 / ADR-043 fields ({@code decisionId}, {@code policyMatches},
+ * {@code redactedMessage}) are populated when the AxonFlow platform is v7.1.0+. Pre-v7.1.0
+ * platforms leave these as {@code null}. Source of truth: {@code
+ * platform/agent/mcp_server_handler.go:988, 1005, 1051}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class MCPCheckOutputResponse {
@@ -39,6 +45,9 @@ public final class MCPCheckOutputResponse {
   @JsonProperty("redacted_data")
   private final Object redactedData;
 
+  @JsonProperty("redacted_message")
+  private final String redactedMessage;
+
   @JsonProperty("policies_evaluated")
   private final int policiesEvaluated;
 
@@ -48,20 +57,57 @@ public final class MCPCheckOutputResponse {
   @JsonProperty("policy_info")
   private final ConnectorPolicyInfo policyInfo;
 
+  @JsonProperty("decision_id")
+  private final String decisionId;
+
+  @JsonProperty("policy_matches")
+  private final List<ExplainPolicy> policyMatches;
+
   @JsonCreator
   public MCPCheckOutputResponse(
       @JsonProperty("allowed") boolean allowed,
       @JsonProperty("block_reason") String blockReason,
       @JsonProperty("redacted_data") Object redactedData,
+      @JsonProperty("redacted_message") String redactedMessage,
       @JsonProperty("policies_evaluated") int policiesEvaluated,
       @JsonProperty("exfiltration_info") ExfiltrationCheckInfo exfiltrationInfo,
-      @JsonProperty("policy_info") ConnectorPolicyInfo policyInfo) {
+      @JsonProperty("policy_info") ConnectorPolicyInfo policyInfo,
+      @JsonProperty("decision_id") String decisionId,
+      @JsonProperty("policy_matches") List<ExplainPolicy> policyMatches) {
     this.allowed = allowed;
     this.blockReason = blockReason;
     this.redactedData = redactedData;
+    this.redactedMessage = redactedMessage;
     this.policiesEvaluated = policiesEvaluated;
     this.exfiltrationInfo = exfiltrationInfo;
     this.policyInfo = policyInfo;
+    this.decisionId = decisionId;
+    this.policyMatches = policyMatches;
+  }
+
+  /**
+   * Source-compat overload. Callers that build {@code MCPCheckOutputResponse} instances locally
+   * with the v6.0.0 6-argument shape continue to compile — {@code redactedMessage}, {@code
+   * decisionId}, and {@code policyMatches} default to {@code null}. Server-side responses always
+   * go through the {@code @JsonCreator} 9-arg constructor regardless.
+   */
+  public MCPCheckOutputResponse(
+      boolean allowed,
+      String blockReason,
+      Object redactedData,
+      int policiesEvaluated,
+      ExfiltrationCheckInfo exfiltrationInfo,
+      ConnectorPolicyInfo policyInfo) {
+    this(
+        allowed,
+        blockReason,
+        redactedData,
+        null,
+        policiesEvaluated,
+        exfiltrationInfo,
+        policyInfo,
+        null,
+        null);
   }
 
   /** Returns whether the output data is allowed by policies. */
@@ -74,9 +120,22 @@ public final class MCPCheckOutputResponse {
     return blockReason;
   }
 
-  /** Returns the redacted version of the data, or null if no redaction was applied. */
+  /**
+   * Returns the redacted tabular data with PII fields masked (used when the connector returned
+   * rows; e.g. SQL/CSV results). Null if no redaction was applied or if the response was a text
+   * message.
+   */
   public Object getRedactedData() {
     return redactedData;
+  }
+
+  /**
+   * Returns the redacted text message with PII fields masked (used when the connector returned a
+   * string message rather than tabular rows; e.g. execute-style responses). Null if no redaction
+   * was applied or if the response was tabular.
+   */
+  public String getRedactedMessage() {
+    return redactedMessage;
   }
 
   /** Returns the number of policies evaluated. */
@@ -94,6 +153,21 @@ public final class MCPCheckOutputResponse {
     return policyInfo;
   }
 
+  /**
+   * Returns the audit correlator for this policy decision (Plugin Batch 1, v7.1.0+). Null on
+   * older platforms.
+   */
+  public String getDecisionId() {
+    return decisionId;
+  }
+
+  /**
+   * Returns the per-policy explainability records (ADR-043, v7.1.0+). Null on older platforms.
+   */
+  public List<ExplainPolicy> getPolicyMatches() {
+    return policyMatches;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -103,14 +177,25 @@ public final class MCPCheckOutputResponse {
         && policiesEvaluated == that.policiesEvaluated
         && Objects.equals(blockReason, that.blockReason)
         && Objects.equals(redactedData, that.redactedData)
+        && Objects.equals(redactedMessage, that.redactedMessage)
         && Objects.equals(exfiltrationInfo, that.exfiltrationInfo)
-        && Objects.equals(policyInfo, that.policyInfo);
+        && Objects.equals(policyInfo, that.policyInfo)
+        && Objects.equals(decisionId, that.decisionId)
+        && Objects.equals(policyMatches, that.policyMatches);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        allowed, blockReason, redactedData, policiesEvaluated, exfiltrationInfo, policyInfo);
+        allowed,
+        blockReason,
+        redactedData,
+        redactedMessage,
+        policiesEvaluated,
+        exfiltrationInfo,
+        policyInfo,
+        decisionId,
+        policyMatches);
   }
 
   @Override
@@ -127,6 +212,11 @@ public final class MCPCheckOutputResponse {
         + exfiltrationInfo
         + ", policyInfo="
         + policyInfo
+        + ", decisionId='"
+        + decisionId
+        + '\''
+        + ", policyMatches="
+        + policyMatches
         + '}';
   }
 }

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-04-25 — Plugin Batch 1 / ADR-043 explainability fields on MCP responses
+
+Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1 / ADR-042 / ADR-043) but the SDK didn't declare. Pure Cat B field-additions on existing methods — additive only, no breaking changes. The pre-existing constructors are preserved as source-compat overloads. Documented in OpenAPI via platform v7.4.3 (axonflow-enterprise#1714); SDK catches up here.
+
+Coordinated cycle: TypeScript v6.1.0 / Python v6.8.0 / Go v5.8.0 ship same day with the same field set.
+
+### Added
+
+- **`MCPCheckInputResponse`** gains 5 optional Plugin Batch 1 fields:
+  - `decisionId: String` — audit correlator
+  - `riskLevel: String` — `low` | `medium` | `high` | `critical`
+  - `policyMatches: List<ExplainPolicy>` — per-policy explainability records
+  - `overrideAvailable: Boolean` — whether session override is permitted for the matched policies (boxed so callers can distinguish "unset" from `false` on older platforms)
+  - `overrideExistingId: String` — already-active override consumed by this decision (if any)
+- **`MCPCheckOutputResponse`** gains 3 optional fields:
+  - `decisionId: String`
+  - `policyMatches: List<ExplainPolicy>`
+  - `redactedMessage: String` — text-redaction counterpart to `redactedData` (used when the connector returned a string message rather than tabular rows; e.g. execute-style responses)
+
+`ExplainPolicy` already shipped — same Jackson-annotated record now reused on the MCP response types. Pre-v7.1.0 platforms leave all new fields as `null`; callers should treat `null` as "context not available" rather than an error.
+
+### Source compatibility
+
+Both `MCPCheckInputResponse` and `MCPCheckOutputResponse` retain their v6.0.0 constructor signatures as overloads that delegate to the new `@JsonCreator` constructors with `null` for the new fields. Existing callers that build response instances locally compile unchanged. `equals()` / `hashCode()` / `toString()` updated to include the new fields.
+
+### Deferred
+
+`client.explainDecision(decisionId)` and the full `ExplainRule` / `DecisionExplanation` type surface are tracked separately as feature work — see axonflow-enterprise#1716. This release ships only field-surfacing on existing methods.
+
 ## [6.0.0] - 2026-04-25 — Major: WebhookSubscription identity-based equality
 
 This is a major release. The bump is driven by a single observable-contract change: `WebhookSubscription.equals()` and `.hashCode()` now compare on `id` only, not every field. Coordinated with the TypeScript SDK v6.0.0 release (PolicyInfo rename) as a v6 alignment cycle for the SDKs that needed breaking changes; Python (v6.7.0) and Go (v5.7.0) ship as minor on the same day because their changes are purely additive.
