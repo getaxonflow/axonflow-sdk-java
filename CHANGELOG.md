@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [6.0.0] - 2026-04-25 — Major: WebhookSubscription identity-based equality
 
-- Telemetry pings now deliver reliably from short-lived JVMs (CLI, serverless, cold-starts). `AxonFlow` construction blocks briefly while the ping is sent synchronously (bounded by the telemetry timeout).
-- Telemetry path is bounded at `TIMEOUT_SECONDS` (3s) total; the `/health` probe and checkpoint POST share a single monotonic deadline instead of stacking independent timeouts.
+This is a major release. The bump is driven by a single observable-contract change: `WebhookSubscription.equals()` and `.hashCode()` now compare on `id` only, not every field. Coordinated with the TypeScript SDK v6.0.0 release (PolicyInfo rename) as a v6 alignment cycle for the SDKs that needed breaking changes; Python (v6.7.0) and Go (v5.7.0) ship as minor on the same day because their changes are purely additive.
+
+### BREAKING — `WebhookSubscription` equality is now identity-based on `id`
+
+`WebhookSubscription` is an entity, not a value object. Two instances with the same `id` represent the same logical webhook regardless of whether one view has loaded `secret` (only returned by `createWebhook`) and another has not, or whether `updatedAt` / `active` have moved between fetches.
+
+Previously `equals()` / `hashCode()` compared every field. That meant a webhook constructed locally with the legacy 6-arg constructor compared **unequal** to the same logical webhook deserialized from a server response that included `secret` / `tenantId` / `orgId`. `Set<WebhookSubscription>`, `Map` keying, and identity-tracking caches all broke under those semantics.
+
+Identity-based equality is the canonical entity semantics; the prior value-based equality was a bug. Because `equals()` / `hashCode()` are part of the observable Java contract that callers depend on for set deduplication, map lookup, and identity caches, the fix is a breaking change per strict semver — even though the new behaviour corrects incorrect semantics rather than introducing them.
+
+If you need content-equality (e.g. to detect a rotated `secret`), compare the relevant getters directly. The 6-arg constructor is preserved as a source-compat overload for callers building local instances; only `equals()` / `hashCode()` semantics changed. `toString()` is unchanged (still emits full state with `secret` redacted).
 
 ### Added
 
@@ -19,9 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`WebhookSubscription.secret`** — HMAC-SHA256 signing key now exposed on the response from `createWebhook`. Required to verify the `X-AxonFlow-Signature` header on inbound webhook deliveries; without it, callers can't validate payload authenticity. Also adds `tenantId` and `orgId` (ownership scoping). The 6-arg constructor is preserved as a source-compat overload that delegates to the 9-arg with nulls for the new fields. `toString()` redacts `secret` to avoid log leakage.
 - **`BudgetAlert.acknowledged`** — alert dismissal flag. Also adds `@JsonProperty` annotations on previously-unannotated fields (`id`, `threshold`, `message`) so the wire-shape gate can see them; Jackson's default name mapping was correct, but the validator's discovery walks `@JsonProperty` only.
 
-### Changed
+### Fixed
 
-- **`WebhookSubscription` equality is now identity-based on `id`.** A `WebhookSubscription` is an entity, not a value object — two instances with the same `id` represent the same subscription, regardless of whether one view has loaded `secret` (returned by `createWebhook` only) and another has not, or whether `updatedAt`/`active` have moved between fetches. Previously `equals()`/`hashCode()` compared every field; that meant a webhook constructed locally with the legacy 6-arg constructor would have compared **unequal** to the same logical webhook deserialized from a server response that included `secret`/`tenantId`/`orgId`. `Set<WebhookSubscription>`, `Map` keying, and identity-tracking caches all break under that semantics. Identity-based equality fixes those at the source. If you need content-equality (e.g. to detect a rotated secret), compare the relevant getters directly. Same change applies to `hashCode()`. `toString()` is unchanged (still includes the full state with `secret` redacted).
+- Telemetry pings now deliver reliably from short-lived JVMs (CLI, serverless, cold-starts). `AxonFlow` construction blocks briefly while the ping is sent synchronously (bounded by the telemetry timeout).
+- Telemetry path is bounded at `TIMEOUT_SECONDS` (3s) total; the `/health` probe and checkpoint POST share a single monotonic deadline instead of stacking independent timeouts.
 
 ## [5.7.0] - 2026-04-22
 
