@@ -182,7 +182,7 @@
       "PolicyMatch": 2
     }
   },
-  "openapi_specs_sha": "10d44eb4585a7b5321d7286b354ff8b43b8c6a57",
+  "openapi_specs_sha": "8c8d6c9c506aa25fcd8a887f6fc71f71b5d6bc30",
   "per_type_drift": {
     "AuditLogEntry": {
       "sdk_only": [
@@ -264,6 +264,20 @@
         "started_at"
       ]
     },
+    "DecisionExplanation": {
+      "sdk_only": [
+        "decisionId",
+        "historicalHitCountSession",
+        "matchedRules",
+        "overrideAvailable",
+        "overrideExistingId",
+        "policyMatches",
+        "policySourceLink",
+        "riskLevel",
+        "toolSignature"
+      ],
+      "spec_only": []
+    },
     "DynamicPolicy": {
       "sdk_only": [
         "category",
@@ -319,6 +333,25 @@
         "exceeded",
         "limit_type"
       ]
+    },
+    "ExplainPolicy": {
+      "sdk_only": [
+        "allowOverride",
+        "policyDescription",
+        "policyId",
+        "policyName",
+        "riskLevel"
+      ],
+      "spec_only": []
+    },
+    "ExplainRule": {
+      "sdk_only": [
+        "matchedOn",
+        "policyId",
+        "ruleId",
+        "ruleText"
+      ],
+      "spec_only": []
     },
     "ListWorkflowsResponse": {
       "sdk_only": [],
@@ -558,6 +591,7 @@
     "CreateWebhookRequest",
     "CreateWorkflowRequest",
     "CreateWorkflowResponse",
+    "DecisionExplanation",
     "DynamicPolicy",
     "DynamicPolicyInfo",
     "DynamicPolicyMatch",
@@ -565,6 +599,8 @@
     "ExecutionSnapshot",
     "ExecutionSummary",
     "ExfiltrationCheckInfo",
+    "ExplainPolicy",
+    "ExplainRule",
     "ListWorkflowsResponse",
     "MCPCheckInputRequest",
     "MCPCheckInputResponse",
