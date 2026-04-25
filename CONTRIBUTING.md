@@ -8,7 +8,7 @@ Thank you for your interest in contributing! Please open an issue or pull reques
 ./mvnw verify
 ```
 
-Tests run under JUnit 5. Wire-shape contract validation lives under `scripts/wire_shape/` and runs in CI on every PR.
+Tests run under JUnit 5. The wire-shape contract gate (under `scripts/wire_shape/`) runs in CI when a PR touches Java sources, the wire-shape baseline, or the gate scripts themselves — see `.github/workflows/wire-shape-contract.yml` for the exact path filter.
 
 ## Pull request guidelines
 
