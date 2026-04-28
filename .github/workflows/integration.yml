@@ -141,18 +141,24 @@ jobs:
           echo "Parent SDK version: ${PARENT_VERSION}"
           # Replace the axonflow-sdk dependency version in examples/basic/pom.xml.
           # Anchored on the artifactId on the previous line to avoid touching
-          # other deps.
+          # other deps. Asserts the regex matched (count >= 1) so a layout
+          # drift fails CI loud; a no-op rewrite (versions already match)
+          # is fine.
           python3 - <<PY
           import re, pathlib
           p = pathlib.Path("examples/basic/pom.xml")
           s = p.read_text()
-          new = re.sub(
+          new, count = re.subn(
               r"(<artifactId>axonflow-sdk</artifactId>\s*<version>)[^<]+(</version>)",
               rf"\g<1>${PARENT_VERSION}\g<2>",
               s,
           )
-          assert new != s, "Failed to rewrite example pom version"
-          p.write_text(new)
+          assert count >= 1, "Regex did not match — examples/basic/pom.xml layout drifted"
+          if new != s:
+              p.write_text(new)
+              print(f"Rewrote example pom version to ${PARENT_VERSION}")
+          else:
+              print(f"Example pom already at parent version ${PARENT_VERSION} (no-op)")
           PY
           grep -A 1 "axonflow-sdk" examples/basic/pom.xml | head -4
 
