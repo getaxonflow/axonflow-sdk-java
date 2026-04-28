@@ -801,8 +801,63 @@ class AxonFlowTest {
     List<LLMProvider> providers = axonflow.listLLMProviders();
     assertThat(providers).hasSize(1);
     LLMProvider p = providers.get(0);
-    assertThat(p.getEnabled()).isNull();
+    // The boxed accessor distinguishes "field not present" from "explicitly false";
+    // the convenience accessor returns false for both.
+    assertThat(p.getEnabledBoxed()).isNull();
     assertThat(p.isEnabled()).isFalse();
+  }
+
+  @Test
+  @DisplayName("LLMProvider preserves pre-PR-#148 7-arg primitive constructor for source compat")
+  @SuppressWarnings("deprecation")
+  void llmProviderLegacyConstructorPreservesSourceCompat() {
+    // Pre-PR-#148 callers wrote `new LLMProvider(name, type, true, 1, 2, true, null)`
+    // with primitive booleans/ints. The 7-arg overload preserves that signature so
+    // those call sites continue to compile after the boxed-types change.
+    LLMProvider p = new LLMProvider("anthropic", "anthropic", true, 1, 2, true, null);
+
+    assertThat(p.getName()).isEqualTo("anthropic");
+    assertThat(p.getType()).isEqualTo("anthropic");
+    assertThat(p.isEnabled()).isTrue();
+    assertThat(p.hasApiKey()).isTrue();
+    // Primitive accessors return the unboxed value.
+    assertThat(p.getPriority()).isEqualTo(1);
+    assertThat(p.getWeight()).isEqualTo(2);
+    // Boxed accessors expose the same value, also non-null when set via the
+    // primitive constructor.
+    assertThat(p.getPriorityBoxed()).isEqualTo(1);
+    assertThat(p.getWeightBoxed()).isEqualTo(2);
+    assertThat(p.getEnabledBoxed()).isTrue();
+    assertThat(p.getHasApiKeyBoxed()).isTrue();
+    // Post-PR-#148 fields default to null when constructed via the legacy overload.
+    assertThat(p.getEndpoint()).isNull();
+    assertThat(p.getModel()).isNull();
+    assertThat(p.getRegion()).isNull();
+    assertThat(p.getRateLimit()).isNull();
+    assertThat(p.getTimeoutSeconds()).isNull();
+    assertThat(p.getSettings()).isNull();
+    assertThat(p.getHealth()).isNull();
+  }
+
+  @Test
+  @DisplayName("LLMProvider primitive accessors return 0/false when boxed field is null")
+  void llmProviderPrimitiveAccessorsNullSafe() {
+    // Construct via the boxed constructor with explicit nulls — Jackson's
+    // omit-field path produces this same state.
+    LLMProvider p = new LLMProvider(
+        "x", "openai", null, null, null, null, null,
+        null, null, null, null, null, null);
+
+    // Primitive accessors null-safe-unbox to 0 / false; boxed accessors expose
+    // the actual null so callers can distinguish "explicitly 0" from "not set".
+    assertThat(p.getPriority()).isEqualTo(0);
+    assertThat(p.getWeight()).isEqualTo(0);
+    assertThat(p.isEnabled()).isFalse();
+    assertThat(p.hasApiKey()).isFalse();
+    assertThat(p.getPriorityBoxed()).isNull();
+    assertThat(p.getWeightBoxed()).isNull();
+    assertThat(p.getEnabledBoxed()).isNull();
+    assertThat(p.getHasApiKeyBoxed()).isNull();
   }
 
   // ========================================================================
