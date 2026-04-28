@@ -15,6 +15,7 @@
  */
 package com.getaxonflow.sdk.types;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
@@ -26,10 +27,19 @@ import java.util.Map;
  * populated when the provider config has them set; {@code settings} is a free-form
  * provider-specific map.
  *
- * <p>{@code enabled} and {@code hasApiKey} are typed as {@link Boolean} (boxed) so a
- * missing or {@code null} value in the JSON response is distinguishable from the
- * explicit boolean values — primitive {@code boolean} would silently default to
- * {@code false} and mask whether the field was actually emitted.
+ * <p><b>Source-compatibility note.</b> Pre-PR-#148 callers wrote {@code new LLMProvider(
+ * name, type, true, 0, 0, true, health)} (7 args, primitive booleans/ints) and called
+ * {@code int p = provider.getPriority()} / {@code int w = provider.getWeight()}. The
+ * 7-arg primitive constructor and the primitive-returning {@code getPriority()} /
+ * {@code getWeight()} accessors are preserved as a compatibility shim. The 13-arg
+ * boxed constructor is the Jackson entry point; new optional fields default to null
+ * via the legacy constructor.
+ *
+ * <p>Internal storage is boxed ({@link Boolean} / {@link Integer}) so the SDK can
+ * faithfully represent fields that were omitted by an older platform. New methods
+ * exposing the boxed values directly are suffixed with {@code Boxed} (e.g.
+ * {@link #getPriorityBoxed()}) for callers that need to distinguish "explicitly 0"
+ * from "field not present".
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class LLMProvider {
@@ -48,6 +58,11 @@ public final class LLMProvider {
   private final Integer timeoutSeconds;
   private final Map<String, Object> settings;
 
+  /**
+   * Full constructor used by Jackson — accepts boxed types so a missing field in the
+   * JSON response stays null instead of silently becoming {@code false} / {@code 0}.
+   */
+  @JsonCreator
   public LLMProvider(
       @JsonProperty("name") String name,
       @JsonProperty("type") String type,
@@ -77,6 +92,36 @@ public final class LLMProvider {
     this.settings = settings;
   }
 
+  /**
+   * Pre-PR-#148 constructor signature — 7 args, primitive {@code boolean} /
+   * {@code int}. Preserved as a compatibility shim so callers that constructed
+   * {@code LLMProvider} directly continue to compile. Delegates to the full
+   * 13-arg constructor with null for the post-PR-#148 optional fields.
+   *
+   * @deprecated Prefer the 13-arg constructor when constructing programmatically;
+   *     this overload exists only to preserve compile-time source compatibility for
+   *     pre-existing call sites.
+   */
+  @Deprecated
+  public LLMProvider(
+      String name,
+      String type,
+      boolean enabled,
+      int priority,
+      int weight,
+      boolean hasApiKey,
+      LLMProviderHealth health) {
+    this(
+        name,
+        type,
+        Boolean.valueOf(enabled),
+        Integer.valueOf(priority),
+        Integer.valueOf(weight),
+        Boolean.valueOf(hasApiKey),
+        health,
+        null, null, null, null, null, null);
+  }
+
   public String getName() {
     return name;
   }
@@ -85,34 +130,73 @@ public final class LLMProvider {
     return type;
   }
 
-  /** May be null if the platform omitted the field. */
-  public Boolean getEnabled() {
-    return enabled;
-  }
-
-  /** Convenience: true if explicitly enabled, false otherwise (including null). */
+  /**
+   * Convenience: returns true if the {@code enabled} field was explicitly set to
+   * true; false otherwise (including when the field was omitted by the platform).
+   * Mirrors the pre-PR-#148 primitive-returning accessor.
+   */
   public boolean isEnabled() {
     return Boolean.TRUE.equals(enabled);
   }
 
-  /** May be null if the platform omitted the field. */
-  public Integer getPriority() {
+  /**
+   * Returns the raw boxed {@code enabled} value. May be null if the platform
+   * omitted the field — use this when you need to distinguish "explicitly false"
+   * from "not set".
+   */
+  public Boolean getEnabledBoxed() {
+    return enabled;
+  }
+
+  /**
+   * Convenience: returns the {@code priority} field as a primitive {@code int};
+   * returns 0 when the field was omitted. Mirrors the pre-PR-#148 primitive-
+   * returning accessor.
+   */
+  public int getPriority() {
+    return priority != null ? priority : 0;
+  }
+
+  /**
+   * Returns the raw boxed {@code priority}; null when the platform omitted the
+   * field — use this when you need to distinguish "explicitly 0" from "not set".
+   */
+  public Integer getPriorityBoxed() {
     return priority;
   }
 
-  /** May be null if the platform omitted the field. */
-  public Integer getWeight() {
+  /**
+   * Convenience: returns the {@code weight} field as a primitive {@code int};
+   * returns 0 when the field was omitted. Mirrors the pre-PR-#148 primitive-
+   * returning accessor.
+   */
+  public int getWeight() {
+    return weight != null ? weight : 0;
+  }
+
+  /**
+   * Returns the raw boxed {@code weight}; null when the platform omitted the
+   * field — use this when you need to distinguish "explicitly 0" from "not set".
+   */
+  public Integer getWeightBoxed() {
     return weight;
   }
 
-  /** May be null if the platform omitted the field. */
-  public Boolean getHasApiKey() {
-    return hasApiKey;
-  }
-
-  /** Convenience: true if has_api_key is explicitly true, false otherwise (including null). */
+  /**
+   * Convenience: returns true if {@code has_api_key} was explicitly set to true;
+   * false otherwise (including when the field was omitted). Mirrors the pre-
+   * PR-#148 primitive-returning accessor.
+   */
   public boolean hasApiKey() {
     return Boolean.TRUE.equals(hasApiKey);
+  }
+
+  /**
+   * Returns the raw boxed {@code has_api_key}; null when the platform omitted the
+   * field — use this when you need to distinguish "explicitly false" from "not set".
+   */
+  public Boolean getHasApiKeyBoxed() {
+    return hasApiKey;
   }
 
   /** Health snapshot; may be null if the platform did not return a health probe. */

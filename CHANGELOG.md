@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **`pom.xml`** — `mvn verify -DskipUnitTests=true` now actually skips surefire (unit tests). Previously the property was unbound — `-DskipUnitTests` was a no-op flag and unit tests ran redundantly during integration-test invocations. The flag now binds to the surefire `<skipTests>` config; default remains `false`.
+- **`LLMProvider` source compatibility** — review-driven follow-up to PR #148. The original PR replaced the public 7-arg primitive constructor (`LLMProvider(name, type, enabled:bool, priority:int, weight:int, hasApiKey:bool, health)`) with a 13-arg boxed constructor and changed `getPriority()` / `getWeight()` from `int` to `Integer`. Pre-existing callers either failed to compile or started seeing nullable return values in what was framed as an additive change. **Restored:** the 7-arg primitive constructor (delegates to the 13-arg one with nulls for the post-PR-#148 optional fields, marked `@Deprecated` to point new callers at the boxed form), and primitive-returning `getPriority()` / `getWeight()` (null-safe-unboxes to 0). Boxed accessors remain available as `getPriorityBoxed()` / `getWeightBoxed()` / `getEnabledBoxed()` / `getHasApiKeyBoxed()` for callers that need to distinguish "explicitly 0" from "field not present". The boxed `getEnabled()` from PR #148 is renamed to `getEnabledBoxed()` (was a brand-new method in #148 with no consumers, safe to rename pre-tag).
 
 ## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 
