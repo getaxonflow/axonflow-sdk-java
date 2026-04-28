@@ -182,7 +182,7 @@
       "PolicyMatch": 2
     }
   },
-  "openapi_specs_sha": "8c8d6c9c506aa25fcd8a887f6fc71f71b5d6bc30",
+  "openapi_specs_sha": "f910aa3d6caaa22d6968d98a541689fb158c54eb",
   "per_type_drift": {
     "AuditLogEntry": {
       "sdk_only": [
@@ -382,6 +382,14 @@
     "MarkStepCompletedRequest": {
       "sdk_only": [
         "metadata"
+      ],
+      "spec_only": []
+    },
+    "PaginationMeta": {
+      "sdk_only": [
+        "pageSize",
+        "totalItems",
+        "totalPages"
       ],
       "spec_only": []
     },
@@ -601,6 +609,7 @@
     "ExfiltrationCheckInfo",
     "ExplainPolicy",
     "ExplainRule",
+    "LLMProviderListResponse",
     "ListWorkflowsResponse",
     "MCPCheckInputRequest",
     "MCPCheckInputResponse",
@@ -611,6 +620,7 @@
     "MediaGovernanceConfig",
     "MediaGovernanceStatus",
     "ModelPricing",
+    "PaginationMeta",
     "PendingApproval",
     "PendingApprovalsResponse",
     "PlanRequest",
