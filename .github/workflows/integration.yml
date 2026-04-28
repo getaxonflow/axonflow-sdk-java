@@ -1,0 +1,136 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+  # Weekly drift catch
+  schedule:
+    - cron: '0 6 * * 1'  # Monday 06:00 UTC
+
+permissions:
+  contents: read
+
+env:
+  DO_NOT_TRACK: '1'
+
+jobs:
+  # WireMock-based integration tests run on every PR + push. No live stack
+  # needed — these are contract-style tests over the SDK + agent wire shape.
+  contract-integration:
+    name: Contract Integration (WireMock)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout SDK
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Configure Maven mirror
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>central-mirror</id>
+                <name>Maven Central Mirror (repo1)</name>
+                <url>https://repo1.maven.org/maven2</url>
+                <mirrorOf>central</mirrorOf>
+              </mirror>
+            </mirrors>
+          </settings>
+          EOF
+
+      - name: Run integration tests (WireMock)
+        run: mvn verify -DskipUnitTests -B -U
+
+  # Live integration runs against a real community stack via docker compose.
+  # Mirrors axonflow-sdk-go/.github/workflows/integration.yml — clones the
+  # community repo, brings up docker compose, runs the basic example.
+  # Skipped on PR (Go pattern) — PR-level live coverage is added in QF-13.
+  live-integration:
+    name: Live Integration (Community Stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: contract-integration
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout SDK
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Configure Maven mirror
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>central-mirror</id>
+                <name>Maven Central Mirror (repo1)</name>
+                <url>https://repo1.maven.org/maven2</url>
+                <mirrorOf>central</mirrorOf>
+              </mirror>
+            </mirrors>
+          </settings>
+          EOF
+
+      - name: Install SDK to local Maven repo
+        run: mvn install -DskipTests -B -U
+
+      - name: Clone community stack
+        run: git clone --depth 1 https://github.com/getaxonflow/axonflow.git ../axonflow
+
+      - name: Start community stack
+        run: |
+          cd ../axonflow
+          docker compose up -d
+
+          echo "Waiting for agent to be healthy..."
+          timeout 120 bash -c 'until curl -sf http://localhost:8080/health; do sleep 2; done'
+          echo "Agent is healthy"
+
+          echo "Waiting for orchestrator to be healthy..."
+          timeout 60 bash -c 'until curl -sf http://localhost:8081/health; do sleep 2; done'
+          echo "Orchestrator is healthy"
+
+      - name: Run basic example against live stack
+        env:
+          AXONFLOW_AGENT_URL: http://localhost:8080
+          AXONFLOW_CLIENT_ID: demo-client
+          AXONFLOW_CLIENT_SECRET: demo-secret
+        working-directory: examples/basic
+        run: timeout 90 mvn -q compile exec:java
+
+      - name: Stop community stack
+        if: always()
+        run: |
+          if [ -d "../axonflow" ]; then
+            cd ../axonflow
+            docker compose down --volumes --remove-orphans || true
+          fi
+
+      - name: Show docker logs on failure
+        if: failure()
+        run: |
+          if [ -d "../axonflow" ]; then
+            cd ../axonflow
+            docker compose logs --tail=200 || true
+          fi
