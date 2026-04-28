@@ -572,6 +572,81 @@ class AxonFlowTest {
   }
 
   // ========================================================================
+  // LLM Providers
+  // ========================================================================
+
+  @Test
+  @DisplayName("listLLMProviders should return providers with health snapshot")
+  void listLLMProvidersShouldReturnProvidersWithHealth() {
+    stubFor(
+        get(urlEqualTo("/api/v1/llm-providers"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"providers\":[" +
+                            "{\"name\":\"anthropic\",\"type\":\"anthropic\",\"enabled\":true,\"has_api_key\":true,\"health\":{\"status\":\"healthy\",\"message\":\"provider is operational\",\"last_checked\":\"2026-04-28T08:45:12Z\"}}," +
+                            "{\"name\":\"openai\",\"type\":\"openai\",\"enabled\":true,\"has_api_key\":true,\"health\":{\"status\":\"unhealthy\",\"message\":\"billing exceeded\"}}" +
+                            "]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders();
+
+    assertThat(providers).hasSize(2);
+    assertThat(providers.get(0).getName()).isEqualTo("anthropic");
+    assertThat(providers.get(0).getHealth().getStatus()).isEqualTo("healthy");
+    assertThat(providers.get(1).getName()).isEqualTo("openai");
+    assertThat(providers.get(1).getHealth().getStatus()).isEqualTo("unhealthy");
+    assertThat(providers.get(1).getHealth().getMessage()).isEqualTo("billing exceeded");
+  }
+
+  @Test
+  @DisplayName("listLLMProviders with type filter passes query string")
+  void listLLMProvidersWithTypeFilterPassesQueryString() {
+    stubFor(
+        get(urlEqualTo("/api/v1/llm-providers?type=anthropic"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"providers\":[]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders("anthropic", null);
+    assertThat(providers).isEmpty();
+  }
+
+  @Test
+  @DisplayName("listLLMProviders with enabled filter passes query string")
+  void listLLMProvidersWithEnabledFilterPassesQueryString() {
+    stubFor(
+        get(urlEqualTo("/api/v1/llm-providers?enabled=false"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"providers\":[]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders(null, false);
+    assertThat(providers).isEmpty();
+  }
+
+  @Test
+  @DisplayName("listLLMProvidersAsync returns a CompletableFuture")
+  void listLLMProvidersAsyncShouldReturnFuture() throws Exception {
+    stubFor(
+        get(urlEqualTo("/api/v1/llm-providers"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"providers\":[]}")));
+
+    CompletableFuture<List<LLMProvider>> future = axonflow.listLLMProvidersAsync();
+    List<LLMProvider> providers = future.get();
+    assertThat(providers).isEmpty();
+  }
+
+  // ========================================================================
   // MCP Connectors
   // ========================================================================
 
