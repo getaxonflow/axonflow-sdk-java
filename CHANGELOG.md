@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.0] - 2026-04-28 — listLLMProviders() + LLMProvider source-compat
+
+Minor release. New LLM-provider listing API closes the parity gap with the Python + Go SDKs; the rest of the cycle restores `LLMProvider` source-compatibility for callers using the 7-arg primitive shape. Coordinated cycle: TypeScript v6.2.0 / Python v6.9.0 / Go v6.0.0 (major: see SDKCompatibility breaking type change in that release) ship same day.
+
 ### Added
 
 - **`axonflow.listLLMProviders()`** + `listLLMProviders(String type, Boolean enabled)` — list configured LLM providers and their per-provider health snapshot. Calls `GET /api/v1/llm-providers`. New `LLMProvider` and `LLMProviderHealth` types in `com.getaxonflow.sdk.types`. Async variant `listLLMProvidersAsync()`. Closes the parity gap with the Python SDK's `list_providers()` and the Go SDK's `ListProviders()`.
@@ -14,8 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **`pom.xml`** — `mvn verify -DskipUnitTests=true` now actually skips surefire (unit tests). Previously the property was unbound — `-DskipUnitTests` was a no-op flag and unit tests ran redundantly during integration-test invocations. The flag now binds to the surefire `<skipTests>` config; default remains `false`.
-- **`LLMProvider` source compatibility** — review-driven follow-up to PR #148. The original PR replaced the public 7-arg primitive constructor (`LLMProvider(name, type, enabled:bool, priority:int, weight:int, hasApiKey:bool, health)`) with a 13-arg boxed constructor and changed `getPriority()` / `getWeight()` from `int` to `Integer`. Pre-existing callers either failed to compile or started seeing nullable return values in what was framed as an additive change. **Restored:** the 7-arg primitive constructor (delegates to the 13-arg one with nulls for the post-PR-#148 optional fields, marked `@Deprecated` to point new callers at the boxed form), and primitive-returning `getPriority()` / `getWeight()` (null-safe-unboxes to 0). Boxed accessors remain available as `getPriorityBoxed()` / `getWeightBoxed()` / `getEnabledBoxed()` / `getHasApiKeyBoxed()` for callers that need to distinguish "explicitly 0" from "field not present". The boxed `getEnabled()` from PR #148 is renamed to `getEnabledBoxed()` (was a brand-new method in #148 with no consumers, safe to rename pre-tag).
+- **`LLMProvider` source compatibility restored.** The 7-arg primitive constructor `LLMProvider(name, type, enabled:bool, priority:int, weight:int, hasApiKey:bool, health)` is back (delegates to the new 13-arg boxed form, marked `@Deprecated` so new callers move to the boxed shape). `getPriority()` / `getWeight()` return primitive `int` again (null-safe-unbox to 0). Boxed accessors are available as `getPriorityBoxed()` / `getWeightBoxed()` / `getEnabledBoxed()` / `getHasApiKeyBoxed()` for callers that need to distinguish "explicitly 0" from "field not present".
 
 ## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 

@@ -6,7 +6,7 @@
 
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>6.1.0</version>
+    <version>6.2.0</version>
     <packaging>jar</packaging>
 
     <name>AxonFlow Java SDK</name>
