@@ -646,6 +646,165 @@ class AxonFlowTest {
     assertThat(providers).isEmpty();
   }
 
+  // -- review-fix coverage --
+
+  @Test
+  @DisplayName("LLMProvider surfaces endpoint/model/region/rate_limit/timeout_seconds/settings")
+  void llmProviderSurfacesAllOptionalFields() {
+    stubFor(
+        get(urlEqualTo("/api/v1/llm-providers"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"providers\":[{"
+                            + "\"name\":\"anthropic\","
+                            + "\"type\":\"anthropic\","
+                            + "\"enabled\":true,"
+                            + "\"has_api_key\":true,"
+                            + "\"endpoint\":\"https://api.anthropic.com\","
+                            + "\"model\":\"claude-haiku-4-5\","
+                            + "\"region\":\"us-east-1\","
+                            + "\"rate_limit\":60,"
+                            + "\"timeout_seconds\":30,"
+                            + "\"settings\":{\"temperature_default\":0.2}"
+                            + "}]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders();
+    assertThat(providers).hasSize(1);
+    LLMProvider p = providers.get(0);
+    assertThat(p.getEndpoint()).isEqualTo("https://api.anthropic.com");
+    assertThat(p.getModel()).isEqualTo("claude-haiku-4-5");
+    assertThat(p.getRegion()).isEqualTo("us-east-1");
+    assertThat(p.getRateLimit()).isEqualTo(60);
+    assertThat(p.getTimeoutSeconds()).isEqualTo(30);
+    assertThat(p.getSettings()).containsEntry("temperature_default", 0.2);
+  }
+
+  @Test
+  @DisplayName("listLLMProvidersPaged returns pagination metadata")
+  void listLLMProvidersPagedReturnsPaginationMeta() {
+    stubFor(
+        get(urlMatching("/api/v1/llm-providers\\?.*page=2.*page_size=5.*|/api/v1/llm-providers\\?.*page_size=5.*page=2.*"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"providers\":[{\"name\":\"p1\",\"type\":\"openai\",\"enabled\":true,\"has_api_key\":true}],"
+                            + "\"pagination\":{\"page\":2,\"page_size\":5,\"total_items\":7,\"total_pages\":2}}")));
+
+    LLMProviderListResponse resp = axonflow.listLLMProvidersPaged(null, null, 2, 5);
+    assertThat(resp.getPagination()).isNotNull();
+    assertThat(resp.getPagination().getPage()).isEqualTo(2);
+    assertThat(resp.getPagination().getPageSize()).isEqualTo(5);
+    assertThat(resp.getPagination().getTotalItems()).isEqualTo(7);
+    assertThat(resp.getPagination().getTotalPages()).isEqualTo(2);
+    assertThat(resp.getProviders()).hasSize(1);
+  }
+
+  @Test
+  @DisplayName("listAllLLMProviders walks every page")
+  void listAllLLMProvidersWalksEveryPage() {
+    stubFor(
+        get(urlMatching("/api/v1/llm-providers\\?.*page=1.*"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"providers\":["
+                            + "{\"name\":\"a\",\"type\":\"openai\",\"enabled\":true,\"has_api_key\":true},"
+                            + "{\"name\":\"b\",\"type\":\"openai\",\"enabled\":true,\"has_api_key\":true}],"
+                            + "\"pagination\":{\"page\":1,\"page_size\":2,\"total_items\":3,\"total_pages\":2}}")));
+    stubFor(
+        get(urlMatching("/api/v1/llm-providers\\?.*page=2.*"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"providers\":["
+                            + "{\"name\":\"c\",\"type\":\"anthropic\",\"enabled\":true,\"has_api_key\":true}],"
+                            + "\"pagination\":{\"page\":2,\"page_size\":2,\"total_items\":3,\"total_pages\":2}}")));
+
+    List<LLMProvider> all = axonflow.listAllLLMProviders(null, null, 2);
+    assertThat(all).hasSize(3);
+    assertThat(all.stream().map(LLMProvider::getName)).containsExactly("a", "b", "c");
+  }
+
+  @Test
+  @DisplayName("listLLMProviders combined filters (type + enabled)")
+  void listLLMProvidersCombinedFilters() {
+    stubFor(
+        get(urlMatching("/api/v1/llm-providers\\?.*type=anthropic.*enabled=true.*"
+                + "|/api/v1/llm-providers\\?.*enabled=true.*type=anthropic.*"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"providers\":[]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders("anthropic", true);
+    assertThat(providers).isEmpty();
+  }
+
+  @Test
+  @DisplayName("listLLMProviders URL-encodes type with special characters")
+  void listLLMProvidersURLEncodesType() {
+    // "azure-openai" is tame; we send something with a reserved char to verify encoding.
+    stubFor(
+        get(urlMatching("/api/v1/llm-providers\\?type=custom%26weird"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"providers\":[]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders("custom&weird", null);
+    assertThat(providers).isEmpty();
+  }
+
+  @Test
+  @DisplayName("LLMProvider with health=null does not blow up")
+  void llmProviderWithNullHealth() {
+    stubFor(
+        get(urlEqualTo("/api/v1/llm-providers"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"providers\":[{"
+                            + "\"name\":\"ollama\",\"type\":\"ollama\",\"enabled\":true,"
+                            + "\"has_api_key\":false,\"health\":null}]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders();
+    assertThat(providers).hasSize(1);
+    assertThat(providers.get(0).getHealth()).isNull();
+  }
+
+  @Test
+  @DisplayName("LLMProvider with omitted enabled field uses Boolean (null), isEnabled() returns false")
+  void llmProviderEnabledIsBoxed() {
+    stubFor(
+        get(urlEqualTo("/api/v1/llm-providers"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"providers\":[{"
+                            + "\"name\":\"x\",\"type\":\"openai\",\"has_api_key\":true}]}")));
+
+    List<LLMProvider> providers = axonflow.listLLMProviders();
+    assertThat(providers).hasSize(1);
+    LLMProvider p = providers.get(0);
+    assertThat(p.getEnabled()).isNull();
+    assertThat(p.isEnabled()).isFalse();
+  }
+
   // ========================================================================
   // MCP Connectors
   // ========================================================================

@@ -1744,11 +1744,12 @@ public final class AxonFlow implements Closeable {
   // ========================================================================
 
   /**
-   * Lists configured LLM providers and their per-provider health snapshot.
+   * Lists configured LLM providers from a SINGLE page of results.
    *
    * <p>Calls {@code GET /api/v1/llm-providers}. Mirrors the Python SDK's {@code
    * list_providers()}, the Go SDK's {@code ListProviders()}, and the TypeScript
-   * SDK's {@code listProviders()}.
+   * SDK's {@code listProviders()}. For multi-page traversal use {@link
+   * #listAllLLMProviders}; for pagination metadata use {@link #listLLMProvidersPaged}.
    *
    * @return list of configured providers
    */
@@ -1765,26 +1766,99 @@ public final class AxonFlow implements Closeable {
    * @return list of matching providers
    */
   public List<LLMProvider> listLLMProviders(String type, Boolean enabled) {
+    return listLLMProviders(type, enabled, null, null);
+  }
+
+  /**
+   * Lists configured LLM providers with full filter + pagination control.
+   *
+   * @param type filter by provider type (null for no filter)
+   * @param enabled filter by the enabled boolean (null for no filter)
+   * @param page 1-indexed page number (null or non-positive for server default)
+   * @param pageSize items per page, server cap 100 (null or non-positive for default)
+   * @return providers from the requested page
+   */
+  public List<LLMProvider> listLLMProviders(
+      String type, Boolean enabled, Integer page, Integer pageSize) {
+    return listLLMProvidersPaged(type, enabled, page, pageSize).getProviders();
+  }
+
+  /**
+   * Lists one page of providers along with pagination metadata so callers can
+   * paginate manually.
+   */
+  public LLMProviderListResponse listLLMProvidersPaged(
+      String type, Boolean enabled, Integer page, Integer pageSize) {
     return retryExecutor.execute(
         () -> {
-          StringBuilder path = new StringBuilder("/api/v1/llm-providers");
-          boolean hasQuery = false;
+          HttpUrl base = HttpUrl.parse(config.getEndpoint() + "/api/v1/llm-providers");
+          if (base == null) {
+            throw new AxonFlowException("Invalid endpoint URL: " + config.getEndpoint());
+          }
+          HttpUrl.Builder b = base.newBuilder();
           if (type != null && !type.isEmpty()) {
-            path.append('?').append("type=").append(type);
-            hasQuery = true;
+            b.addQueryParameter("type", type);
           }
           if (enabled != null) {
-            path.append(hasQuery ? '&' : '?').append("enabled=").append(enabled);
+            b.addQueryParameter("enabled", enabled.toString());
           }
-          Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+          if (page != null && page > 0) {
+            b.addQueryParameter("page", page.toString());
+          }
+          if (pageSize != null && pageSize > 0) {
+            b.addQueryParameter("page_size", pageSize.toString());
+          }
+          HttpUrl url = b.build();
+
+          Request.Builder reqBuilder = new Request.Builder().url(url).get();
+          addAuthHeaders(reqBuilder);
+          Request httpRequest = reqBuilder.build();
           try (Response response = httpClient.newCall(httpRequest).execute()) {
             JsonNode node = parseResponseNode(response);
-            JsonNode providers = node.has("providers") ? node.get("providers") : node;
-            return objectMapper.convertValue(
-                providers, new TypeReference<List<LLMProvider>>() {});
+            // The platform always wraps in {providers, pagination}, but tolerate
+            // bare arrays from older builds via a synthetic single-page meta.
+            if (node.isArray()) {
+              List<LLMProvider> providers =
+                  objectMapper.convertValue(node, new TypeReference<List<LLMProvider>>() {});
+              PaginationMeta synthetic =
+                  new PaginationMeta(1, providers.size(), providers.size(), 1);
+              return new LLMProviderListResponse(providers, synthetic);
+            }
+            return objectMapper.convertValue(node, LLMProviderListResponse.class);
           }
         },
-        "listLLMProviders");
+        "listLLMProvidersPaged");
+  }
+
+  /**
+   * Walks every page of providers and returns the combined list.
+   *
+   * <p>Defaults to {@code pageSize=100} (the server-side max) to minimise round trips.
+   *
+   * @param type filter by provider type (null for no filter)
+   * @param enabled filter by the enabled boolean (null for no filter)
+   * @return all providers across every page
+   */
+  public List<LLMProvider> listAllLLMProviders(String type, Boolean enabled) {
+    return listAllLLMProviders(type, enabled, 100);
+  }
+
+  /** As {@link #listAllLLMProviders(String, Boolean)} but with explicit page size. */
+  public List<LLMProvider> listAllLLMProviders(String type, Boolean enabled, int pageSize) {
+    java.util.ArrayList<LLMProvider> all = new java.util.ArrayList<>();
+    int page = 1;
+    while (true) {
+      LLMProviderListResponse resp = listLLMProvidersPaged(type, enabled, page, pageSize);
+      all.addAll(resp.getProviders());
+      PaginationMeta meta = resp.getPagination();
+      if (meta == null
+          || meta.getTotalPages() <= page
+          || resp.getProviders().isEmpty()) {
+        break;
+      }
+      page += 1;
+    }
+    return all;
   }
 
   /**

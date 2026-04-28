@@ -49,7 +49,6 @@ public final class LLMProviderHealth {
   }
 
   /** ISO 8601 timestamp of the last health probe; may be null. */
-  @JsonProperty("last_checked")
   public String getLastChecked() {
     return lastChecked;
   }
