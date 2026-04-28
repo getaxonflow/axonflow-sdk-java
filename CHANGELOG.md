@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`axonflow.listLLMProviders()`** + `listLLMProviders(String type, Boolean enabled)` — list configured LLM providers and their per-provider health snapshot. Calls `GET /api/v1/llm-providers`. New `LLMProvider` and `LLMProviderHealth` types in `com.getaxonflow.sdk.types`. Async variant `listLLMProvidersAsync()`. Closes the parity gap with the Python SDK's `list_providers()` and the Go SDK's `ListProviders()`.
+
 ## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 
 Minor release. Surfaces fields the AxonFlow agent has emitted since v7.1.0 (Plugin Batch 1) but the SDK didn't declare. Pure field-additions on existing methods — additive only, no breaking changes. The pre-existing constructors are preserved as source-compat overloads. Documented in OpenAPI via platform v7.4.3.

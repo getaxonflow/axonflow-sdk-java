@@ -1744,6 +1744,59 @@ public final class AxonFlow implements Closeable {
   // ========================================================================
 
   /**
+   * Lists configured LLM providers and their per-provider health snapshot.
+   *
+   * <p>Calls {@code GET /api/v1/llm-providers}. Mirrors the Python SDK's {@code
+   * list_providers()}, the Go SDK's {@code ListProviders()}, and the TypeScript
+   * SDK's {@code listProviders()}.
+   *
+   * @return list of configured providers
+   */
+  public List<LLMProvider> listLLMProviders() {
+    return listLLMProviders(null, null);
+  }
+
+  /**
+   * Lists configured LLM providers, optionally filtered by type and/or enabled flag.
+   *
+   * @param type filter by provider type (e.g. {@code "openai"}, {@code "anthropic"}); null for no
+   *     filter
+   * @param enabled filter by the enabled boolean; null for no filter
+   * @return list of matching providers
+   */
+  public List<LLMProvider> listLLMProviders(String type, Boolean enabled) {
+    return retryExecutor.execute(
+        () -> {
+          StringBuilder path = new StringBuilder("/api/v1/llm-providers");
+          boolean hasQuery = false;
+          if (type != null && !type.isEmpty()) {
+            path.append('?').append("type=").append(type);
+            hasQuery = true;
+          }
+          if (enabled != null) {
+            path.append(hasQuery ? '&' : '?').append("enabled=").append(enabled);
+          }
+          Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
+          try (Response response = httpClient.newCall(httpRequest).execute()) {
+            JsonNode node = parseResponseNode(response);
+            JsonNode providers = node.has("providers") ? node.get("providers") : node;
+            return objectMapper.convertValue(
+                providers, new TypeReference<List<LLMProvider>>() {});
+          }
+        },
+        "listLLMProviders");
+  }
+
+  /**
+   * Asynchronously lists configured LLM providers.
+   *
+   * @return a future containing the list of providers
+   */
+  public CompletableFuture<List<LLMProvider>> listLLMProvidersAsync() {
+    return CompletableFuture.supplyAsync(this::listLLMProviders, asyncExecutor);
+  }
+
+  /**
    * Lists available MCP connectors.
    *
    * @return list of available connectors
