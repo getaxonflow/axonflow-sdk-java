@@ -66,8 +66,12 @@ jobs:
       # `-DskipUnitTests=true` is now a real toggle (bound to surefire's
       # <skipTests> via pom.xml); previously it was a no-op flag and unit
       # tests were silently re-running here.
+      #
+      # `-Djacoco.skip=true` because the jacoco:check goal (bound to verify)
+      # expects coverage data from the unit tests we just skipped; coverage
+      # gating is the unit-test job's responsibility (ci.yml `build (17)`).
       - name: Run integration tests (WireMock)
-        run: mvn verify -DskipUnitTests=true -B -U
+        run: mvn verify -DskipUnitTests=true -Djacoco.skip=true -B -U
 
       - name: Upload failsafe reports on failure
         if: failure()
