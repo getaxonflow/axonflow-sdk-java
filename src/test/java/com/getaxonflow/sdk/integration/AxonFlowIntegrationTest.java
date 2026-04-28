@@ -253,15 +253,20 @@ class AxonFlowIntegrationTest {
   @Test
   @DisplayName("generatePlan should return plan")
   void generatePlanShouldReturnPlan() {
+    // Java SDK POSTs to /api/request with request_type=multi-agent-plan and
+    // expects the agent's standard envelope: {success, plan_id, data: {steps,
+    // domain, complexity, parallel}, metadata, result}.
     stubFor(
-        post(urlEqualTo("/api/v1/orchestrator/plan"))
+        post(urlEqualTo("/api/request"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withBody(
                         "{"
+                            + "\"success\": true,"
                             + "\"plan_id\": \"plan_123\","
+                            + "\"data\": {"
                             + "\"steps\": ["
                             + "{"
                             + "\"id\": \"step_001\","
@@ -270,8 +275,9 @@ class AxonFlowIntegrationTest {
                             + "}"
                             + "],"
                             + "\"domain\": \"generic\","
-                            + "\"complexity\": 2,"
-                            + "\"status\": \"pending\""
+                            + "\"complexity\": 2"
+                            + "},"
+                            + "\"metadata\": {}"
                             + "}")));
 
     PlanResponse plan =
