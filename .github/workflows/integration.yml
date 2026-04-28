@@ -6,12 +6,19 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch: {}
-  # Weekly drift catch
+  # Weekly drift catch — Tuesday 06:00 UTC so failures land in EU/IN
+  # working hours, not weekend handover.
   schedule:
-    - cron: '0 6 * * 1'  # Monday 06:00 UTC
+    - cron: '0 6 * * 2'
 
 permissions:
   contents: read
+
+# Avoid spawning parallel docker-compose stacks for back-to-back pushes;
+# also cancels stale PR runs when a new commit lands.
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DO_NOT_TRACK: '1'
@@ -19,18 +26,23 @@ env:
 jobs:
   # WireMock-based integration tests run on every PR + push. No live stack
   # needed — these are contract-style tests over the SDK + agent wire shape.
+  # Matrixed across the same JDKs as the unit-test suite in ci.yml.
   contract-integration:
-    name: Contract Integration (WireMock)
+    name: Contract Integration (WireMock, JDK ${{ matrix.java-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        java-version: [11, 17, 21]
     steps:
       - name: Checkout SDK
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK ${{ matrix.java-version }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: ${{ matrix.java-version }}
           distribution: 'temurin'
           cache: 'maven'
 
@@ -51,8 +63,19 @@ jobs:
           </settings>
           EOF
 
+      # `-DskipUnitTests=true` is now a real toggle (bound to surefire's
+      # <skipTests> via pom.xml); previously it was a no-op flag and unit
+      # tests were silently re-running here.
       - name: Run integration tests (WireMock)
-        run: mvn verify -DskipUnitTests -B -U
+        run: mvn verify -DskipUnitTests=true -B -U
+
+      - name: Upload failsafe reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failsafe-reports-jdk${{ matrix.java-version }}
+          path: target/failsafe-reports/
+          if-no-files-found: ignore
 
   # Live integration runs against a real community stack via docker compose.
   # Mirrors axonflow-sdk-go/.github/workflows/integration.yml — clones the
@@ -92,8 +115,42 @@ jobs:
           </settings>
           EOF
 
+      # 3-attempt retry for transient Maven Central flakes — same pattern
+      # ci.yml's `Build with Maven` and `Run unit tests` use.
       - name: Install SDK to local Maven repo
-        run: mvn install -DskipTests -B -U
+        run: |
+          for i in 1 2 3; do
+            echo "Attempt $i: mvn install"
+            if mvn install -DskipTests -B -U; then break; fi
+            if [ $i -eq 3 ]; then exit 1; fi
+            sleep 30
+          done
+
+      # Pin the basic example's SDK dep to whatever we just installed
+      # locally, so the example resolves the freshly-built artifact and
+      # not whatever version is published to Central. Without this, when
+      # the parent pom bumps from 6.1.0 → 6.2.0 the example silently
+      # keeps testing the OLD 6.1.0 from Central.
+      - name: Sync example SDK version with parent
+        run: |
+          PARENT_VERSION=$(mvn -B -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "Parent SDK version: ${PARENT_VERSION}"
+          # Replace the axonflow-sdk dependency version in examples/basic/pom.xml.
+          # Anchored on the artifactId on the previous line to avoid touching
+          # other deps.
+          python3 - <<PY
+          import re, pathlib
+          p = pathlib.Path("examples/basic/pom.xml")
+          s = p.read_text()
+          new = re.sub(
+              r"(<artifactId>axonflow-sdk</artifactId>\s*<version>)[^<]+(</version>)",
+              rf"\g<1>${PARENT_VERSION}\g<2>",
+              s,
+          )
+          assert new != s, "Failed to rewrite example pom version"
+          p.write_text(new)
+          PY
+          grep -A 1 "axonflow-sdk" examples/basic/pom.xml | head -4
 
       - name: Clone community stack
         run: git clone --depth 1 https://github.com/getaxonflow/axonflow.git ../axonflow
@@ -101,8 +158,10 @@ jobs:
       - name: Start community stack
         run: |
           cd ../axonflow
-          docker compose up -d
+          docker compose up -d --wait --wait-timeout 120
 
+          # Belt-and-suspenders: also poll /health since not every compose
+          # service has a healthcheck wired.
           echo "Waiting for agent to be healthy..."
           timeout 120 bash -c 'until curl -sf http://localhost:8080/health; do sleep 2; done'
           echo "Agent is healthy"
@@ -119,18 +178,31 @@ jobs:
         working-directory: examples/basic
         run: timeout 90 mvn -q compile exec:java
 
-      - name: Stop community stack
-        if: always()
-        run: |
-          if [ -d "../axonflow" ]; then
-            cd ../axonflow
-            docker compose down --volumes --remove-orphans || true
-          fi
-
+      # Logs MUST be captured before `Stop community stack` runs — `compose
+      # down` destroys the containers and `compose logs` then returns
+      # nothing.
       - name: Show docker logs on failure
         if: failure()
         run: |
           if [ -d "../axonflow" ]; then
             cd ../axonflow
             docker compose logs --tail=200 || true
+          fi
+
+      - name: Upload docker logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-compose-logs
+          path: ../axonflow/docker-compose-logs.txt
+          if-no-files-found: ignore
+
+      - name: Stop community stack
+        if: always()
+        run: |
+          if [ -d "../axonflow" ]; then
+            cd ../axonflow
+            # Persist logs to disk so the upload step can grab them even after teardown.
+            docker compose logs --tail=500 > docker-compose-logs.txt 2>/dev/null || true
+            docker compose down --volumes --remove-orphans || true
           fi

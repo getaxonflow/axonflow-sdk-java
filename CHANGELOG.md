@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`axonflow.listLLMProviders()`** + `listLLMProviders(String type, Boolean enabled)` — list configured LLM providers and their per-provider health snapshot. Calls `GET /api/v1/llm-providers`. New `LLMProvider` and `LLMProviderHealth` types in `com.getaxonflow.sdk.types`. Async variant `listLLMProvidersAsync()`. Closes the parity gap with the Python SDK's `list_providers()` and the Go SDK's `ListProviders()`.
+- **`examples/basic/`** — minimal smoke example exercising `healthCheck()`, `proxyLLMCall()`, and `listConnectors()` against a running AxonFlow agent. Uses try-with-resources so OkHttp's dispatcher + connection pool are cleaned up at exit. Run via `mvn -q compile exec:java` after `mvn install -DskipTests` at the SDK root.
+
+### Fixed
+
+- **`pom.xml`** — `mvn verify -DskipUnitTests=true` now actually skips surefire (unit tests). Previously the property was unbound — `-DskipUnitTests` was a no-op flag and unit tests ran redundantly during integration-test invocations. The flag now binds to the surefire `<skipTests>` config; default remains `false`.
 
 ## [6.1.0] - 2026-04-25 — Plugin Batch 1 explainability fields on MCP responses
 

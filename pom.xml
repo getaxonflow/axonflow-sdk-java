@@ -74,6 +74,11 @@
 
         <!-- Coverage Threshold (lowered from 0.75 for Workflow Control Plane types) -->
         <jacoco.minimum.coverage>0.73</jacoco.minimum.coverage>
+
+        <!-- Set to true to skip surefire (unit tests) without affecting failsafe
+             (integration tests). Used by the contract-integration CI job so
+             `mvn verify -DskipUnitTests=true` runs only failsafe. -->
+        <skipUnitTests>false</skipUnitTests>
     </properties>
 
     <dependencies>
@@ -179,6 +184,7 @@
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
                     <argLine>@{argLine} -Dnet.bytebuddy.experimental=true</argLine>
+                    <skipTests>${skipUnitTests}</skipTests>
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
