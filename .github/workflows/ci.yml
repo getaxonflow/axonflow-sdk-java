@@ -32,21 +32,7 @@ jobs:
           cache: 'maven'
 
       - name: Configure Maven mirror
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <settings>
-            <mirrors>
-              <mirror>
-                <id>central-mirror</id>
-                <name>Maven Central Mirror (repo1)</name>
-                <url>https://repo1.maven.org/maven2</url>
-                <mirrorOf>central</mirrorOf>
-              </mirror>
-            </mirrors>
-          </settings>
-          EOF
+        uses: ./.github/actions/setup-maven
 
       - name: Build with Maven
         run: |
@@ -113,21 +99,7 @@ jobs:
           cache: 'maven'
 
       - name: Configure Maven mirror
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <settings>
-            <mirrors>
-              <mirror>
-                <id>central-mirror</id>
-                <name>Maven Central Mirror (repo1)</name>
-                <url>https://repo1.maven.org/maven2</url>
-                <mirrorOf>central</mirrorOf>
-              </mirror>
-            </mirrors>
-          </settings>
-          EOF
+        uses: ./.github/actions/setup-maven
 
       - name: Check code formatting
         run: |
@@ -162,21 +134,7 @@ jobs:
           cache: 'maven'
 
       - name: Configure Maven mirror
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <settings>
-            <mirrors>
-              <mirror>
-                <id>central-mirror</id>
-                <name>Maven Central Mirror (repo1)</name>
-                <url>https://repo1.maven.org/maven2</url>
-                <mirrorOf>central</mirrorOf>
-              </mirror>
-            </mirrors>
-          </settings>
-          EOF
+        uses: ./.github/actions/setup-maven
 
       - name: Package JAR
         run: |
