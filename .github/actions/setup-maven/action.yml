@@ -1,0 +1,25 @@
+name: Setup Maven mirror
+description: |
+  Configure ~/.m2/settings.xml with the Maven Central repo1 mirror. Used by
+  every Maven CI job to pin against the same fast mirror and avoid the
+  occasional Maven Central CDN flake the SDK builds have hit historically.
+runs:
+  using: composite
+  steps:
+    - name: Configure Maven mirror
+      shell: bash
+      run: |
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <settings>
+          <mirrors>
+            <mirror>
+              <id>central-mirror</id>
+              <name>Maven Central Mirror (repo1)</name>
+              <url>https://repo1.maven.org/maven2</url>
+              <mirrorOf>central</mirrorOf>
+            </mirror>
+          </mirrors>
+        </settings>
+        EOF

@@ -20,6 +20,7 @@ package com.getaxonflow.examples;
 import com.getaxonflow.sdk.AxonFlow;
 import com.getaxonflow.sdk.AxonFlowConfig;
 import com.getaxonflow.sdk.exceptions.AuthenticationException;
+import com.getaxonflow.sdk.exceptions.AxonFlowException;
 import com.getaxonflow.sdk.exceptions.ConnectionException;
 import com.getaxonflow.sdk.exceptions.PolicyViolationException;
 import com.getaxonflow.sdk.types.ClientRequest;
@@ -108,9 +109,9 @@ public class Basic {
             // These are real failures: bad creds or stack down. Fail loud.
             System.err.println("proxyLLMCall failed: " + e.getMessage());
             System.exit(1);
-        } catch (RuntimeException e) {
-            // Other runtime failures (e.g. agent returns non-2xx because no
-            // LLM provider is configured) — log and continue. Tightening
+        } catch (AxonFlowException e) {
+            // Other SDK-level failures (e.g. agent returns non-2xx because
+            // no LLM provider is configured) — log and continue. Tightening
             // this further requires capability detection from /health,
             // tracked in axonflow-sdk-java#146.
             System.out.println("  proxyLLMCall non-success: " + e.getMessage());
@@ -131,7 +132,7 @@ public class Basic {
         } catch (AuthenticationException | ConnectionException e) {
             System.err.println("listConnectors failed: " + e.getMessage());
             System.exit(1);
-        } catch (RuntimeException e) {
+        } catch (AxonFlowException e) {
             System.out.println("  listConnectors non-success: " + e.getMessage());
         }
     }

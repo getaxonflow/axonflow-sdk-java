@@ -47,21 +47,7 @@ jobs:
           cache: 'maven'
 
       - name: Configure Maven mirror
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <settings>
-            <mirrors>
-              <mirror>
-                <id>central-mirror</id>
-                <name>Maven Central Mirror (repo1)</name>
-                <url>https://repo1.maven.org/maven2</url>
-                <mirrorOf>central</mirrorOf>
-              </mirror>
-            </mirrors>
-          </settings>
-          EOF
+        uses: ./.github/actions/setup-maven
 
       # `-DskipUnitTests=true` is now a real toggle (bound to surefire's
       # <skipTests> via pom.xml); previously it was a no-op flag and unit
@@ -103,21 +89,7 @@ jobs:
           cache: 'maven'
 
       - name: Configure Maven mirror
-        run: |
-          mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <settings>
-            <mirrors>
-              <mirror>
-                <id>central-mirror</id>
-                <name>Maven Central Mirror (repo1)</name>
-                <url>https://repo1.maven.org/maven2</url>
-                <mirrorOf>central</mirrorOf>
-              </mirror>
-            </mirrors>
-          </settings>
-          EOF
+        uses: ./.github/actions/setup-maven
 
       # 3-attempt retry for transient Maven Central flakes — same pattern
       # ci.yml's `Build with Maven` and `Run unit tests` use.
