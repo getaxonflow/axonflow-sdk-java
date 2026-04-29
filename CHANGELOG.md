@@ -5,15 +5,26 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [7.0.0] - 2026-04-29 — Production, quality, and security hardening — upgrade encouraged
 
-### Removed
+**Upgrade strongly recommended.** Over the past month we've shipped substantial production, quality, and security hardening across the AxonFlow SDKs and platform — upgrade to the latest major for a more secure, reliable, and bug-free experience.
 
-- **BREAKING:** `DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out. Use `AXONFLOW_TELEMETRY=off` instead.
+**Security highlights from this release cycle:**
+- **Webhook signing-key now exposed by SDK request type** (this release). The `webhookSigningKey` (HMAC-SHA256) field on `RegisterRequest` was missing from the SDK type, so callers had no way to retrieve the signing key and webhook signature verification was effectively un-implementable. The field is now wired through end-to-end. Documented in [`GHSA-248h-974q-xrc2`](https://github.com/getaxonflow/axonflow-sdk-java/security/advisories/GHSA-248h-974q-xrc2).
+- **`DO_NOT_TRACK` opt-out removed in favor of `AXONFLOW_TELEMETRY=off`** (this release). `DO_NOT_TRACK` was unreliable because host CLIs and runtimes commonly inject `DO_NOT_TRACK=1` regardless of user intent; an explicit AxonFlow-scoped opt-out is the only signal we honor now. Maven Surefire and Failsafe environment blocks were tightened so local `mvn test` runs no longer inherit a host `DO_NOT_TRACK=1` and emit accidental pings.
+- **Test-harness opt-out hygiene** (last cycle, v6.x). Test environments that mutate `DO_NOT_TRACK` no longer silently leak real pings from CI; transport is mocked at the test boundary.
 
-  `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
+Major release across the AxonFlow SDK family. Companion releases ship the same day: TypeScript v7.0.0 / Python v7.0.0 / Go v7.0.0 (with `/v7` module path migration) / Java v7.0.0. The full set of platform-side security fixes shipped alongside this release is documented in the consolidated platform advisory [`GHSA-9h64-2846-7x7f`](https://github.com/getaxonflow/axonflow/security/advisories/GHSA-9h64-2846-7x7f).
 
-- **BREAKING (test API):** Package-private `TelemetryReporter.isEnabled` and `TelemetryReporter.sendPing` overloads no longer accept a `String doNotTrack` parameter. The remaining `String axonflowTelemetry` parameter is the sole opt-out signal accepted by the testability surface.
+**Reliability and bug-fix highlights:**
+- **`retry_context` + `idempotency_key` for cross-step de-duplication** (last cycle, v6.x). Workflow steps that retry across pod restarts no longer record duplicate audit entries; idempotency_key flows end-to-end through MAP HITL approve/reject responses.
+- **`mapTimeout` config field — SDK parity with Go / Python / TypeScript** (last cycle, v6.x). MAP plan generation has its own timeout knob distinct from the per-request timeout, so multi-LLM-call decompositions no longer cancel the wrong path under load.
+- **`LLMProvider` source compatibility restored** (last cycle, v6.x). The 7-arg primitive constructor and primitive `getPriority()` / `getWeight()` accessors are back; null-safe boxed accessors split off as `getPriorityBoxed()` / `getWeightBoxed()` for callers needing "explicitly 0 vs not set" disambiguation.
+
+### BREAKING
+
+- **`DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out.** Use `AXONFLOW_TELEMETRY=off` instead. Host tools and CLIs commonly inject `DO_NOT_TRACK=1` regardless of user intent, which makes it unreliable as a signal.
+- **(Test API)** Package-private `TelemetryReporter.isEnabled` and `TelemetryReporter.sendPing` overloads no longer accept a `String doNotTrack` parameter. The remaining `String axonflowTelemetry` parameter is the sole opt-out signal accepted by the testability surface.
 
 ### Security
 
@@ -21,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The one-line `DO_NOT_TRACK=1 is deprecated...` `logger.warn` is no longer emitted. Removing the warning eliminates log noise that previously appeared on every telemetry decision when `DO_NOT_TRACK=1` was set.
+- The `DO_NOT_TRACK=1 is deprecated...` `logger.warn` is no longer emitted on every telemetry decision when `DO_NOT_TRACK=1` is set.
 
 ### Changed
 
@@ -30,7 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### CI / development
 
 - CI workflows (`ci.yml`, `integration.yml`, `release.yml`, `wire-shape-contract.yml`, `validate-version-alignment.yml`) now use `AXONFLOW_TELEMETRY=off` to suppress telemetry during automated runs.
-
 
 ## [6.2.0] - 2026-04-28 — listLLMProviders() + LLMProvider source-compat
 

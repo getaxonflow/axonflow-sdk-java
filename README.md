@@ -6,6 +6,8 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 [![Maven Central](https://img.shields.io/maven-central/v/com.getaxonflow/axonflow-sdk.svg)](https://search.maven.org/artifact/com.getaxonflow/axonflow-sdk)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
+> **Upgrade strongly recommended.** AxonFlow ships substantial monthly security and quality hardening; staying on the latest major is the security-supported release line. [Latest release](https://github.com/getaxonflow/axonflow-sdk-java/releases/latest) · [Security advisories](https://github.com/getaxonflow/axonflow-sdk-java/security/advisories)
+
 > **Evaluating AxonFlow in production?** We're opening limited Design Partner slots.
 >
 > Free 30-minute architecture and incident-readiness review, priority issue triage, roadmap input, and early feature access.
