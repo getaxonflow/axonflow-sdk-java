@@ -40,6 +40,11 @@ jobs:
           python-version: '3.11'
 
       - name: Build SDK jar
+        # bash on every OS — PowerShell on Windows mangles -D... arguments,
+        # splitting `-Dmaven.javadoc.skip=true` into ".javadoc.skip=true" as
+        # a phase. The bash shell on Windows runners (Git Bash) handles -D
+        # quoting consistently with Linux/macOS.
+        shell: bash
         run: mvn -B -DskipTests package -Dmaven.javadoc.skip=true
 
       # Compile smoke + run real-stack E2E in a single shell so the
