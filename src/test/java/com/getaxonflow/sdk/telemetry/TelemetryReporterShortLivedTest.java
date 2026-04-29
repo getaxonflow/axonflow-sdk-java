@@ -67,7 +67,6 @@ class TelemetryReporterShortLivedTest {
         Boolean.TRUE,
         false,
         false,
-        null, // DO_NOT_TRACK
         null, // AXONFLOW_TELEMETRY
         checkpointUrl);
     long elapsedMs = (System.nanoTime() - startNs) / 1_000_000L;

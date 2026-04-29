@@ -38,7 +38,7 @@ jobs:
     name: Validate Wire Shape
     runs-on: ubuntu-latest
     env:
-      DO_NOT_TRACK: '1'
+      AXONFLOW_TELEMETRY: 'off'
     steps:
       - name: Checkout SDK (full history for SHA-bump guard)
         uses: actions/checkout@v4

@@ -514,8 +514,8 @@ public final class AxonFlowConfig {
      * <p>{@code null} (default) uses the mode-based default: ON for production, OFF for sandbox.
      * {@code Boolean.TRUE} forces telemetry on, {@code Boolean.FALSE} forces it off.
      *
-     * <p>Telemetry can also be disabled globally via environment variables: {@code DO_NOT_TRACK=1}
-     * or {@code AXONFLOW_TELEMETRY=off}.
+     * <p>Telemetry can also be disabled globally via environment variable
+     * {@code AXONFLOW_TELEMETRY=off}.
      *
      * @param telemetry true to enable, false to disable, null for default behavior
      * @return this builder

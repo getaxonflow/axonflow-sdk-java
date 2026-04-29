@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DO_NOT_TRACK: '1'
+  AXONFLOW_TELEMETRY: 'off'
 
 jobs:
   # WireMock-based integration tests run on every PR + push. No live stack

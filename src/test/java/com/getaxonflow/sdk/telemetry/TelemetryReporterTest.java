@@ -33,73 +33,58 @@ class TelemetryReporterTest {
 
   private final ObjectMapper objectMapper = new ObjectMapper();
 
-  // --- isEnabled tests (using the 5-arg package-private method) ---
-
-  @Test
-  @DisplayName("should disable telemetry when DO_NOT_TRACK=1")
-  void testTelemetryDisabledByDoNotTrack() {
-    assertThat(TelemetryReporter.isEnabled("production", null, true, "1", null)).isFalse();
-    assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, "1", null)).isFalse();
-    assertThat(TelemetryReporter.isEnabled("sandbox", null, true, "1", null)).isFalse();
-  }
+  // --- isEnabled tests (using the 4-arg package-private method) ---
+  // DO_NOT_TRACK is intentionally NOT honored; the 4-arg overload only takes
+  // AXONFLOW_TELEMETRY. The DNT-related tests below pin that new invariant.
 
   @Test
   @DisplayName("should disable telemetry when AXONFLOW_TELEMETRY=off")
   void testTelemetryDisabledByAxonflowEnv() {
-    assertThat(TelemetryReporter.isEnabled("production", null, true, null, "off")).isFalse();
-    assertThat(TelemetryReporter.isEnabled("production", null, true, null, "OFF")).isFalse();
-    assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, null, "off"))
-        .isFalse();
+    assertThat(TelemetryReporter.isEnabled("production", null, true, "off")).isFalse();
+    assertThat(TelemetryReporter.isEnabled("production", null, true, "OFF")).isFalse();
+    assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, "off")).isFalse();
   }
 
   @Test
   @DisplayName("should default telemetry OFF for sandbox mode")
   void testTelemetryDefaultOffForSandbox() {
-    assertThat(TelemetryReporter.isEnabled("sandbox", null, true, null, null)).isFalse();
+    assertThat(TelemetryReporter.isEnabled("sandbox", null, true, null)).isFalse();
   }
 
   @Test
   @DisplayName("should default telemetry ON for production mode with credentials")
   void testTelemetryDefaultOnForProductionWithCredentials() {
-    assertThat(TelemetryReporter.isEnabled("production", null, true, null, null)).isTrue();
+    assertThat(TelemetryReporter.isEnabled("production", null, true, null)).isTrue();
   }
 
   @Test
   @DisplayName("should default telemetry ON for production mode even without credentials")
   void testTelemetryDefaultOnForProductionWithoutCredentials() {
-    assertThat(TelemetryReporter.isEnabled("production", null, false, null, null)).isTrue();
+    assertThat(TelemetryReporter.isEnabled("production", null, false, null)).isTrue();
   }
 
   @Test
   @DisplayName("should default telemetry ON for enterprise mode with credentials")
   void testTelemetryDefaultOnForEnterpriseWithCredentials() {
-    assertThat(TelemetryReporter.isEnabled("enterprise", null, true, null, null)).isTrue();
+    assertThat(TelemetryReporter.isEnabled("enterprise", null, true, null)).isTrue();
   }
 
   @Test
   @DisplayName("should allow config override to enable telemetry in sandbox")
   void testTelemetryConfigOverrideEnable() {
-    assertThat(TelemetryReporter.isEnabled("sandbox", Boolean.TRUE, false, null, null)).isTrue();
+    assertThat(TelemetryReporter.isEnabled("sandbox", Boolean.TRUE, false, null)).isTrue();
   }
 
   @Test
   @DisplayName("should allow config override to disable telemetry in production")
   void testTelemetryConfigOverrideDisable() {
-    assertThat(TelemetryReporter.isEnabled("production", Boolean.FALSE, true, null, null))
-        .isFalse();
-  }
-
-  @Test
-  @DisplayName("DO_NOT_TRACK takes precedence over config override")
-  void testDoNotTrackPrecedence() {
-    assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, "1", null)).isFalse();
+    assertThat(TelemetryReporter.isEnabled("production", Boolean.FALSE, true, null)).isFalse();
   }
 
   @Test
   @DisplayName("AXONFLOW_TELEMETRY=off takes precedence over config override")
   void testAxonflowTelemetryPrecedence() {
-    assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, null, "off"))
-        .isFalse();
+    assertThat(TelemetryReporter.isEnabled("production", Boolean.TRUE, true, "off")).isFalse();
   }
 
   // --- Payload format test ---
@@ -151,7 +136,6 @@ class TelemetryReporterTest {
         Boolean.TRUE,
         false,
         true, // hasCredentials
-        null, // doNotTrack
         null, // axonflowTelemetry
         customUrl // checkpointUrl
         );
@@ -175,26 +159,50 @@ class TelemetryReporterTest {
   }
 
   @Test
-  @DisplayName("should not send ping when telemetry is disabled")
+  @DisplayName("should not send ping when telemetry is disabled via AXONFLOW_TELEMETRY=off")
   void testNoRequestWhenDisabled(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
     stubFor(post("/v1/ping").willReturn(ok()));
 
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-    // Disable via DO_NOT_TRACK
     TelemetryReporter.sendPing(
         "production",
         "http://localhost:8080",
         null,
         false,
         true, // hasCredentials
-        "1", // doNotTrack = disabled
-        null,
+        "off", // axonflowTelemetry = canonical opt-out
         customUrl);
 
     Thread.sleep(1000);
 
     verify(exactly(0), postRequestedFor(urlEqualTo("/v1/ping")));
+  }
+
+  @Test
+  @DisplayName("should STILL send ping when only DO_NOT_TRACK=1 is set in process env (DNT no longer honored)")
+  void testRequestSentEvenWithDoNotTrackInProcessEnv(WireMockRuntimeInfo wmRuntimeInfo)
+      throws Exception {
+    // Note: this test passes axonflowTelemetry=null, which is what the public
+    // sendPing wrapper would supply if DO_NOT_TRACK=1 were the only env signal.
+    // After the DNT removal, the SDK no longer reads DO_NOT_TRACK at all, so a
+    // null axonflowTelemetry means "no opt-out env" and telemetry should fire.
+    stubFor(post("/v1/ping").willReturn(ok()));
+
+    String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+    TelemetryReporter.sendPing(
+        "production",
+        "http://localhost:8080",
+        null,
+        false,
+        true, // hasCredentials
+        null, // axonflowTelemetry = not set, telemetry should fire
+        customUrl);
+
+    Thread.sleep(1000);
+
+    verify(exactly(1), postRequestedFor(urlEqualTo("/v1/ping")));
   }
 
   @Test
@@ -209,7 +217,6 @@ class TelemetryReporterTest {
                   null,
                   false,
                   true, // hasCredentials
-                  null,
                   null,
                   "http://127.0.0.1:1" // port 1 - connection refused
                   );
@@ -234,7 +241,6 @@ class TelemetryReporterTest {
         false,
         true, // hasCredentials
         null,
-        null,
         customUrl);
 
     Thread.sleep(1000);
@@ -255,7 +261,6 @@ class TelemetryReporterTest {
         Boolean.TRUE, // explicit enable
         false,
         false, // hasCredentials (doesn't matter with explicit override)
-        null,
         null,
         customUrl);
 
@@ -278,7 +283,6 @@ class TelemetryReporterTest {
         Boolean.TRUE,
         false,
         false, // no credentials — no longer affects default
-        null,
         null,
         customUrl);
 
@@ -329,7 +333,6 @@ class TelemetryReporterTest {
         false,
         true, // hasCredentials (would normally enable)
         null,
-        null,
         customUrl);
 
     Thread.sleep(1000);
@@ -353,7 +356,6 @@ class TelemetryReporterTest {
                   null,
                   false,
                   true, // hasCredentials
-                  null,
                   null,
                   customUrl);
 
@@ -380,7 +382,6 @@ class TelemetryReporterTest {
                   false,
                   true, // hasCredentials
                   null,
-                  null,
                   customUrl);
 
               // Give the async call time to complete
@@ -405,7 +406,6 @@ class TelemetryReporterTest {
         null,
         false,
         true, // hasCredentials
-        null,
         "off", // AXONFLOW_TELEMETRY=off
         customUrl);
 
@@ -430,7 +430,6 @@ class TelemetryReporterTest {
         Boolean.TRUE,
         false,
         true, // hasCredentials
-        null,
         null,
         customUrl);
 

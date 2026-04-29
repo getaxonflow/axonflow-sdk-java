@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING:** `DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out. Use `AXONFLOW_TELEMETRY=off` instead.
+
+  `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
+
+- **BREAKING (test API):** Package-private `TelemetryReporter.isEnabled` and `TelemetryReporter.sendPing` overloads no longer accept a `String doNotTrack` parameter. The remaining `String axonflowTelemetry` parameter is the sole opt-out signal accepted by the testability surface.
+
+### Fixed
+
+- The one-line `DO_NOT_TRACK=1 is deprecated...` `logger.warn` is no longer emitted. Removing the warning eliminates log noise that previously appeared on every telemetry decision when `DO_NOT_TRACK=1` was set.
+
+### CI / development
+
+- CI workflows (`ci.yml`, `integration.yml`, `release.yml`, `wire-shape-contract.yml`, `validate-version-alignment.yml`) now use `AXONFLOW_TELEMETRY=off` to suppress telemetry during automated runs.
+
+
 ## [6.2.0] - 2026-04-28 — listLLMProviders() + LLMProvider source-compat
 
 Minor release. New LLM-provider listing API closes the parity gap with the Python + Go SDKs; the rest of the cycle restores `LLMProvider` source-compatibility for callers using the 7-arg primitive shape. Coordinated cycle: TypeScript v6.2.0 / Python v6.9.0 / Go v6.0.0 (major: see SDKCompatibility breaking type change in that release) ship same day.
