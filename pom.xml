@@ -216,6 +216,9 @@
                         <include>**/*IT.java</include>
                         <include>**/*IntegrationTest.java</include>
                     </includes>
+                    <environmentVariables>
+                        <AXONFLOW_TELEMETRY>off</AXONFLOW_TELEMETRY>
+                    </environmentVariables>
                 </configuration>
             </plugin>
 
