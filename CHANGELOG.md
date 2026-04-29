@@ -13,8 +13,7 @@ Major release across the AxonFlow SDK family. Companion releases ship the same d
 
 ### BREAKING
 
-- **`DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out.** Use `AXONFLOW_TELEMETRY=off` instead. `DO_NOT_TRACK` was deprecated because it is commonly inherited from host tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which makes it an unreliable expression of user intent for AxonFlow telemetry.
-
+- **`DO_NOT_TRACK` is no longer honored as an AxonFlow telemetry opt-out.** Use `AXONFLOW_TELEMETRY=off` instead. Host tools and CLIs commonly inject `DO_NOT_TRACK=1` regardless of user intent, which makes it unreliable as a signal.
 - **(Test API)** Package-private `TelemetryReporter.isEnabled` and `TelemetryReporter.sendPing` overloads no longer accept a `String doNotTrack` parameter. The remaining `String axonflowTelemetry` parameter is the sole opt-out signal accepted by the testability surface.
 
 ### Security
@@ -23,7 +22,7 @@ Major release across the AxonFlow SDK family. Companion releases ship the same d
 
 ### Fixed
 
-- The one-line `DO_NOT_TRACK=1 is deprecated...` `logger.warn` is no longer emitted. Removing the warning eliminates log noise that previously appeared on every telemetry decision when `DO_NOT_TRACK=1` was set.
+- The `DO_NOT_TRACK=1 is deprecated...` `logger.warn` is no longer emitted on every telemetry decision when `DO_NOT_TRACK=1` is set.
 
 ### Changed
 
