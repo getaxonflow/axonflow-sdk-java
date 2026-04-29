@@ -29,7 +29,7 @@ permissions:
   contents: read
 
 env:
-  DO_NOT_TRACK: '1'
+  AXONFLOW_TELEMETRY: 'off'
 
 jobs:
   validate-versions:
