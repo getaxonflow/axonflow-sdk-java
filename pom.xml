@@ -193,7 +193,7 @@
                         <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
                     <environmentVariables>
-                        <DO_NOT_TRACK>1</DO_NOT_TRACK>
+                        <AXONFLOW_TELEMETRY>off</AXONFLOW_TELEMETRY>
                     </environmentVariables>
                 </configuration>
             </plugin>
