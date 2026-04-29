@@ -57,6 +57,7 @@
 
         <!-- Test Dependency Versions -->
         <junit.version>5.10.2</junit.version>
+        <junit-pioneer.version>2.2.0</junit-pioneer.version>
         <mockito.version>5.11.0</mockito.version>
         <wiremock.version>3.4.2</wiremock.version>
         <assertj.version>3.27.7</assertj.version>
@@ -128,6 +129,13 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- junit-pioneer: provides @SetEnvironmentVariable for in-process env-var injection -->
+        <dependency>
+            <groupId>org.junit-pioneer</groupId>
+            <artifactId>junit-pioneer</artifactId>
+            <version>${junit-pioneer.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
@@ -183,7 +191,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <argLine>@{argLine} -Dnet.bytebuddy.experimental=true</argLine>
+                    <!-- add-opens flags below are required by junit-pioneer's @SetEnvironmentVariable on JDK 17+ -->
+                    <argLine>@{argLine} -Dnet.bytebuddy.experimental=true --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED</argLine>
                     <skipTests>${skipUnitTests}</skipTests>
                     <includes>
                         <include>**/*Test.java</include>

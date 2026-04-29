@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **BREAKING (test API):** Package-private `TelemetryReporter.isEnabled` and `TelemetryReporter.sendPing` overloads no longer accept a `String doNotTrack` parameter. The remaining `String axonflowTelemetry` parameter is the sole opt-out signal accepted by the testability surface.
 
+### Security
+
+- **TLS verification bypass closed (CWE-295).** `HttpClientFactory` previously honored `insecureSkipVerify(true)` on `AxonFlowConfig` as a single-flag opt-in to a permissive `X509TrustManager` that accepted ANY server certificate, including attacker-presented certificates in MITM scenarios. The insecure path is now double-gated: it activates only if both `insecureSkipVerify(true)` is set on the builder AND the `AXONFLOW_INSECURE_TLS` environment variable is set to `true` (or `1`). When the builder flag is set without the env var, the SDK logs a warning and keeps the JVM's default `TrustManager` in place. A loud `*** SECURITY WARNING ***` is logged whenever the insecure path actually activates. Default behavior — and behavior in production environments without the env var — uses standard JDK + system trust-store validation. Resolves code-scanning alert #8.
+
 ### Fixed
 
 - The one-line `DO_NOT_TRACK=1 is deprecated...` `logger.warn` is no longer emitted. Removing the warning eliminates log noise that previously appeared on every telemetry decision when `DO_NOT_TRACK=1` was set.

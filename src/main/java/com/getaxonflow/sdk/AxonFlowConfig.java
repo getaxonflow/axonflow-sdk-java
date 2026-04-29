@@ -463,11 +463,22 @@ public final class AxonFlowConfig {
     }
 
     /**
-     * Skips SSL certificate verification.
+     * Requests that TLS certificate verification be skipped for outbound HTTPS calls.
      *
-     * <p><strong>Warning:</strong> Only use this in development/testing.
+     * <p><strong>Security:</strong> Setting this flag is <em>not by itself</em> sufficient to
+     * disable TLS verification. To actually disable verification, the environment variable {@code
+     * AXONFLOW_INSECURE_TLS} must <strong>also</strong> be set to {@code "true"} or {@code "1"} in
+     * the runtime environment. This double-gate is intentional defense-in-depth: a stray builder
+     * call in application code cannot silently bypass certificate validation in production.
      *
-     * @param insecureSkipVerify true to skip verification
+     * <p>If the builder flag is set but the environment variable is not, the SDK will log a
+     * warning at client construction time and keep TLS verification enabled.
+     *
+     * <p><strong>Use cases:</strong> local development against self-signed certificates only.
+     * <strong>Never</strong> enable in production.
+     *
+     * @param insecureSkipVerify true to request that verification be skipped (also requires
+     *     {@code AXONFLOW_INSECURE_TLS=true} environment variable)
      * @return this builder
      */
     public Builder insecureSkipVerify(boolean insecureSkipVerify) {
