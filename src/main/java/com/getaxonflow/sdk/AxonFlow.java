@@ -25,6 +25,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.getaxonflow.sdk.exceptions.*;
 import com.getaxonflow.sdk.masfeat.MASFEATTypes.*;
 import com.getaxonflow.sdk.simulation.*;
+import com.getaxonflow.sdk.telemetry.HeartbeatState;
 import com.getaxonflow.sdk.telemetry.TelemetryReporter;
 import com.getaxonflow.sdk.types.*;
 import com.getaxonflow.sdk.types.codegovernance.*;
@@ -124,6 +125,14 @@ public final class AxonFlow implements Closeable {
 
   private final AxonFlowConfig config;
   private final OkHttpClient httpClient;
+  /**
+   * Telemetry heartbeat gate — at most one anonymous ping per machine per
+   * 7 days during SDK activity. Consulted from the constructor and from
+   * {@link #executeHttp(OkHttpClient, Request)} on every public API call.
+   * See {@link HeartbeatState} for the algorithm and stamp-on-DELIVERY
+   * semantics.
+   */
+  private final HeartbeatState heartbeat = new HeartbeatState();
 
   /**
    * Clone of {@link #httpClient} with {@code callTimeout} overridden to {@code
@@ -171,18 +180,55 @@ public final class AxonFlow implements Closeable {
 
     logger.info("AxonFlow client initialized for {}", config.getEndpoint());
 
-    // Send telemetry ping (fire-and-forget).
+    // Heartbeat gate — at most one anonymous ping per machine per 7 days,
+    // gated by SDK activity. The constructor runs the gate synchronously
+    // so a fresh install on a short-lived JVM (CLI binaries, AWS Lambda
+    // cold-starts, quickstart scripts) still delivers the first ping
+    // before main() returns. Subsequent gate runs (from executeHttp) are
+    // also synchronous because OkHttpClient is reusable across calls and
+    // the gate's internal in-flight + 1-hour-cache bounds amortize cost.
+    // See HeartbeatState for the full algorithm.
+    invokeHeartbeat();
+  }
+
+  /**
+   * Run the heartbeat gate. Constructs the gating decision from the
+   * client's mode/config, then asks {@link #heartbeat} to decide whether
+   * to send (and to write the stamp on success).
+   */
+  private void invokeHeartbeat() {
     boolean hasCredentials =
         config.getClientId() != null
             && !config.getClientId().isEmpty()
             && config.getClientSecret() != null
             && !config.getClientSecret().isEmpty();
-    TelemetryReporter.sendPing(
-        config.getMode() != null ? config.getMode().getValue() : "production",
-        config.getEndpoint(),
-        config.getTelemetry(),
-        config.isDebug(),
-        hasCredentials);
+    String modeStr = config.getMode() != null ? config.getMode().getValue() : "production";
+    String envOptOut = System.getenv("AXONFLOW_TELEMETRY");
+    boolean isEnabled =
+        TelemetryReporter.isEnabled(modeStr, config.getTelemetry(), hasCredentials, envOptOut);
+    heartbeat.maybeSendHeartbeat(
+        isEnabled,
+        () -> TelemetryReporter.sendPingNow(
+            modeStr,
+            config.getEndpoint(),
+            config.isDebug(),
+            System.getenv("AXONFLOW_CHECKPOINT_URL")));
+  }
+
+  /**
+   * Single HTTP wrapper used by every public-API request path. Invokes
+   * the heartbeat gate as a side effect (gate enforces its own rate
+   * limit, so this is amortized free on the hot path) and returns the
+   * underlying {@link Response}.
+   *
+   * <p>IMPORTANT: This wrapper must NOT be called from telemetry code
+   * itself ({@link TelemetryReporter#sendPingNow} or its private helpers).
+   * Those build their own throw-away {@code OkHttpClient} instances to
+   * avoid any recursive heartbeat triggering.
+   */
+  private Response executeHttp(OkHttpClient client, Request request) throws java.io.IOException {
+    invokeHeartbeat();
+    return client.newCall(request).execute();
   }
 
   private static ObjectMapper createObjectMapper() {
@@ -288,7 +334,7 @@ public final class AxonFlow implements Closeable {
         retryExecutor.execute(
             () -> {
               Request request = buildRequest("GET", "/health", null);
-              try (Response response = httpClient.newCall(request).execute()) {
+              try (Response response = executeHttp(httpClient, request)) {
                 return parseResponse(response, HealthStatus.class);
               }
             },
@@ -361,7 +407,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("GET", "/health", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               return new HealthStatus("unhealthy", null, null, null, null, null);
             }
@@ -418,7 +464,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("POST", "/api/policy/pre-check", finalRequest);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             PolicyApprovalResult result = parseResponse(response, PolicyApprovalResult.class);
 
             if (!result.isApproved()) {
@@ -494,7 +540,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("POST", "/api/audit/llm-call", effectiveOptions);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, AuditResult.class);
           }
         },
@@ -543,7 +589,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           AuditSearchRequest req = request != null ? request : AuditSearchRequest.builder().build();
           Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/audit/search", req);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
 
             // Handle both array and wrapped response formats
@@ -623,7 +669,7 @@ public final class AxonFlow implements Closeable {
                   .replace("+", "%20");
           String path = "/api/v1/decisions/" + encoded + "/explain";
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             return objectMapper.treeToValue(node, DecisionExplanation.class);
           }
@@ -681,7 +727,7 @@ public final class AxonFlow implements Closeable {
                   + opts.getOffset();
 
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
 
             // Handle both array and wrapped response formats
@@ -758,7 +804,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/audit/tool-call", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, AuditToolCallResponse.class);
           }
         },
@@ -798,7 +844,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/circuit-breaker/status", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             if (node.has("data") && node.get("data").isObject()) {
               return objectMapper.treeToValue(node.get("data"), CircuitBreakerStatusResponse.class);
@@ -844,7 +890,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           String path = "/api/v1/circuit-breaker/history?limit=" + limit;
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             if (node.has("data") && node.get("data").isObject()) {
               return objectMapper.treeToValue(
@@ -895,7 +941,7 @@ public final class AxonFlow implements Closeable {
               "/api/v1/circuit-breaker/config?tenant_id="
                   + java.net.URLEncoder.encode(tenantId, java.nio.charset.StandardCharsets.UTF_8);
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             if (node.has("data") && node.get("data").isObject()) {
               return objectMapper.treeToValue(node.get("data"), CircuitBreakerConfig.class);
@@ -944,7 +990,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("PUT", "/api/v1/circuit-breaker/config", config);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             if (node.has("data") && node.get("data").isObject()) {
               return objectMapper.treeToValue(
@@ -1004,7 +1050,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/policies/simulate", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             if (node.has("data") && node.get("data").isObject()) {
               return objectMapper.treeToValue(node.get("data"), SimulatePoliciesResponse.class);
@@ -1059,7 +1105,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/policies/impact-report", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             if (node.has("data") && node.get("data").isObject()) {
               return objectMapper.treeToValue(node.get("data"), ImpactReportResponse.class);
@@ -1139,7 +1185,7 @@ public final class AxonFlow implements Closeable {
           }
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/policies/conflicts", body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             if (node.has("data") && node.get("data").isObject()) {
               return objectMapper.treeToValue(node.get("data"), PolicyConflictResponse.class);
@@ -1245,7 +1291,7 @@ public final class AxonFlow implements Closeable {
         retryExecutor.execute(
             () -> {
               Request httpRequest = buildRequest("POST", "/api/request", finalRequest);
-              try (Response httpResponse = httpClient.newCall(httpRequest).execute()) {
+              try (Response httpResponse = executeHttp(httpClient, httpRequest)) {
                 ClientResponse result = parseResponse(httpResponse, ClientResponse.class);
 
                 if (result.isBlocked()) {
@@ -1316,7 +1362,7 @@ public final class AxonFlow implements Closeable {
           agentRequest.put("context", Map.of("domain", domain));
 
           Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
-          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(planHttpClient, httpRequest)) {
             return parsePlanResponse(response, request.getDomain());
           }
         },
@@ -1431,7 +1477,7 @@ public final class AxonFlow implements Closeable {
       agentRequest.put("context", Map.of("plan_id", planId));
 
       Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
-      try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+      try (Response response = executeHttp(planHttpClient, httpRequest)) {
         return parseExecutePlanResponse(response, planId);
       }
     } catch (AxonFlowException e) {
@@ -1529,7 +1575,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/plan/" + planId, null);
-          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(planHttpClient, httpRequest)) {
             return parseResponse(response, PlanResponse.class);
           }
         },
@@ -1575,7 +1621,7 @@ public final class AxonFlow implements Closeable {
           agentRequest.put("context", context);
 
           Request httpRequest = buildRequest("POST", "/api/request", agentRequest);
-          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(planHttpClient, httpRequest)) {
             return parsePlanResponse(response, request.getDomain());
           }
         },
@@ -1602,7 +1648,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildRequest(
                   "POST", "/api/v1/plan/" + planId + "/cancel", body.isEmpty() ? null : body);
-          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(planHttpClient, httpRequest)) {
             return parseResponse(response, CancelPlanResponse.class);
           }
         },
@@ -1638,7 +1684,7 @@ public final class AxonFlow implements Closeable {
       return retryExecutor.execute(
           () -> {
             Request httpRequest = buildRequest("PUT", "/api/v1/plan/" + planId, request);
-            try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(planHttpClient, httpRequest)) {
               return parseResponse(response, UpdatePlanResponse.class);
             }
           },
@@ -1663,7 +1709,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/plan/" + planId + "/versions", null);
-          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(planHttpClient, httpRequest)) {
             return parseResponse(response, PlanVersionsResponse.class);
           }
         },
@@ -1686,7 +1732,7 @@ public final class AxonFlow implements Closeable {
           body.put("approved", approved != null ? approved : true);
 
           Request httpRequest = buildRequest("POST", "/api/v1/plan/" + planId + "/resume", body);
-          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(planHttpClient, httpRequest)) {
             return parseResponse(response, ResumePlanResponse.class);
           }
         },
@@ -1720,7 +1766,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildRequest("POST", "/api/v1/plan/" + planId + "/rollback/" + targetVersion, null);
-          try (Response response = planHttpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(planHttpClient, httpRequest)) {
             return parseResponse(response, RollbackPlanResponse.class);
           }
         },
@@ -1813,7 +1859,7 @@ public final class AxonFlow implements Closeable {
           Request.Builder reqBuilder = new Request.Builder().url(url).get();
           addAuthHeaders(reqBuilder);
           Request httpRequest = reqBuilder.build();
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
             // The platform always wraps in {providers, pagination}, but tolerate
             // bare arrays from older builds via a synthetic single-page meta.
@@ -1879,7 +1925,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/connectors", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Response is wrapped: {"connectors": [...], "total": N}
             JsonNode node = parseResponseNode(response);
             if (node.has("connectors")) {
@@ -1916,7 +1962,7 @@ public final class AxonFlow implements Closeable {
           Map<String, Object> body = Map.of("config", config != null ? config : Map.of());
           String path = "/api/v1/connectors/" + connectorId + "/install";
           Request httpRequest = buildOrchestratorRequest("POST", path, body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, ConnectorInfo.class);
           }
         },
@@ -1935,7 +1981,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           String path = "/api/v1/connectors/" + connectorName;
           Request httpRequest = buildOrchestratorRequest("DELETE", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
             }
@@ -1958,7 +2004,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           String path = "/api/v1/connectors/" + connectorId;
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, ConnectorInfo.class);
           }
         },
@@ -1988,7 +2034,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           String path = "/api/v1/connectors/" + connectorId + "/health";
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, ConnectorHealthStatus.class);
           }
         },
@@ -2040,7 +2086,7 @@ public final class AxonFlow implements Closeable {
                   .build();
 
           Request httpRequest = buildRequest("POST", "/api/request", clientRequest);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             ClientResponse clientResponse = parseResponse(response, ClientResponse.class);
 
             // Convert ClientResponse to ConnectorResponse
@@ -2132,7 +2178,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildRequest("POST", "/mcp/resources/query", body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Parse the response body
             ResponseBody responseBody = response.body();
             if (responseBody == null) {
@@ -2257,7 +2303,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildRequest("POST", "/api/v1/mcp/check-input", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             ResponseBody responseBody = response.body();
             if (responseBody == null) {
               throw new ConnectorException(
@@ -2373,7 +2419,7 @@ public final class AxonFlow implements Closeable {
               new MCPCheckOutputRequest(connectorType, responseData, message, metadata, rowCount);
 
           Request httpRequest = buildRequest("POST", "/api/v1/mcp/check-output", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             ResponseBody responseBody = response.body();
             if (responseBody == null) {
               throw new ConnectorException(
@@ -2566,7 +2612,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           String path = buildPolicyQueryString("/api/v1/static-policies", options);
           Request httpRequest = buildRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             StaticPoliciesResponse wrapper = parseResponse(response, StaticPoliciesResponse.class);
             // Handle null wrapper or null policies list (Issue #40)
             if (wrapper == null || wrapper.getPolicies() == null) {
@@ -2624,7 +2670,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/static-policies/" + policyId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, StaticPolicy.class);
           }
         },
@@ -2643,7 +2689,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("POST", "/api/v1/static-policies", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, StaticPolicy.class);
           }
         },
@@ -2664,7 +2710,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("PUT", "/api/v1/static-policies/" + policyId, request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, StaticPolicy.class);
           }
         },
@@ -2682,7 +2728,7 @@ public final class AxonFlow implements Closeable {
     retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("DELETE", "/api/v1/static-policies/" + policyId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
             }
@@ -2706,7 +2752,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Map<String, Object> body = Map.of("enabled", enabled);
           Request httpRequest = buildPatchRequest("/api/v1/static-policies/" + policyId, body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, StaticPolicy.class);
           }
         },
@@ -2750,7 +2796,7 @@ public final class AxonFlow implements Closeable {
             }
           }
           Request httpRequest = buildRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             EffectivePoliciesResponse wrapper =
                 parseResponse(response, EffectivePoliciesResponse.class);
             // Handle null wrapper or null policies list (Issue #40)
@@ -2781,7 +2827,7 @@ public final class AxonFlow implements Closeable {
                   "pattern", pattern,
                   "inputs", testInputs);
           Request httpRequest = buildRequest("POST", "/api/v1/static-policies/test", body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, TestPatternResult.class);
           }
         },
@@ -2801,7 +2847,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildRequest("GET", "/api/v1/static-policies/" + policyId + "/versions", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             Map<String, Object> wrapper =
                 parseResponse(response, new TypeReference<Map<String, Object>>() {});
             @SuppressWarnings("unchecked")
@@ -2840,7 +2886,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildRequest("POST", "/api/v1/static-policies/" + policyId + "/override", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, PolicyOverride.class);
           }
         },
@@ -2859,7 +2905,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildRequest("DELETE", "/api/v1/static-policies/" + policyId + "/override", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
             }
@@ -2878,7 +2924,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/static-policies/overrides", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Backend returns wrapped response: {"overrides": [...], "count": N}
             Map<String, Object> wrapper =
                 parseResponse(response, new TypeReference<Map<String, Object>>() {});
@@ -2920,7 +2966,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           String path = buildDynamicPolicyQueryString("/api/v1/dynamic-policies", options);
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
             DynamicPoliciesResponse wrapper =
                 parseResponse(response, DynamicPoliciesResponse.class);
@@ -2947,7 +2993,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/dynamic-policies/" + policyId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
             return wrapper != null ? wrapper.getPolicy() : null;
@@ -2969,7 +3015,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/dynamic-policies", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
             return wrapper != null ? wrapper.getPolicy() : null;
@@ -2993,7 +3039,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
             return wrapper != null ? wrapper.getPolicy() : null;
@@ -3014,7 +3060,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("DELETE", "/api/v1/dynamic-policies/" + policyId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
             }
@@ -3039,7 +3085,7 @@ public final class AxonFlow implements Closeable {
           Map<String, Object> body = Map.of("enabled", enabled);
           Request httpRequest =
               buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
             return wrapper != null ? wrapper.getPolicy() : null;
@@ -3074,7 +3120,7 @@ public final class AxonFlow implements Closeable {
             }
           }
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policies": [...]} wrapper
             DynamicPoliciesResponse wrapper =
                 parseResponse(response, DynamicPoliciesResponse.class);
@@ -3109,7 +3155,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/unified/executions/" + executionId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response, com.getaxonflow.sdk.types.execution.ExecutionTypes.ExecutionStatus.class);
           }
@@ -3160,7 +3206,7 @@ public final class AxonFlow implements Closeable {
             }
           }
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 com.getaxonflow.sdk.types.execution.ExecutionTypes.UnifiedListExecutionsResponse
@@ -3189,7 +3235,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST", "/api/v1/unified/executions/" + executionId + "/cancel", body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -3265,7 +3311,7 @@ public final class AxonFlow implements Closeable {
     Request httpRequest = builder.build();
 
     try {
-      Response response = httpClient.newCall(httpRequest).execute();
+      Response response = executeHttp(httpClient, httpRequest);
       try {
         if (!response.isSuccessful()) {
           handleErrorResponse(response);
@@ -3345,7 +3391,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/media-governance/config", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, MediaGovernanceConfig.class);
           }
         },
@@ -3377,7 +3423,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("PUT", "/api/v1/media-governance/config", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, MediaGovernanceConfig.class);
           }
         },
@@ -3408,7 +3454,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildRequest("GET", "/api/v1/media-governance/status", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, MediaGovernanceStatus.class);
           }
         },
@@ -3830,7 +3876,7 @@ public final class AxonFlow implements Closeable {
             .header("Content-Type", "application/json")
             .build();
 
-    try (Response response = httpClient.newCall(request).execute()) {
+    try (Response response = executeHttp(httpClient, request)) {
       if (!response.isSuccessful()) {
         throw new AuthenticationException("Login failed: " + response.body().string());
       }
@@ -3871,7 +3917,7 @@ public final class AxonFlow implements Closeable {
               .header("Cookie", "axonflow_session=" + sessionCookie)
               .build();
 
-      httpClient.newCall(request).execute().close();
+      executeHttp(httpClient, request).close();
     } catch (Exception e) {
       // Ignore logout errors
     }
@@ -3916,7 +3962,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, ValidateGitProviderResponse.class);
     }
   }
@@ -3943,7 +3989,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, ConfigureGitProviderResponse.class);
     }
   }
@@ -3965,7 +4011,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, ListGitProvidersResponse.class);
     }
   }
@@ -3990,7 +4036,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       handleErrorResponse(response);
     }
   }
@@ -4015,7 +4061,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, CreatePRResponse.class);
     }
   }
@@ -4054,7 +4100,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, ListPRsResponse.class);
     }
   }
@@ -4087,7 +4133,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, PRRecord.class);
     }
   }
@@ -4112,7 +4158,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, PRRecord.class);
     }
   }
@@ -4139,7 +4185,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, PRRecord.class);
     }
   }
@@ -4159,7 +4205,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, CodeGovernanceMetrics.class);
     }
   }
@@ -4201,7 +4247,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       return parseResponse(response, ExportResponse.class);
     }
   }
@@ -4239,7 +4285,7 @@ public final class AxonFlow implements Closeable {
 
     addPortalSessionCookie(builder);
 
-    try (Response response = httpClient.newCall(builder.build()).execute()) {
+    try (Response response = executeHttp(httpClient, builder.build())) {
       handleErrorResponse(response);
       ResponseBody body = response.body();
       if (body == null) {
@@ -4418,7 +4464,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, ListExecutionsResponse.class);
           }
         },
@@ -4455,7 +4501,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/executions/" + executionId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, ExecutionDetail.class);
           }
         },
@@ -4475,7 +4521,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/executions/" + executionId + "/steps", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, new TypeReference<List<ExecutionSnapshot>>() {});
           }
         },
@@ -4496,7 +4542,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "GET", "/api/v1/executions/" + executionId + "/timeline", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, new TypeReference<List<TimelineEntry>>() {});
           }
         },
@@ -4546,7 +4592,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, new TypeReference<Map<String, Object>>() {});
           }
         },
@@ -4575,7 +4621,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("DELETE", "/api/v1/executions/" + executionId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
             }
@@ -4622,7 +4668,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/budgets", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, Budget.class);
           }
         },
@@ -4642,7 +4688,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/budgets/" + budgetId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, Budget.class);
           }
         },
@@ -4678,7 +4724,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, BudgetsResponse.class);
           }
         },
@@ -4709,7 +4755,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("PUT", "/api/v1/budgets/" + budgetId, request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, Budget.class);
           }
         },
@@ -4728,7 +4774,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("DELETE", "/api/v1/budgets/" + budgetId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
             }
@@ -4755,7 +4801,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/budgets/" + budgetId + "/status", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, BudgetStatus.class);
           }
         },
@@ -4775,7 +4821,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/budgets/" + budgetId + "/alerts", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, BudgetAlertsResponse.class);
           }
         },
@@ -4794,7 +4840,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/budgets/check", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, BudgetDecision.class);
           }
         },
@@ -4820,7 +4866,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, UsageSummary.class);
           }
         },
@@ -4861,7 +4907,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, UsageBreakdown.class);
           }
         },
@@ -4900,7 +4946,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, UsageRecordsResponse.class);
           }
         },
@@ -4945,7 +4991,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             String body = response.body() != null ? response.body().string() : "";
             if (!response.isSuccessful()) {
               throw new AxonFlowException("Failed to get pricing: " + body);
@@ -5064,7 +5110,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/workflows", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5089,7 +5135,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/workflows/" + workflowId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5180,7 +5226,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("POST", fullPath, request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (response.code() == 409) {
               throw toIdempotencyOrGeneric409(response, workflowId, stepId);
             }
@@ -5216,7 +5262,7 @@ public final class AxonFlow implements Closeable {
                   "POST",
                   "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/complete",
                   request != null ? request : Collections.emptyMap());
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (response.code() == 409) {
               throw toIdempotencyOrGeneric409(response, workflowId, stepId);
             }
@@ -5287,7 +5333,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST", "/api/v1/workflows/" + workflowId + "/complete", Collections.emptyMap());
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -5314,7 +5360,7 @@ public final class AxonFlow implements Closeable {
               reason != null ? Collections.singletonMap("reason", reason) : Collections.emptyMap();
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/workflows/" + workflowId + "/abort", body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -5351,7 +5397,7 @@ public final class AxonFlow implements Closeable {
               reason != null ? Collections.singletonMap("reason", reason) : Collections.emptyMap();
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/workflows/" + workflowId + "/fail", body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -5401,7 +5447,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST", "/api/v1/workflows/" + workflowId + "/resume", Collections.emptyMap());
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -5424,7 +5470,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/workflows/" + workflowId + "/checkpoints", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5447,7 +5493,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("POST", "/api/v1/workflows/" + workflowId + "/checkpoints/resume", "{}");
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5474,7 +5520,7 @@ public final class AxonFlow implements Closeable {
                   "POST",
                   "/api/v1/workflows/" + workflowId + "/checkpoints/" + checkpointId + "/resume",
                   "{}");
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5520,7 +5566,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5617,7 +5663,7 @@ public final class AxonFlow implements Closeable {
                   "POST",
                   "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/approve",
                   body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5697,7 +5743,7 @@ public final class AxonFlow implements Closeable {
                   "POST",
                   "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/reject",
                   body);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5750,7 +5796,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5794,7 +5840,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
@@ -5882,7 +5928,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/webhooks", request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, WebhookSubscription.class);
           }
         },
@@ -5913,7 +5959,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/webhooks/" + webhookId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, WebhookSubscription.class);
           }
         },
@@ -5946,7 +5992,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("PUT", "/api/v1/webhooks/" + webhookId, request);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, WebhookSubscription.class);
           }
         },
@@ -5978,7 +6024,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("DELETE", "/api/v1/webhooks/" + webhookId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -6008,7 +6054,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/webhooks", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, ListWebhooksResponse.class);
           }
         },
@@ -6065,7 +6111,7 @@ public final class AxonFlow implements Closeable {
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
 
             // Server wraps response: {"success": true, "data": [...], "meta": {...}}
@@ -6134,7 +6180,7 @@ public final class AxonFlow implements Closeable {
         () -> {
           Request httpRequest =
               buildOrchestratorRequest("GET", "/api/v1/hitl/queue/" + requestId, null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
 
             // Server wraps response: {"success": true, "data": {...}}
@@ -6175,7 +6221,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST", "/api/v1/hitl/queue/" + requestId + "/approve", review);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -6214,7 +6260,7 @@ public final class AxonFlow implements Closeable {
           Request httpRequest =
               buildOrchestratorRequest(
                   "POST", "/api/v1/hitl/queue/" + requestId + "/reject", review);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful()) {
               handleErrorResponse(response);
             }
@@ -6250,7 +6296,7 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest = buildOrchestratorRequest("GET", "/api/v1/hitl/stats", null);
-          try (Response response = httpClient.newCall(httpRequest).execute()) {
+          try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
 
             // Server wraps response: {"success": true, "data": {...}}
@@ -6327,7 +6373,7 @@ public final class AxonFlow implements Closeable {
             }
 
             Request httpRequest = buildOrchestratorRequest("POST", BASE_PATH + "/registry", body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseSystemResponse(response);
             }
           },
@@ -6350,7 +6396,7 @@ public final class AxonFlow implements Closeable {
 
             Request httpRequest =
                 buildOrchestratorRequest("PUT", BASE_PATH + "/registry/" + systemId, body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseSystemResponse(response);
             }
           },
@@ -6370,7 +6416,7 @@ public final class AxonFlow implements Closeable {
           () -> {
             Request httpRequest =
                 buildOrchestratorRequest("GET", BASE_PATH + "/registry/" + systemId, null);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseSystemResponse(response);
             }
           },
@@ -6387,7 +6433,7 @@ public final class AxonFlow implements Closeable {
           () -> {
             Request httpRequest =
                 buildOrchestratorRequest("GET", BASE_PATH + "/registry/summary", null);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseSummaryResponse(response);
             }
           },
@@ -6414,7 +6460,7 @@ public final class AxonFlow implements Closeable {
 
             Request httpRequest =
                 buildOrchestratorRequest("POST", BASE_PATH + "/assessments", body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseAssessmentResponse(response);
             }
           },
@@ -6434,7 +6480,7 @@ public final class AxonFlow implements Closeable {
           () -> {
             Request httpRequest =
                 buildOrchestratorRequest("GET", BASE_PATH + "/assessments/" + assessmentId, null);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseAssessmentResponse(response);
             }
           },
@@ -6491,7 +6537,7 @@ public final class AxonFlow implements Closeable {
 
             Request httpRequest =
                 buildOrchestratorRequest("PUT", BASE_PATH + "/assessments/" + assessmentId, body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseAssessmentResponse(response);
             }
           },
@@ -6512,7 +6558,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest =
                 buildOrchestratorRequest(
                     "POST", BASE_PATH + "/assessments/" + assessmentId + "/submit", null);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseAssessmentResponse(response);
             }
           },
@@ -6541,7 +6587,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest =
                 buildOrchestratorRequest(
                     "POST", BASE_PATH + "/assessments/" + assessmentId + "/approve", body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseAssessmentResponse(response);
             }
           },
@@ -6568,7 +6614,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest =
                 buildOrchestratorRequest(
                     "POST", BASE_PATH + "/assessments/" + assessmentId + "/reject", body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseAssessmentResponse(response);
             }
           },
@@ -6588,7 +6634,7 @@ public final class AxonFlow implements Closeable {
           () -> {
             Request httpRequest =
                 buildOrchestratorRequest("GET", BASE_PATH + "/killswitch/" + systemId, null);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseKillSwitchResponse(response);
             }
           },
@@ -6626,7 +6672,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest =
                 buildOrchestratorRequest(
                     "POST", BASE_PATH + "/killswitch/" + systemId + "/configure", body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseKillSwitchResponse(response);
             }
           },
@@ -6655,7 +6701,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest =
                 buildOrchestratorRequest(
                     "POST", BASE_PATH + "/killswitch/" + systemId + "/trigger", body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseKillSwitchResponse(response);
             }
           },
@@ -6684,7 +6730,7 @@ public final class AxonFlow implements Closeable {
             Request httpRequest =
                 buildOrchestratorRequest(
                     "POST", BASE_PATH + "/killswitch/" + systemId + "/restore", body);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseKillSwitchResponse(response);
             }
           },
@@ -6709,7 +6755,7 @@ public final class AxonFlow implements Closeable {
             }
 
             Request httpRequest = buildOrchestratorRequest("GET", path, null);
-            try (Response response = httpClient.newCall(httpRequest).execute()) {
+            try (Response response = executeHttp(httpClient, httpRequest)) {
               return parseKillSwitchHistoryResponse(response);
             }
           },
