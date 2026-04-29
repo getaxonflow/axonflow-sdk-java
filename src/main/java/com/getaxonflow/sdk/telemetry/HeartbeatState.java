@@ -278,4 +278,42 @@ public class HeartbeatState {
       lock.unlock();
     }
   }
+
+  // ----------------------------------------------------------------
+  // Process-global singleton — concurrent AxonFlow constructions on
+  // the same JVM coalesce onto a single ping per heartbeatInterval.
+  // The singleton must be shared across all AxonFlow instances or the
+  // gate's in-flight + 1-hour cache offer no protection in the
+  // multi-client startup pattern (a deployment that constructs N
+  // clients concurrently before any stamp exists fires N pings
+  // pre-fix; this singleton brings it to 1).
+  //
+  // Volatile read on access; the swap path takes the same lock as
+  // gate operations to keep ordering simple. Production code goes
+  // through {@link #shared()}; tests override via
+  // {@link #replaceForTest} and {@link #restoreForTest}.
+  // ----------------------------------------------------------------
+
+  private static volatile HeartbeatState SHARED = new HeartbeatState();
+
+  /** Returns the process-global heartbeat singleton. */
+  public static HeartbeatState shared() {
+    return SHARED;
+  }
+
+  /**
+   * Test-only: install a fresh singleton at the given stamp path
+   * (or {@code null} for "no persistence"), returning the previous
+   * instance so the caller can restore it on cleanup.
+   */
+  public static HeartbeatState replaceForTest(Path stampPath) {
+    HeartbeatState previous = SHARED;
+    SHARED = new HeartbeatState(stampPath);
+    return previous;
+  }
+
+  /** Test-only: restore a previously-saved singleton. */
+  public static void restoreForTest(HeartbeatState state) {
+    SHARED = state;
+  }
 }

@@ -223,6 +223,47 @@ class HeartbeatStateTest {
   }
 
   @Test
+  @DisplayName("Case 7b (P1 regression): 50 concurrent clients sharing the singleton → exactly 1 ping")
+  void multiClientConcurrent_coalesceToOnePing(@TempDir Path tmp) throws InterruptedException {
+    // Install a single shared HeartbeatState pointing at a temp stamp.
+    // Pre-fix this test would observe up to 50 pings because each AxonFlow
+    // instance held its own HeartbeatState; the static singleton brings
+    // it to 1.
+    HeartbeatState previous = HeartbeatState.replaceForTest(tmp.resolve("stamp"));
+    try {
+      AtomicInteger pings = new AtomicInteger(0);
+      int clientCount = 50;
+      CountDownLatch start = new CountDownLatch(1);
+      CountDownLatch done = new CountDownLatch(clientCount);
+
+      for (int i = 0; i < clientCount; i++) {
+        new Thread(() -> {
+          try {
+            start.await();
+          } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+          }
+          // Each "client" calls the shared gate. The static singleton coalesces
+          // them onto a single ping per heartbeatInterval.
+          HeartbeatState.shared().maybeSendHeartbeat(true, null, () -> {
+            try { Thread.sleep(10); } catch (InterruptedException ignored) {}
+            pings.incrementAndGet();
+            return true;
+          });
+          done.countDown();
+        }, "multi-client-test-" + i).start();
+      }
+
+      start.countDown();
+      done.await();
+
+      assertThat(pings.get()).isEqualTo(1);
+    } finally {
+      HeartbeatState.restoreForTest(previous);
+    }
+  }
+
+  @Test
   @DisplayName("Case 9: ping returns false → stamp NOT written; retry on success works")
   void pingFailure_stampNotWritten_retrySucceeds(@TempDir Path tmp) throws IOException {
     Path stamp = tmp.resolve("stamp");

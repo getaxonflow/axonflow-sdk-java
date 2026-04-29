@@ -125,14 +125,12 @@ public final class AxonFlow implements Closeable {
 
   private final AxonFlowConfig config;
   private final OkHttpClient httpClient;
-  /**
-   * Telemetry heartbeat gate — at most one anonymous ping per machine per
-   * 7 days during SDK activity. Consulted from the constructor and from
-   * {@link #executeHttp(OkHttpClient, Request)} on every public API call.
-   * See {@link HeartbeatState} for the algorithm and stamp-on-DELIVERY
-   * semantics.
-   */
-  private final HeartbeatState heartbeat = new HeartbeatState();
+
+  // Telemetry heartbeat is process-global — see HeartbeatState.shared().
+  // No instance field here on purpose: concurrent AxonFlow constructions
+  // on the same JVM must coalesce onto a single ping per
+  // heartbeatInterval, which requires a shared singleton, not a per-
+  // instance gate. Access via {@link #invokeHeartbeat()}.
 
   /**
    * Clone of {@link #httpClient} with {@code callTimeout} overridden to {@code
@@ -192,9 +190,20 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Run the heartbeat gate. Constructs the gating decision from the
-   * client's mode/config, then asks {@link #heartbeat} to decide whether
-   * to send (and to write the stamp on success).
+   * Run the heartbeat gate against the process-global singleton. Constructs
+   * the gating decision from this client's mode/config, then asks
+   * {@link HeartbeatState#shared()} to decide whether to send (and to
+   * write the stamp on success).
+   *
+   * <p>This call is synchronous and bounded by the per-call HTTP timeout
+   * (3s) WHEN the gate decides to fire. When the gate decides not to fire
+   * (typical hot-path case after the first cold-start ping), the cost is
+   * a single mutex acquire and a {@code System.currentTimeMillis()}
+   * comparison.
+   *
+   * <p>For the request hot path, see {@link #invokeHeartbeatAsync()},
+   * which delegates to a daemon thread so a 3-second firing-block never
+   * delays a user API call.
    */
   private void invokeHeartbeat() {
     boolean hasCredentials =
@@ -206,20 +215,42 @@ public final class AxonFlow implements Closeable {
     String envOptOut = System.getenv("AXONFLOW_TELEMETRY");
     boolean isEnabled =
         TelemetryReporter.isEnabled(modeStr, config.getTelemetry(), hasCredentials, envOptOut);
-    heartbeat.maybeSendHeartbeat(
-        isEnabled,
-        () -> TelemetryReporter.sendPingNow(
-            modeStr,
-            config.getEndpoint(),
-            config.isDebug(),
-            System.getenv("AXONFLOW_CHECKPOINT_URL")));
+    // Two-arg public overload reads AXONFLOW_TELEMETRY=off itself via
+    // System.getenv. Tests that bypass this method use the package-private
+    // 3-arg overload to inject the env value directly.
+    HeartbeatState.shared()
+        .maybeSendHeartbeat(
+            isEnabled,
+            () ->
+                TelemetryReporter.sendPingNow(
+                    modeStr,
+                    config.getEndpoint(),
+                    config.isDebug(),
+                    System.getenv("AXONFLOW_CHECKPOINT_URL")));
+  }
+
+  /**
+   * Async variant of {@link #invokeHeartbeat()} — runs the gate in a
+   * short-lived daemon thread so a user-facing API call is never delayed
+   * by the 3-second telemetry POST when the gate decides to fire.
+   *
+   * <p>Daemon thread choice: long-running services have stable JVMs so
+   * the daemon thread completes the POST normally. Short-lived processes
+   * (Lambda cold start, CLI binaries) deliver the boot ping via the
+   * synchronous {@code invokeHeartbeat} call from the constructor, so the
+   * async request-path heartbeat is "extra" — its loss to JVM exit is
+   * acceptable and only matters across the 7-day boundary.
+   */
+  private void invokeHeartbeatAsync() {
+    Thread t = new Thread(this::invokeHeartbeat, "axonflow-heartbeat");
+    t.setDaemon(true);
+    t.start();
   }
 
   /**
    * Single HTTP wrapper used by every public-API request path. Invokes
-   * the heartbeat gate as a side effect (gate enforces its own rate
-   * limit, so this is amortized free on the hot path) and returns the
-   * underlying {@link Response}.
+   * the heartbeat gate as a side effect, ASYNCHRONOUSLY so the user's
+   * API call is never delayed by telemetry.
    *
    * <p>IMPORTANT: This wrapper must NOT be called from telemetry code
    * itself ({@link TelemetryReporter#sendPingNow} or its private helpers).
@@ -227,7 +258,7 @@ public final class AxonFlow implements Closeable {
    * avoid any recursive heartbeat triggering.
    */
   private Response executeHttp(OkHttpClient client, Request request) throws java.io.IOException {
-    invokeHeartbeat();
+    invokeHeartbeatAsync();
     return client.newCall(request).execute();
   }
 
