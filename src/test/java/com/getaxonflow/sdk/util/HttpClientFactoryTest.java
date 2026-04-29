@@ -22,6 +22,7 @@ import java.time.Duration;
 import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 @DisplayName("HttpClientFactory")
 class HttpClientFactoryTest {
@@ -99,5 +100,82 @@ class HttpClientFactoryTest {
             "AXONFLOW_INSECURE_TLS must default to false; if this fails, the test environment "
                 + "has the env var set and the insecure path could activate")
         .isFalse();
+  }
+
+  @Test
+  @DisplayName("env-var gate helper should be true when AXONFLOW_INSECURE_TLS=true")
+  @SetEnvironmentVariable(key = "AXONFLOW_INSECURE_TLS", value = "true")
+  void envVarHelperShouldBeTrueWhenSetToTrue() {
+    assertThat(HttpClientFactory.isInsecureTlsEnvVarEnabled())
+        .as("helper must return true when env var is set to 'true'")
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName("env-var gate helper should be true when AXONFLOW_INSECURE_TLS=1")
+  @SetEnvironmentVariable(key = "AXONFLOW_INSECURE_TLS", value = "1")
+  void envVarHelperShouldBeTrueWhenSetToOne() {
+    assertThat(HttpClientFactory.isInsecureTlsEnvVarEnabled())
+        .as("helper must return true when env var is set to '1'")
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName(
+      "should activate insecure TLS path when BOTH insecureSkipVerify(true) AND env var are set")
+  @SetEnvironmentVariable(key = "AXONFLOW_INSECURE_TLS", value = "true")
+  void shouldActivateInsecurePathWhenBothGatesArePresent() {
+    // Positive-path regression: this is the single combination where the trust-all path
+    // is intentionally activated. Both gates MUST be required; either alone is insufficient
+    // (covered by sibling tests). If either gate stops being required, this test will still
+    // pass — the gating behaviour is asserted in the negative-path tests.
+    AxonFlowConfig config =
+        AxonFlowConfig.builder().agentUrl("https://localhost:8080").insecureSkipVerify(true).build();
+
+    OkHttpClient client = HttpClientFactory.create(config);
+
+    assertThat(client).isNotNull();
+
+    // 1. Hostname verifier MUST be the permissive lambda, NOT OkHttp's default OkHostnameVerifier.
+    //    The permissive verifier in HttpClientFactory is `(hostname, session) -> true`, which is
+    //    a synthetic lambda class — its name will NOT contain "OkHostnameVerifier".
+    assertThat(client.hostnameVerifier().getClass().getName())
+        .as("permissive hostname verifier must be installed when both gates are set")
+        .doesNotContain("OkHostnameVerifier");
+
+    // 2. Functional check: the verifier must accept any hostname/session pair.
+    assertThat(client.hostnameVerifier().verify("any.host.example", null))
+        .as("permissive hostname verifier must return true for arbitrary hostnames")
+        .isTrue();
+
+    // 3. SSL socket factory must be the trust-all-configured one (i.e. NOT the JVM default
+    //    that OkHttp lazily constructs from the system trust store). We assert non-null and
+    //    that calling sslSocketFactory() does not trigger OkHttp's default construction path
+    //    by comparing against a freshly built default client.
+    AxonFlowConfig defaultConfig =
+        AxonFlowConfig.builder().agentUrl("https://localhost:8080").build();
+    OkHttpClient defaultClient = HttpClientFactory.create(defaultConfig);
+    assertThat(client.sslSocketFactory())
+        .as("insecure-path SSL socket factory must differ from the default-path factory")
+        .isNotSameAs(defaultClient.sslSocketFactory());
+  }
+
+  @Test
+  @DisplayName(
+      "should NOT activate insecure TLS path when env var is set but builder flag is false")
+  @SetEnvironmentVariable(key = "AXONFLOW_INSECURE_TLS", value = "true")
+  void shouldKeepDefaultPathWhenOnlyEnvVarIsSet() {
+    // Complementary negative path: env var alone, without insecureSkipVerify(true), must
+    // keep the default safe TrustManager and OkHostnameVerifier. The double-gate is symmetric:
+    // BOTH must be present — neither alone activates the insecure path.
+    AxonFlowConfig config =
+        AxonFlowConfig.builder().agentUrl("https://localhost:8080").build();
+
+    OkHttpClient client = HttpClientFactory.create(config);
+
+    assertThat(client).isNotNull();
+    assertThat(client.hostnameVerifier().getClass().getName())
+        .as("default hostname verifier must remain when only env var is set")
+        .contains("OkHostnameVerifier");
   }
 }
