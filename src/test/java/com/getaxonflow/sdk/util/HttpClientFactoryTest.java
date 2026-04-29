@@ -70,15 +70,34 @@ class HttpClientFactoryTest {
   }
 
   @Test
-  @DisplayName("should create client with insecure skip verify")
-  void shouldCreateClientWithInsecureSkipVerify() {
+  @DisplayName(
+      "should NOT disable TLS verification when insecureSkipVerify=true but env var is unset")
+  void shouldKeepTlsVerificationEnabledWithoutEnvVar() {
+    // Builder flag alone is not enough — AXONFLOW_INSECURE_TLS env var must also be set.
+    // We don't set the env var in this test, so the insecure path must remain inactive.
     AxonFlowConfig config =
         AxonFlowConfig.builder().agentUrl("http://localhost:8080").insecureSkipVerify(true).build();
 
     OkHttpClient client = HttpClientFactory.create(config);
 
     assertThat(client).isNotNull();
-    // Should have a custom hostname verifier that accepts all hosts
-    assertThat(client.hostnameVerifier()).isNotNull();
+    // The default OkHttp hostname verifier (OkHostnameVerifier) should be in place — NOT the
+    // permissive (hostname, session) -> true verifier. We assert the default class name to ensure
+    // we did not silently install the insecure verifier.
+    assertThat(client.hostnameVerifier().getClass().getName())
+        .as("default hostname verifier should be in place when env var is unset")
+        .contains("OkHostnameVerifier");
+  }
+
+  @Test
+  @DisplayName("env-var gate helper should be false when AXONFLOW_INSECURE_TLS is unset")
+  void envVarHelperShouldBeFalseWhenUnset() {
+    // We cannot reliably set env vars in-process across JVMs, but we can assert the helper's
+    // behaviour against the real environment, which is unset in CI and dev shells by default.
+    assertThat(HttpClientFactory.isInsecureTlsEnvVarEnabled())
+        .as(
+            "AXONFLOW_INSECURE_TLS must default to false; if this fails, the test environment "
+                + "has the env var set and the insecure path could activate")
+        .isFalse();
   }
 }

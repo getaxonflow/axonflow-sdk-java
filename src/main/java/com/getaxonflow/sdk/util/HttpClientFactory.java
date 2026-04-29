@@ -31,12 +31,26 @@ public final class HttpClientFactory {
 
   private static final Logger logger = LoggerFactory.getLogger(HttpClientFactory.class);
 
+  /**
+   * Environment variable that must be explicitly set to {@code "true"} (or {@code "1"}) to allow
+   * disabling TLS certificate verification, in addition to {@code insecureSkipVerify(true)} on the
+   * config builder. Both the builder flag AND this environment variable are required to activate
+   * the insecure path. This is intentional defense-in-depth: a stray builder flag in application
+   * code is not sufficient to silently disable TLS validation in production environments.
+   */
+  static final String INSECURE_TLS_ENV_VAR = "AXONFLOW_INSECURE_TLS";
+
   private HttpClientFactory() {
     // Utility class
   }
 
   /**
    * Creates an OkHttpClient configured according to the SDK configuration.
+   *
+   * <p>By default, the client uses the JVM's default {@code TrustManager}, which validates server
+   * certificates against the system + JDK trust store. Certificate validation is only disabled if
+   * {@link AxonFlowConfig#isInsecureSkipVerify()} is {@code true} AND the environment variable
+   * {@value #INSECURE_TLS_ENV_VAR} is set to {@code "true"} or {@code "1"}.
    *
    * @param config the SDK configuration
    * @return a configured OkHttpClient
@@ -50,7 +64,17 @@ public final class HttpClientFactory {
             .callTimeout(config.getTimeout().toMillis() * 2, TimeUnit.MILLISECONDS);
 
     if (config.isInsecureSkipVerify()) {
-      configureInsecureSsl(builder);
+      if (isInsecureTlsEnvVarEnabled()) {
+        configureInsecureSsl(builder);
+      } else {
+        logger.warn(
+            "insecureSkipVerify(true) was set on AxonFlowConfig but environment variable {} is "
+                + "not set to 'true' or '1'. TLS certificate verification REMAINS ENABLED. To "
+                + "disable verification (development/self-signed certs only), export {}=true. "
+                + "This double-gate is intentional to prevent accidental TLS bypass in production.",
+            INSECURE_TLS_ENV_VAR,
+            INSECURE_TLS_ENV_VAR);
+      }
     }
 
     if (config.isDebug()) {
@@ -111,11 +135,26 @@ public final class HttpClientFactory {
           (hostname, session) -> true); // lgtm[java/insecure-hostname-verifier]
 
       logger.warn(
-          "SSL certificate verification is DISABLED (insecureSkipVerify=true). "
-              + "Do NOT use this in production. This is intended only for development environments "
-              + "with self-signed certificates.");
+          "*** SECURITY WARNING *** TLS certificate verification is DISABLED for AxonFlow SDK "
+              + "HTTP client. Both insecureSkipVerify(true) and {}=true were set. All HTTPS calls "
+              + "will accept ANY server certificate, including attacker-presented certificates in "
+              + "MITM scenarios. This MUST NOT be used in production. Intended only for local "
+              + "development against self-signed certificates.",
+          INSECURE_TLS_ENV_VAR);
     } catch (Exception e) {
       logger.error("Failed to configure insecure SSL", e);
     }
+  }
+
+  /**
+   * Returns {@code true} if the {@value #INSECURE_TLS_ENV_VAR} environment variable is set to
+   * {@code "true"} (case-insensitive) or {@code "1"}. Package-private to allow test verification.
+   */
+  static boolean isInsecureTlsEnvVarEnabled() {
+    String value = System.getenv(INSECURE_TLS_ENV_VAR);
+    if (value == null) {
+      return false;
+    }
+    return "true".equalsIgnoreCase(value) || "1".equals(value);
   }
 }
