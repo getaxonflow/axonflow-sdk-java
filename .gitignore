@@ -99,3 +99,7 @@ local.properties
 
 .codex/
 .claude
+
+# Heartbeat real-stack smoke build dir
+tests/heartbeat-real-stack/build/
+tests/heartbeat-real-stack/cp.txt

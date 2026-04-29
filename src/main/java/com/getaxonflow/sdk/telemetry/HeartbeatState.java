@@ -256,14 +256,19 @@ public class HeartbeatState {
       ok = false;
     }
 
+    // Stamp write happens OUTSIDE the lock — Files.* syscalls (mkdir +
+    // createTempFile + writeString + move) are blocking, and holding the
+    // lock through them serializes any concurrent gate run on the same
+    // singleton through file IO. Clear inFlight first so other callers
+    // can fast-path through; the stamp write is independent.
     lock.lock();
     try {
       inFlight = false;
-      if (ok) {
-        writeStampAtomic();
-      }
     } finally {
       lock.unlock();
+    }
+    if (ok) {
+      writeStampAtomic();
     }
   }
 
@@ -305,15 +310,19 @@ public class HeartbeatState {
    * Test-only: install a fresh singleton at the given stamp path
    * (or {@code null} for "no persistence"), returning the previous
    * instance so the caller can restore it on cleanup.
+   *
+   * <p>{@code synchronized} on the class so parallel JUnit suites that
+   * both call {@code replaceForTest} cannot race on the swap and lose
+   * one another's restore handle.
    */
-  public static HeartbeatState replaceForTest(Path stampPath) {
+  public static synchronized HeartbeatState replaceForTest(Path stampPath) {
     HeartbeatState previous = SHARED;
     SHARED = new HeartbeatState(stampPath);
     return previous;
   }
 
   /** Test-only: restore a previously-saved singleton. */
-  public static void restoreForTest(HeartbeatState state) {
+  public static synchronized void restoreForTest(HeartbeatState state) {
     SHARED = state;
   }
 }

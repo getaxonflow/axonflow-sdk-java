@@ -49,7 +49,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import okhttp3.*;
 import org.slf4j.Logger;
@@ -123,6 +127,23 @@ public final class AxonFlow implements Closeable {
   private static final Logger logger = LoggerFactory.getLogger(AxonFlow.class);
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
+  // Single-threaded daemon executor for async heartbeat dispatch from the
+  // request hot path. Bounded to one worker so concurrent gate calls land
+  // serially on the gate's mutex (the gate itself coalesces them via
+  // in-flight + 1-hour cache). Daemon thread never blocks JVM exit.
+  // Static so 10k req/s creates 0 extra threads — the alternative
+  // (`new Thread()` per request) costs ~1ms per spawn at scale.
+  private static final ExecutorService HEARTBEAT_EXECUTOR =
+      Executors.newSingleThreadExecutor(
+          new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+              Thread t = new Thread(r, "axonflow-heartbeat");
+              t.setDaemon(true);
+              return t;
+            }
+          });
+
   private final AxonFlowConfig config;
   private final OkHttpClient httpClient;
 
@@ -183,8 +204,8 @@ public final class AxonFlow implements Closeable {
     // so a fresh install on a short-lived JVM (CLI binaries, AWS Lambda
     // cold-starts, quickstart scripts) still delivers the first ping
     // before main() returns. Subsequent gate runs (from executeHttp) are
-    // also synchronous because OkHttpClient is reusable across calls and
-    // the gate's internal in-flight + 1-hour-cache bounds amortize cost.
+    // dispatched ASYNCHRONOUSLY through a shared single-threaded daemon
+    // executor so a 3-second telemetry POST never delays a user request.
     // See HeartbeatState for the full algorithm.
     invokeHeartbeat();
   }
@@ -230,21 +251,31 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Async variant of {@link #invokeHeartbeat()} — runs the gate in a
-   * short-lived daemon thread so a user-facing API call is never delayed
-   * by the 3-second telemetry POST when the gate decides to fire.
+   * Async variant of {@link #invokeHeartbeat()} — dispatches the gate
+   * onto {@link #HEARTBEAT_EXECUTOR} so a user-facing API call is never
+   * delayed by the 3-second telemetry POST when the gate decides to fire.
+   *
+   * <p>The executor is a single-threaded daemon — concurrent dispatches
+   * queue rather than spawning threads (10k req/s would otherwise create
+   * 10k threads/s pre-fix). The gate's in-flight + 1-hour cache means
+   * queued runs immediately fast-path past the work, so queue depth is
+   * bounded in practice.
    *
    * <p>Daemon thread choice: long-running services have stable JVMs so
-   * the daemon thread completes the POST normally. Short-lived processes
+   * the executor completes the POST normally. Short-lived processes
    * (Lambda cold start, CLI binaries) deliver the boot ping via the
-   * synchronous {@code invokeHeartbeat} call from the constructor, so the
-   * async request-path heartbeat is "extra" — its loss to JVM exit is
-   * acceptable and only matters across the 7-day boundary.
+   * synchronous {@link #invokeHeartbeat} call from the constructor, so
+   * the async request-path heartbeat is "extra" — its loss to JVM exit
+   * is acceptable and only matters across the 7-day boundary.
    */
   private void invokeHeartbeatAsync() {
-    Thread t = new Thread(this::invokeHeartbeat, "axonflow-heartbeat");
-    t.setDaemon(true);
-    t.start();
+    try {
+      HEARTBEAT_EXECUTOR.execute(this::invokeHeartbeat);
+    } catch (RuntimeException e) {
+      // Executor rejected (e.g. shutdown during JVM teardown) — telemetry
+      // is best-effort; the user request continues unaffected.
+      logger.debug("heartbeat dispatch rejected", e);
+    }
   }
 
   /**

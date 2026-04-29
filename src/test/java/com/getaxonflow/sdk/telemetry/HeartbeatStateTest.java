@@ -223,12 +223,13 @@ class HeartbeatStateTest {
   }
 
   @Test
-  @DisplayName("Case 7b (P1 regression): 50 concurrent clients sharing the singleton → exactly 1 ping")
+  @DisplayName("Case 7b: 50 concurrent callers via shared() → exactly 1 ping (singleton gate)")
   void multiClientConcurrent_coalesceToOnePing(@TempDir Path tmp) throws InterruptedException {
-    // Install a single shared HeartbeatState pointing at a temp stamp.
-    // Pre-fix this test would observe up to 50 pings because each AxonFlow
-    // instance held its own HeartbeatState; the static singleton brings
-    // it to 1.
+    // Verifies the SINGLETON gate (HeartbeatState.shared()) coalesces
+    // concurrent callers to a single ping. End-to-end coverage that the
+    // AxonFlow constructor actually routes through shared() (the P1 fix
+    // for per-instance gates) lives in HeartbeatE2ETest, which constructs
+    // real AxonFlow instances against an httptest checkpoint.
     HeartbeatState previous = HeartbeatState.replaceForTest(tmp.resolve("stamp"));
     try {
       AtomicInteger pings = new AtomicInteger(0);
