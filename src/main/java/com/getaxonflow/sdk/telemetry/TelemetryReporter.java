@@ -105,7 +105,25 @@ public class TelemetryReporter {
       }
       return;
     }
+    sendPingNow(mode, sdkEndpoint, debug, checkpointUrl);
+  }
 
+  /**
+   * Send a single telemetry ping and return whether it landed.
+   *
+   * <p>Returns {@code true} only when the POST received a 2xx response.
+   * Network failures, timeouts, and non-2xx responses all return
+   * {@code false}. Used by the heartbeat orchestrator (see
+   * {@link HeartbeatState}) where the boolean drives stamp-on-DELIVERY
+   * semantics: only successful POSTs advance the stamp file.
+   *
+   * <p>The caller is responsible for the gating decision — this method
+   * does NOT consult AXONFLOW_TELEMETRY, isEnabled, the stamp file, or
+   * any rate-limit state. That separation lets the heartbeat module make
+   * the gating decision once and only update the stamp on success.
+   */
+  public static boolean sendPingNow(
+      String mode, String sdkEndpoint, boolean debug, String checkpointUrl) {
     logger.info(
         "AxonFlow: anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry");
 
@@ -114,23 +132,10 @@ public class TelemetryReporter {
 
     String endpointType = classifyEndpoint(sdkEndpoint);
 
-    // Send synchronously with a single bounded deadline shared across the
-    // /health probe and the checkpoint POST. A CompletableFuture.runAsync
-    // here would default to ForkJoinPool.commonPool (daemon threads) which
-    // die at JVM exit, silently dropping the ping for short-lived JVMs (CLI
-    // binaries, Lambda handlers, serverless cold-starts, quickstart scripts).
-    // See axonflow-enterprise#1706.
-    //
-    // Blocks the caller briefly (~350ms warm / ~1.3s cold on a reachable
-    // checkpoint; bounded at TIMEOUT_SECONDS on an unreachable one). That is
-    // acceptable for a control-plane SDK's construction path, and matches
-    // the pattern shipped for the Go SDK in axonflow-enterprise#1693.
     try {
       long deadlineMs =
           System.nanoTime() / 1_000_000L + TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS);
 
-      // Health probe gets up to 1s of the remaining budget, so the POST
-      // always has room even when the probe fully consumes its slice.
       long healthBudgetMs =
           Math.min(
               TimeUnit.SECONDS.toMillis(1),
@@ -144,7 +149,7 @@ public class TelemetryReporter {
 
       long postBudgetMs = Math.max(0L, deadlineMs - System.nanoTime() / 1_000_000L);
       if (postBudgetMs < MIN_BUDGET_MS) {
-        return;
+        return false;
       }
 
       OkHttpClient client =
@@ -161,12 +166,14 @@ public class TelemetryReporter {
         if (debug) {
           logger.debug("Telemetry ping sent, status={}", response.code());
         }
+        return response.isSuccessful();
       }
     } catch (Exception e) {
       // Silent failure - telemetry must never disrupt SDK operation
       if (debug) {
         logger.debug("Telemetry ping failed (silent): {}", e.getMessage());
       }
+      return false;
     }
   }
 
@@ -192,13 +199,13 @@ public class TelemetryReporter {
    *     in default logic)
    * @return true if telemetry should be sent
    */
-  static boolean isEnabled(String mode, Boolean configOverride, boolean hasCredentials) {
+  public static boolean isEnabled(String mode, Boolean configOverride, boolean hasCredentials) {
     return isEnabled(
         mode, configOverride, hasCredentials, System.getenv("AXONFLOW_TELEMETRY"));
   }
 
   /** Package-private for testing. Accepts env var values as parameters. */
-  static boolean isEnabled(
+  public static boolean isEnabled(
       String mode, Boolean configOverride, boolean hasCredentials, String axonflowTelemetry) {
     if (axonflowTelemetry != null && "off".equalsIgnoreCase(axonflowTelemetry.trim())) {
       return false;
