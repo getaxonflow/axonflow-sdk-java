@@ -3365,6 +3365,7 @@ public final class AxonFlow implements Closeable {
         new Request.Builder()
             .url(url)
             .header("User-Agent", config.getUserAgent())
+            .header("X-Axonflow-Client", config.getClientHeader())
             .header("Accept", "text/event-stream")
             .get();
 
@@ -3573,6 +3574,7 @@ public final class AxonFlow implements Closeable {
         new Request.Builder()
             .url(url)
             .header("User-Agent", config.getUserAgent())
+            .header("X-Axonflow-Client", config.getClientHeader())
             .header("Accept", "application/json");
 
     // Add authentication headers
@@ -3624,6 +3626,7 @@ public final class AxonFlow implements Closeable {
         new Request.Builder()
             .url(url)
             .header("User-Agent", config.getUserAgent())
+            .header("X-Axonflow-Client", config.getClientHeader())
             .header("Accept", "application/json");
 
     addAuthHeaders(builder);
@@ -3763,6 +3766,10 @@ public final class AxonFlow implements Closeable {
     String encoded =
         Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
     builder.header("Authorization", "Basic " + encoded);
+    // ADR-050 §4: every governed request to the agent carries X-Axonflow-Client
+    // so the agent can derive request scope (sdk) and validate it against the
+    // token's aud.scope via HasScope(). Sourced from SDK_VERSION; no env override.
+    builder.header("X-Axonflow-Client", config.getClientHeader());
   }
 
   /**
@@ -4372,6 +4379,7 @@ public final class AxonFlow implements Closeable {
         new Request.Builder()
             .url(url)
             .header("User-Agent", config.getUserAgent())
+            .header("X-Axonflow-Client", config.getClientHeader())
             .header("Accept", "application/json");
 
     addAuthHeaders(builder);
@@ -4440,6 +4448,7 @@ public final class AxonFlow implements Closeable {
         new Request.Builder()
             .url(url)
             .header("User-Agent", config.getUserAgent())
+            .header("X-Axonflow-Client", config.getClientHeader())
             .header("Accept", "application/json");
 
     addPortalSessionCookie(builder);

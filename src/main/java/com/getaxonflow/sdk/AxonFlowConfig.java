@@ -293,6 +293,20 @@ public final class AxonFlowConfig {
   }
 
   /**
+   * Returns the X-Axonflow-Client header value identifying this SDK + version.
+   *
+   * <p>Per ADR-050 §4, every governed request to the agent carries this header so the agent can
+   * derive request scope (sdk) and validate it against the token's aud.scope via HasScope().
+   * Sourced from the bundled {@link #SDK_VERSION}; there is intentionally no env / config
+   * override (the consumer doesn't get to spoof its own client identity to the agent).
+   *
+   * @return the agent-parseable {@code "sdk-java/<semver>"} client header value
+   */
+  public String getClientHeader() {
+    return "sdk-java/" + SDK_VERSION;
+  }
+
+  /**
    * Returns the telemetry config override.
    *
    * <p>{@code null} means use the default behavior (ON for production, OFF for sandbox). {@code
