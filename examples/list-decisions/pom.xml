@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.getaxonflow.examples</groupId>
+    <artifactId>list-decisions</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>AxonFlow Java SDK — listDecisions Example</name>
+    <description>
+        Operator example for AxonFlow.listDecisions (Session γ / #1982).
+        Surfaces the V1 upgrade envelope on RateLimitException so callers
+        can branch on tier-cap upgrade context.
+    </description>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.getaxonflow</groupId>
+            <artifactId>axonflow-sdk</artifactId>
+            <version>7.1.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>com.getaxonflow.examples.ListDecisions</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

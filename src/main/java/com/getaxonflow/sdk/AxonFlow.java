@@ -749,6 +749,149 @@ public final class AxonFlow implements Closeable {
     return CompletableFuture.supplyAsync(() -> explainDecision(decisionId), asyncExecutor);
   }
 
+  // ============================================================================
+  // listDecisions — Session γ (#1982)
+  // ============================================================================
+
+  /**
+   * Lists recent policy decisions for the caller's tenant (Session γ / #1982).
+   *
+   * <p>Returns the slim 5-field {@link DecisionSummary} page; the platform applies
+   * a tier-gated cap (5/24h Free + Community, 100/30d Pro + Evaluation, 1000/full
+   * retention Enterprise). Over-cap requests yield a 429 with the V1 upgrade
+   * envelope, surfaced as {@link RateLimitException} carrying
+   * {@code limitType}, {@code tier}, and {@code upgrade.{tier,compareUrl,buyUrl}}.
+   *
+   * <p>Filters compose; null fields are omitted from the URL so the platform applies
+   * tier defaults.
+   *
+   * <p>Example:
+   *
+   * <pre>{@code
+   * try {
+   *     List<DecisionSummary> decisions = axonflow.listDecisions(
+   *         ListDecisionsOptions.builder().decision("deny").limit(10).build());
+   *     for (DecisionSummary d : decisions) {
+   *         System.out.println(d.getDecisionId() + " " + d.getDecision());
+   *     }
+   * } catch (RateLimitException rle) {
+   *     if (rle.getUpgrade() != null) {
+   *         System.out.println("Upgrade at: " + rle.getUpgrade().getBuyUrl());
+   *     }
+   * }
+   * }</pre>
+   *
+   * @param opts filter and page-size options; null returns the tier-default page
+   * @return list of {@code DecisionSummary} rows ordered newest-first
+   * @throws RateLimitException 429 tier-cap; {@code rle.getUpgrade()} exposes
+   *     tier/compareUrl/buyUrl
+   * @throws AxonFlowException other HTTP errors (401, 5xx, etc.)
+   */
+  public List<DecisionSummary> listDecisions(ListDecisionsOptions opts) {
+    return retryExecutor.execute(
+        () -> {
+          String path = "/api/v1/decisions" + buildListDecisionsQuery(opts);
+          Request httpRequest = buildOrchestratorRequest("GET", path, null);
+
+          try (Response response = executeHttp(httpClient, httpRequest)) {
+            if (response.code() == 429) {
+              // Try to parse the V1 upgrade envelope. If the body changed
+              // shape we still surface the 429 — never silently succeed.
+              String body = response.body() != null ? response.body().string() : "";
+              try {
+                JsonNode envelope = objectMapper.readTree(body);
+                JsonNode limitTypeNode = envelope.get("limit_type");
+                if (limitTypeNode != null && !limitTypeNode.isNull()) {
+                  RateLimitException.UpgradeInfo upgrade = null;
+                  JsonNode upgradeNode = envelope.get("upgrade");
+                  if (upgradeNode != null && upgradeNode.isObject()) {
+                    upgrade =
+                        new RateLimitException.UpgradeInfo(
+                            optString(upgradeNode, "tier"),
+                            optString(upgradeNode, "wording"),
+                            optString(upgradeNode, "compare_url"),
+                            optString(upgradeNode, "buy_url"));
+                  }
+                  throw new RateLimitException(
+                      optString(envelope, "error"),
+                      envelope.has("limit") ? envelope.get("limit").asInt() : 0,
+                      envelope.has("remaining") ? envelope.get("remaining").asInt() : 0,
+                      null,
+                      limitTypeNode.asText(),
+                      optString(envelope, "tier"),
+                      upgrade);
+                }
+              } catch (com.fasterxml.jackson.core.JsonProcessingException ignored) {
+                // fall through — never silently succeed on 429
+              }
+              throw new AxonFlowException("Too Many Requests: " + body, 429, null);
+            }
+            JsonNode node = parseResponseNode(response);
+            JsonNode decisionsNode = node.get("decisions");
+            java.util.List<DecisionSummary> result = new java.util.ArrayList<>();
+            if (decisionsNode != null && decisionsNode.isArray()) {
+              for (JsonNode row : decisionsNode) {
+                result.add(objectMapper.treeToValue(row, DecisionSummary.class));
+              }
+            }
+            return result;
+          }
+        },
+        "listDecisions");
+  }
+
+  /**
+   * Asynchronously lists recent decisions for the caller's tenant.
+   *
+   * @param opts filter + page-size options (may be null)
+   * @return a future resolving to the list of summaries
+   */
+  public CompletableFuture<List<DecisionSummary>> listDecisionsAsync(ListDecisionsOptions opts) {
+    return CompletableFuture.supplyAsync(() -> listDecisions(opts), asyncExecutor);
+  }
+
+  /** Reads a string field, returning null when absent or not textual. */
+  private static String optString(JsonNode node, String field) {
+    JsonNode v = node.get(field);
+    return (v == null || v.isNull()) ? null : v.asText();
+  }
+
+  /**
+   * Serialize {@link ListDecisionsOptions} into a "?k=v&k=v" query string.
+   * Empty when opts or all fields are null. Stable field order so test
+   * mocks can match the URL exactly.
+   */
+  static String buildListDecisionsQuery(ListDecisionsOptions opts) {
+    if (opts == null) {
+      return "";
+    }
+    java.util.List<String> pairs = new java.util.ArrayList<>(5);
+    if (opts.getSince() != null) {
+      // Instant.toString() already emits RFC 3339 with the "Z" UTC marker.
+      pairs.add("since=" + urlEncode(opts.getSince().toString()));
+    }
+    if (opts.getDecision() != null) {
+      pairs.add("decision=" + urlEncode(opts.getDecision()));
+    }
+    if (opts.getPolicyId() != null) {
+      pairs.add("policy_id=" + urlEncode(opts.getPolicyId()));
+    }
+    if (opts.getToolSignature() != null) {
+      pairs.add("tool_signature=" + urlEncode(opts.getToolSignature()));
+    }
+    if (opts.getLimit() != null) {
+      pairs.add("limit=" + opts.getLimit());
+    }
+    if (pairs.isEmpty()) {
+      return "";
+    }
+    return "?" + String.join("&", pairs);
+  }
+
+  private static String urlEncode(String s) {
+    return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
+  }
+
   /**
    * Gets audit logs for a specific tenant.
    *
