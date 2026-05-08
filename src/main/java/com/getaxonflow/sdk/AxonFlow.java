@@ -227,18 +227,12 @@ public final class AxonFlow implements Closeable {
    * delays a user API call.
    */
   private void invokeHeartbeat() {
-    boolean hasCredentials =
-        config.getClientId() != null
-            && !config.getClientId().isEmpty()
-            && config.getClientSecret() != null
-            && !config.getClientSecret().isEmpty();
     String modeStr = config.getMode() != null ? config.getMode().getValue() : "production";
     String envOptOut = System.getenv("AXONFLOW_TELEMETRY");
-    boolean isEnabled =
-        TelemetryReporter.isEnabled(modeStr, config.getTelemetry(), hasCredentials, envOptOut);
-    // Two-arg public overload reads AXONFLOW_TELEMETRY=off itself via
-    // System.getenv. Tests that bypass this method use the package-private
-    // 3-arg overload to inject the env value directly.
+    // v8: AXONFLOW_TELEMETRY=off is the SOLE opt-out path. The v7.x mode-based suppression
+    // and the AxonFlowConfig.telemetry(Boolean) override were both removed. Sandbox-mode
+    // pings now fire and are tagged stream="sandbox" in the payload.
+    boolean isEnabled = TelemetryReporter.isEnabled(envOptOut);
     HeartbeatState.shared()
         .maybeSendHeartbeat(
             isEnabled,

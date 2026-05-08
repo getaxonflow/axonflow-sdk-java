@@ -41,14 +41,12 @@ import org.slf4j.LoggerFactory;
  * <p>Telemetry is completely anonymous and contains no user data, only SDK version, runtime
  * environment, and deployment mode information.
  *
- * <p>Telemetry can be disabled via:
- *
- * <ul>
- *   <li>Setting environment variable {@code AXONFLOW_TELEMETRY=off}
- *   <li>Setting {@code telemetry(false)} on the config builder
- * </ul>
- *
- * <p>By default, telemetry is OFF in sandbox mode and ON in production mode.
+ * <p>{@code AXONFLOW_TELEMETRY=off} in the environment is the SOLE opt-out path as of v8.0. The
+ * v7.x {@code telemetry(Boolean)} config-builder override has been removed; the previous silent
+ * suppression of sandbox-mode pings has also been removed. Sandbox-mode pings now fire on the
+ * same heartbeat schedule as production-mode pings, tagged {@code stream="sandbox"} in the
+ * payload so analytics can distinguish dev/test pings from production heartbeat (the wire-side
+ * allowlist is enforced by the checkpoint service — see {@code IsValidIncomingStream}).
  */
 public class TelemetryReporter {
 
@@ -67,25 +65,17 @@ public class TelemetryReporter {
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
   /**
-   * Sends an anonymous telemetry ping asynchronously (fire-and-forget).
+   * Sends an anonymous telemetry ping synchronously (blocks until the round-trip completes).
    *
    * @param mode the deployment mode (e.g. "production", "sandbox")
    * @param sdkEndpoint the configured SDK endpoint, used to detect platform version via /health
-   * @param telemetryEnabled config override for telemetry (null = use default based on mode)
    * @param debug whether debug logging is enabled
    */
-  public static void sendPing(
-      String mode,
-      String sdkEndpoint,
-      Boolean telemetryEnabled,
-      boolean debug,
-      boolean hasCredentials) {
+  public static void sendPing(String mode, String sdkEndpoint, boolean debug) {
     sendPing(
         mode,
         sdkEndpoint,
-        telemetryEnabled,
         debug,
-        hasCredentials,
         System.getenv("AXONFLOW_TELEMETRY"),
         System.getenv("AXONFLOW_CHECKPOINT_URL"));
   }
@@ -94,12 +84,10 @@ public class TelemetryReporter {
   static void sendPing(
       String mode,
       String sdkEndpoint,
-      Boolean telemetryEnabled,
       boolean debug,
-      boolean hasCredentials,
       String axonflowTelemetry,
       String checkpointUrl) {
-    if (!isEnabled(mode, telemetryEnabled, hasCredentials, axonflowTelemetry)) {
+    if (!isEnabled(axonflowTelemetry)) {
       if (debug) {
         logger.debug("Telemetry is disabled, skipping ping");
       }
@@ -178,43 +166,28 @@ public class TelemetryReporter {
   }
 
   /**
-   * Determines whether telemetry is enabled based on environment and config.
+   * Determines whether telemetry is enabled.
    *
-   * <p>Priority order:
+   * <p>{@code AXONFLOW_TELEMETRY=off} in the environment is the SOLE opt-out path as of v8.0.
+   * Telemetry is otherwise ON by default, regardless of mode (sandbox / production / anything
+   * else). Sandbox-mode pings are tagged {@code stream="sandbox"} in the payload so analytics
+   * can still distinguish them — see {@link #buildPayload}.
    *
-   * <ol>
-   *   <li>{@code AXONFLOW_TELEMETRY=off} environment variable disables telemetry (canonical
-   *       AxonFlow-specific opt-out, always wins)
-   *   <li>Config override ({@code Boolean.TRUE} or {@code Boolean.FALSE}) takes precedence
-   *   <li>Default: ON for all modes except sandbox
-   * </ol>
+   * <p>Historical context: v7.x supported a {@code Boolean configOverride} parameter and a
+   * {@code mode != "sandbox"} default-suppression rule. Both were removed in v8.0 to leave a
+   * single, ops-controlled opt-out lever and avoid silent suppression that masks real adoption
+   * signal. See CHANGELOG v8.0.0.
    *
    * <p>{@code DO_NOT_TRACK} is intentionally NOT honored. It is commonly inherited from host
    * tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally),
    * which makes it an unreliable expression of user intent for AxonFlow telemetry.
    *
-   * @param mode the deployment mode
-   * @param configOverride explicit config override (null = use default)
-   * @param hasCredentials whether the client has credentials (kept for API compat, no longer used
-   *     in default logic)
+   * @param axonflowTelemetry value of {@code AXONFLOW_TELEMETRY} env var (null = unset)
    * @return true if telemetry should be sent
    */
-  public static boolean isEnabled(String mode, Boolean configOverride, boolean hasCredentials) {
-    return isEnabled(
-        mode, configOverride, hasCredentials, System.getenv("AXONFLOW_TELEMETRY"));
-  }
-
-  /** Package-private for testing. Accepts env var values as parameters. */
-  public static boolean isEnabled(
-      String mode, Boolean configOverride, boolean hasCredentials, String axonflowTelemetry) {
-    if (axonflowTelemetry != null && "off".equalsIgnoreCase(axonflowTelemetry.trim())) {
-      return false;
-    }
-    if (configOverride != null) {
-      return configOverride;
-    }
-    // Default: ON everywhere except sandbox mode.
-    return !"sandbox".equals(mode);
+  public static boolean isEnabled(String axonflowTelemetry) {
+    // AXONFLOW_TELEMETRY=off is the SOLE opt-out path.
+    return !(axonflowTelemetry != null && "off".equalsIgnoreCase(axonflowTelemetry.trim()));
   }
 
   /** Builds the JSON payload for the telemetry ping. */
@@ -244,6 +217,15 @@ public class TelemetryReporter {
       root.set("features", features);
 
       root.put("instance_id", UUID.randomUUID().toString());
+
+      // Stream classifier: sandbox-mode clients self-tag so analytics can distinguish dev/test
+      // pings from production. Production-mode (and other modes) omit the field entirely so the
+      // server defaults to "heartbeat" — preserving byte-identical wire shape relative to v7.x
+      // for the production-mode case. See CHANGELOG v8.0.0 and checkpoint-service
+      // IsValidIncomingStream.
+      if ("sandbox".equals(mode)) {
+        root.put("stream", "sandbox");
+      }
 
       return mapper.writeValueAsString(root);
     } catch (Exception e) {
