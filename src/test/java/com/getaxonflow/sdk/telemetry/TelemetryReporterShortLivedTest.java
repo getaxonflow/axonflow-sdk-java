@@ -64,8 +64,6 @@ class TelemetryReporterShortLivedTest {
     TelemetryReporter.sendPing(
         "production",
         "", // empty SDK endpoint: skip /health probe so we measure only the POST
-        Boolean.TRUE,
-        false,
         false,
         null, // AXONFLOW_TELEMETRY
         checkpointUrl);

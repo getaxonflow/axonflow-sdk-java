@@ -5,6 +5,61 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.0] - 2026-05-08 — Decision history API + telemetry simplification
+
+**Major release.** The headline feature is the new decision-history client
+API: `listDecisions` for paging through recorded decisions, plus a
+runnable example showing the full record → list → explain audit flow.
+Bundled into a major because the v8 line also tightens the telemetry
+contract — see `Removed` at the bottom of this entry for that.
+
+### Added
+
+- **`listDecisions(ListDecisionsOptions opts)` client method.** Pages
+  over recorded decision history from the orchestrator, mirroring `GET
+  /api/v1/decisions`. Companion to the v7.4.0 `getDecisionExplain`
+  method — callers can now both list and drill in. See
+  `examples/list-decisions/`.
+- **`examples/explain-decision/`** end-to-end runnable example covering
+  the full decision audit flow: record → list → explain.
+
+### Migration guide (v7 → v8)
+
+- **`AxonFlowConfig.Builder.telemetry(Boolean)` removed.** Code that
+  called `.telemetry(true)` or `.telemetry(false)` on the builder will
+  fail to compile. Migration: remove the call from your builder chain.
+  If you were using it to disable telemetry, set
+  `AXONFLOW_TELEMETRY=off` in the environment instead — that's the
+  sole opt-out lever as of v8. If you were using it to force-enable,
+  the default is now ON for every mode so the override is no longer
+  needed.
+- **`AxonFlowConfig.getTelemetry()` removed.** Code reading the
+  override field will fail to compile. Same migration: drop the call
+  site; `AXONFLOW_TELEMETRY=off` is the only telemetry knob.
+- **`TelemetryReporter.isEnabled` and `TelemetryReporter.sendPing`
+  signatures simplified.** Both methods previously took the
+  `(mode, configOverride, hasCredentials, ...)` parameter shape from
+  the v7 mode-and-override gate. v8 collapses to a single env-var
+  signal: `isEnabled(String axonflowTelemetry)` and
+  `sendPing(String mode, String sdkEndpoint, boolean debug, ...)`.
+  Application code does not call these directly; only test harnesses
+  that exercise the testability surface need to update.
+
+### Removed
+
+- **`AxonFlowConfig.Builder.telemetry(Boolean)` builder method** (was
+  `Builder telemetry(Boolean)`) and **`AxonFlowConfig.getTelemetry()`**
+  accessor. `AXONFLOW_TELEMETRY=off` is now the sole opt-out path. Tests
+  that need to defend against contaminated dev environments should
+  pass `null` to the testability `axonflowTelemetry` parameter or set
+  `AXONFLOW_TELEMETRY=` (empty) at the test level.
+- **Sandbox-mode silent telemetry suppression.** Sandbox-mode clients
+  (constructed via `Mode.SANDBOX`) now fire telemetry on the same
+  heartbeat schedule as production-mode clients. Pings are tagged
+  `stream="sandbox"` so analytics can distinguish dev pings from
+  production heartbeat — see the checkpoint-service
+  `IsValidIncomingStream` allowlist for the wire-side gate.
+
 ## [7.1.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
 
 **Companion release to platform v7.7.0.** The Java SDK now sends an

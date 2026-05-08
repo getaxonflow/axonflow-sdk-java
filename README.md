@@ -47,14 +47,14 @@ Three short videos covering different angles of the platform:
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>4.0.0</version>
+    <version>8.0.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'com.getaxonflow:axonflow-sdk:4.0.0'
+implementation 'com.getaxonflow:axonflow-sdk:8.0.0'
 ```
 
 ## Evaluation Tier (Free License)
@@ -603,6 +603,12 @@ For enterprise features, contact [sales@getaxonflow.com](mailto:sales@getaxonflo
 
 This SDK sends anonymous usage telemetry (SDK version, OS, enabled features) to help improve AxonFlow.
 No prompts, payloads, or PII are ever collected. Opt out: `AXONFLOW_TELEMETRY=off`.
+
+`AXONFLOW_TELEMETRY=off` is the **sole opt-out lever** as of v8.0. The
+v7.x `telemetry(Boolean)` config-builder method has been removed; the
+previous silent suppression of sandbox-mode pings has also been removed
+(sandbox-mode pings now fire and are tagged `stream="sandbox"` so
+they're distinguishable from production heartbeat).
 
 ### Scope of `AXONFLOW_TELEMETRY=off`
 
