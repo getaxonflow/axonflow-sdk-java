@@ -66,6 +66,7 @@ class TelemetryReporterTest {
     String payload = TelemetryReporter.buildPayload("production", null);
     JsonNode root = objectMapper.readTree(payload);
 
+    assertThat(root.get("telemetry_type").asText()).isEqualTo("sdk");
     assertThat(root.get("sdk").asText()).isEqualTo("java");
     assertThat(root.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
     assertThat(root.get("platform_version").isNull()).isTrue();
@@ -74,7 +75,9 @@ class TelemetryReporterTest {
     assertThat(root.get("arch").asText())
         .isEqualTo(TelemetryReporter.normalizeArch(System.getProperty("os.arch")));
     assertThat(root.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
-    assertThat(root.get("deployment_mode").asText()).isEqualTo("production");
+    // v1 schema: 2-arg buildPayload defaults deployment_mode to "unknown".
+    assertThat(root.get("deployment_mode").asText()).isEqualTo("unknown");
+    assertThat(root.get("profile").asText()).isEqualTo("unknown");
     assertThat(root.get("features").isArray()).isTrue();
     assertThat(root.get("features").size()).isEqualTo(0);
     assertThat(root.get("instance_id").asText()).isNotEmpty();
@@ -88,11 +91,14 @@ class TelemetryReporterTest {
   }
 
   @Test
-  @DisplayName("payload should reflect the given mode")
-  void testPayloadModeReflection() throws Exception {
-    String payload = TelemetryReporter.buildPayload("sandbox", null);
+  @DisplayName("payload deployment_mode reflects the v1 schema classifier output")
+  void testPayloadDeploymentModeReflection() throws Exception {
+    String payload =
+        TelemetryReporter.buildPayload(
+            "sandbox", null, TelemetryReporter.EndpointType.LOCALHOST,
+            TelemetryReporter.DeploymentMode.SELF_HOSTED);
     JsonNode root = objectMapper.readTree(payload);
-    assertThat(root.get("deployment_mode").asText()).isEqualTo("sandbox");
+    assertThat(root.get("deployment_mode").asText()).isEqualTo("self_hosted");
   }
 
   @Test
@@ -152,9 +158,13 @@ class TelemetryReporterTest {
     assertThat(requests).hasSize(1);
 
     JsonNode body = objectMapper.readTree(requests.get(0).getBodyAsString());
+    assertThat(body.get("telemetry_type").asText()).isEqualTo("sdk");
     assertThat(body.get("sdk").asText()).isEqualTo("java");
     assertThat(body.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
-    assertThat(body.get("deployment_mode").asText()).isEqualTo("production");
+    // v1 schema: deployment_mode classifies from sdk endpoint host; localhost
+    // resolves to self_hosted (the v1 allowlist removes the production label).
+    assertThat(body.get("deployment_mode").asText()).isEqualTo("self_hosted");
+    assertThat(body.get("profile").asText()).isEqualTo("unknown");
     assertThat(body.get("instance_id").asText()).isNotEmpty();
     // production-mode payloads still omit stream on the wire.
     assertThat(body.has("stream")).isFalse();
@@ -250,7 +260,9 @@ class TelemetryReporterTest {
     var requests = WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping")));
     assertThat(requests).hasSize(1);
     JsonNode body = objectMapper.readTree(requests.get(0).getBodyAsString());
-    assertThat(body.get("deployment_mode").asText()).isEqualTo("sandbox");
+    // v1 schema: deployment_mode classifies from endpoint host (localhost ->
+    // self_hosted), NOT from config.Mode. The sandbox marker lives on `stream`.
+    assertThat(body.get("deployment_mode").asText()).isEqualTo("self_hosted");
     assertThat(body.get("stream")).isNotNull();
     assertThat(body.get("stream").asText()).isEqualTo("sandbox");
   }
@@ -403,7 +415,8 @@ class TelemetryReporterTest {
     JsonNode body = objectMapper.readTree(requests.get(0).getBodyAsString());
     assertThat(body.get("sdk").asText()).isEqualTo("java");
     assertThat(body.get("sdk_version").asText()).isEqualTo(AxonFlowConfig.SDK_VERSION);
-    assertThat(body.get("deployment_mode").asText()).isEqualTo("enterprise");
+    // v1 schema: deployment_mode is endpoint-derived; localhost -> self_hosted.
+    assertThat(body.get("deployment_mode").asText()).isEqualTo("self_hosted");
     assertThat(body.get("os").asText())
         .isEqualTo(TelemetryReporter.normalizeOS(System.getProperty("os.name")));
     assertThat(body.get("arch").asText())

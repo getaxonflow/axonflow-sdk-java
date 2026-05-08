@@ -60,6 +60,11 @@ contract — see `Removed` at the bottom of this entry for that.
   production heartbeat — see the checkpoint-service
   `IsValidIncomingStream` allowlist for the wire-side gate.
 
+### Telemetry payload (v1 schema, axonflow-enterprise#2008)
+
+- New heartbeat fields: `telemetry_type: "sdk"`, `profile` (from `AXONFLOW_PROFILE`, `unknown` when unset), `deployment_mode` aligned to `self_hosted | community_saas | unknown` via the new `classifyDeploymentMode` (host + `AXONFLOW_TRY=1` override). New `DeploymentMode` constants class.
+- `classifyEndpoint` no longer returns `community-saas` and `EndpointType.COMMUNITY_SAAS` is removed — that value moved off endpoint_type onto deployment_mode; analytics queries on the legacy value must update.
+
 ## [7.1.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
 
 **Companion release to platform v7.7.0.** The Java SDK now sends an

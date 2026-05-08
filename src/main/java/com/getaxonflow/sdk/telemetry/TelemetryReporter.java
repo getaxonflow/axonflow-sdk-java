@@ -119,6 +119,9 @@ public class TelemetryReporter {
         (checkpointUrl != null && !checkpointUrl.isEmpty()) ? checkpointUrl : DEFAULT_ENDPOINT;
 
     String endpointType = classifyEndpoint(sdkEndpoint);
+    // v1 telemetry-schema: deployment_mode now derives from endpoint host
+    // (axonflow-enterprise#2008). config.Mode no longer drives this dimension.
+    String deploymentMode = classifyDeploymentMode(sdkEndpoint);
 
     try {
       long deadlineMs =
@@ -133,7 +136,7 @@ public class TelemetryReporter {
               ? detectPlatformVersion(sdkEndpoint, healthBudgetMs)
               : null;
 
-      String payload = buildPayload(mode, platformVersion, endpointType);
+      String payload = buildPayload(mode, platformVersion, endpointType, deploymentMode);
 
       long postBudgetMs = Math.max(0L, deadlineMs - System.nanoTime() / 1_000_000L);
       if (postBudgetMs < MIN_BUDGET_MS) {
@@ -192,14 +195,25 @@ public class TelemetryReporter {
 
   /** Builds the JSON payload for the telemetry ping. */
   static String buildPayload(String mode, String platformVersion) {
-    return buildPayload(mode, platformVersion, EndpointType.UNKNOWN);
+    return buildPayload(mode, platformVersion, EndpointType.UNKNOWN, DeploymentMode.UNKNOWN);
   }
 
   /** Builds the JSON payload with an explicit endpoint_type classification. */
   static String buildPayload(String mode, String platformVersion, String endpointType) {
+    return buildPayload(mode, platformVersion, endpointType, DeploymentMode.UNKNOWN);
+  }
+
+  /**
+   * Builds the JSON payload with explicit endpoint_type + deployment_mode classifications
+   * (v1 telemetry-schema, axonflow-enterprise#2008).
+   */
+  static String buildPayload(
+      String mode, String platformVersion, String endpointType, String deploymentMode) {
     try {
       ObjectMapper mapper = new ObjectMapper();
       ObjectNode root = mapper.createObjectNode();
+      // v1 schema discriminator. Always "sdk" for this package.
+      root.put("telemetry_type", "sdk");
       root.put("sdk", "java");
       root.put("sdk_version", AxonFlowConfig.SDK_VERSION);
       if (platformVersion != null) {
@@ -210,13 +224,23 @@ public class TelemetryReporter {
       root.put("os", normalizeOS(System.getProperty("os.name")));
       root.put("arch", normalizeArch(System.getProperty("os.arch")));
       root.put("runtime_version", System.getProperty("java.version"));
-      root.put("deployment_mode", mode);
+      // v1 schema deployment_mode allowlist: self_hosted | community_saas | unknown.
+      // The prior config.Mode-based dimension is removed — deployment_mode now
+      // reflects deployment topology only (see classifyDeploymentMode).
+      root.put("deployment_mode", deploymentMode);
       root.put("endpoint_type", endpointType);
 
       ArrayNode features = mapper.createArrayNode();
       root.set("features", features);
 
       root.put("instance_id", UUID.randomUUID().toString());
+
+      // v1 schema profile dimension. Free-form deployment classifier sourced from
+      // AXONFLOW_PROFILE; "unknown" when unset. Analytics dimension only.
+      String profileEnv = System.getenv("AXONFLOW_PROFILE");
+      String profile =
+          (profileEnv == null || profileEnv.trim().isEmpty()) ? "unknown" : profileEnv.trim();
+      root.put("profile", profile);
 
       // Stream classifier: sandbox-mode clients self-tag so analytics can distinguish dev/test
       // pings from production. Production-mode (and other modes) omit the field entirely so the
@@ -238,15 +262,55 @@ public class TelemetryReporter {
    * Endpoint type classifications for telemetry. See issue #1525.
    *
    * <p>The raw URL is never sent to the checkpoint service — only the classification.
+   *
+   * <p>As of v8.0 the legacy {@code COMMUNITY_SAAS} value is removed — deployment topology
+   * lives on {@link DeploymentMode} per the v1 schema (axonflow-enterprise#2008).
    */
   public static final class EndpointType {
     public static final String LOCALHOST = "localhost";
     public static final String PRIVATE_NETWORK = "private_network";
     public static final String REMOTE = "remote";
-    public static final String COMMUNITY_SAAS = "community-saas";
     public static final String UNKNOWN = "unknown";
 
     private EndpointType() {}
+  }
+
+  /**
+   * Deployment-mode classifications for telemetry (v1 schema,
+   * axonflow-enterprise#2008). Reflects deployment topology — distinct from
+   * the endpoint reachability classification on {@link EndpointType}.
+   */
+  public static final class DeploymentMode {
+    public static final String SELF_HOSTED = "self_hosted";
+    public static final String COMMUNITY_SAAS = "community_saas";
+    public static final String UNKNOWN = "unknown";
+
+    private DeploymentMode() {}
+  }
+
+  /**
+   * Classifies the configured AxonFlow endpoint into the v1 deployment-mode allowlist
+   * ({@code self_hosted | community_saas | unknown}). Community-SaaS detection fires on
+   * either an {@code *.try.getaxonflow.com} host or {@code AXONFLOW_TRY=1} (the explicit
+   * override path for tenants behind a custom hostname proxying try.getaxonflow.com).
+   * Empty/unparseable endpoint resolves to {@code unknown}.
+   */
+  public static String classifyDeploymentMode(String url) {
+    if ("1".equals(System.getenv("AXONFLOW_TRY"))) return DeploymentMode.COMMUNITY_SAAS;
+    if (url == null || url.isEmpty()) return DeploymentMode.UNKNOWN;
+    String host;
+    try {
+      URI u = new URI(url);
+      host = u.getHost();
+      if (host == null || host.isEmpty()) return DeploymentMode.UNKNOWN;
+    } catch (URISyntaxException e) {
+      return DeploymentMode.UNKNOWN;
+    }
+    host = host.toLowerCase();
+    if ("try.getaxonflow.com".equals(host) || host.endsWith(".try.getaxonflow.com")) {
+      return DeploymentMode.COMMUNITY_SAAS;
+    }
+    return DeploymentMode.SELF_HOSTED;
   }
 
   private static final Pattern IPV4_PATTERN =
@@ -261,7 +325,6 @@ public class TelemetryReporter {
    * <p>The raw URL is never sent — only the classification.
    */
   public static String classifyEndpoint(String url) {
-    if ("1".equals(System.getenv("AXONFLOW_TRY"))) return EndpointType.COMMUNITY_SAAS;
     if (url == null || url.isEmpty()) {
       return EndpointType.UNKNOWN;
     }
