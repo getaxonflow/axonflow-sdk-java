@@ -5,19 +5,6 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [8.0.1] - 2026-05-08 — Drop telemetry `profile` field
-
-### Removed
-
-- **Telemetry `profile` field** — collided with existing governance
-  `AXONFLOW_PROFILE` env var (allowlist `dev|default|strict|compliance`).
-  The v1 telemetry validator only accepted `dev|prod|unknown`, so any
-  customer setting `AXONFLOW_PROFILE=strict` or `=compliance` for
-  governance enforcement would have had their telemetry pings rejected
-  with HTTP 400. Removing the field reverts `AXONFLOW_PROFILE` to its
-  single governance purpose. The `deployment_mode` dimension already
-  carries the topology signal `profile` was meant to add.
-
 ## [8.0.0] - 2026-05-08 — Decision history API + telemetry simplification
 
 **Major release.** The headline feature is the new decision-history client
@@ -75,7 +62,7 @@ contract — see `Removed` at the bottom of this entry for that.
 
 ### Telemetry payload (v1 schema, axonflow-enterprise#2008)
 
-- New heartbeat fields: `telemetry_type: "sdk"`, `profile` (from `AXONFLOW_PROFILE`, `unknown` when unset), `deployment_mode` aligned to `self_hosted | community_saas | unknown` via the new `classifyDeploymentMode` (host + `AXONFLOW_TRY=1` override). New `DeploymentMode` constants class.
+- New heartbeat fields: `telemetry_type: "sdk"`, `deployment_mode` aligned to `self_hosted | community_saas | unknown` via the new `classifyDeploymentMode` (host + `AXONFLOW_TRY=1` override). New `DeploymentMode` constants class.
 - `classifyEndpoint` no longer returns `community-saas` and `EndpointType.COMMUNITY_SAAS` is removed — that value moved off endpoint_type onto deployment_mode; analytics queries on the legacy value must update.
 
 ## [7.1.0] - 2026-05-06 — X-Axonflow-Client header + scope-aware license validation
