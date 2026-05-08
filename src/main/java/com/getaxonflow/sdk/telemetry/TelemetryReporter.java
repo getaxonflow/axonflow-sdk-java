@@ -235,13 +235,6 @@ public class TelemetryReporter {
 
       root.put("instance_id", UUID.randomUUID().toString());
 
-      // v1 schema profile dimension. Free-form deployment classifier sourced from
-      // AXONFLOW_PROFILE; "unknown" when unset. Analytics dimension only.
-      String profileEnv = System.getenv("AXONFLOW_PROFILE");
-      String profile =
-          (profileEnv == null || profileEnv.trim().isEmpty()) ? "unknown" : profileEnv.trim();
-      root.put("profile", profile);
-
       // Stream classifier: sandbox-mode clients self-tag so analytics can distinguish dev/test
       // pings from production. Production-mode (and other modes) omit the field entirely so the
       // server defaults to "heartbeat" — preserving byte-identical wire shape relative to v7.x

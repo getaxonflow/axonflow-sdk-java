@@ -77,7 +77,7 @@ class TelemetryReporterTest {
     assertThat(root.get("runtime_version").asText()).isEqualTo(System.getProperty("java.version"));
     // v1 schema: 2-arg buildPayload defaults deployment_mode to "unknown".
     assertThat(root.get("deployment_mode").asText()).isEqualTo("unknown");
-    assertThat(root.get("profile").asText()).isEqualTo("unknown");
+    assertThat(root.has("profile")).isFalse();
     assertThat(root.get("features").isArray()).isTrue();
     assertThat(root.get("features").size()).isEqualTo(0);
     assertThat(root.get("instance_id").asText()).isNotEmpty();
@@ -164,7 +164,7 @@ class TelemetryReporterTest {
     // v1 schema: deployment_mode classifies from sdk endpoint host; localhost
     // resolves to self_hosted (the v1 allowlist removes the production label).
     assertThat(body.get("deployment_mode").asText()).isEqualTo("self_hosted");
-    assertThat(body.get("profile").asText()).isEqualTo("unknown");
+    assertThat(body.has("profile")).isFalse();
     assertThat(body.get("instance_id").asText()).isNotEmpty();
     // production-mode payloads still omit stream on the wire.
     assertThat(body.has("stream")).isFalse();
