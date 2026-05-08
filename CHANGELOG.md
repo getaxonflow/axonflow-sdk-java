@@ -5,6 +5,19 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.1] - 2026-05-08 — Drop telemetry `profile` field
+
+### Removed
+
+- **Telemetry `profile` field** — collided with existing governance
+  `AXONFLOW_PROFILE` env var (allowlist `dev|default|strict|compliance`).
+  The v1 telemetry validator only accepted `dev|prod|unknown`, so any
+  customer setting `AXONFLOW_PROFILE=strict` or `=compliance` for
+  governance enforcement would have had their telemetry pings rejected
+  with HTTP 400. Removing the field reverts `AXONFLOW_PROFILE` to its
+  single governance purpose. The `deployment_mode` dimension already
+  carries the topology signal `profile` was meant to add.
+
 ## [8.0.0] - 2026-05-08 — Decision history API + telemetry simplification
 
 **Major release.** The headline feature is the new decision-history client
