@@ -164,6 +164,33 @@ jobs:
             sleep 60
           done
 
+      - name: Verify version is live on Maven Central
+        # `mvn deploy` reports "Deploy successful" the moment the artifact is
+        # validated by Sonatype Central, but actual public availability on
+        # repo1.maven.org/maven2 lags by 10-30 minutes for typical releases.
+        # We poll up to ~30 minutes (60 × 30s) so the workflow's "completed"
+        # state aligns with public-availability rather than just upload-success.
+        # Non-blocking: a failure here does NOT fail the workflow (the GH release
+        # step still fires) — propagation can occasionally exceed 30 min, in
+        # which case we want the GH release published anyway and the warning
+        # surfaced for operator follow-up.
+        continue-on-error: true
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          POM_URL="https://repo1.maven.org/maven2/com/getaxonflow/axonflow-sdk/${VERSION}/axonflow-sdk-${VERSION}.pom"
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null "$POM_URL"; then
+              echo "✅ axonflow-sdk:${VERSION} is live on Maven Central (after ${i} attempt(s) — ~$((i*30))s)"
+              echo "   $POM_URL"
+              exit 0
+            fi
+            echo "Waiting for Maven Central propagation… (attempt ${i}/60)"
+            sleep 30
+          done
+          echo "::warning::axonflow-sdk:${VERSION} not yet on repo1.maven.org after 30 minutes."
+          echo "::warning::Sonatype \`mvn deploy\` succeeded earlier in this job; propagation is sometimes >30 min."
+          echo "::warning::Verify manually at https://central.sonatype.com/publishing/deployments and $POM_URL ; not blocking the GitHub release."
+
       - name: Download release body artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
