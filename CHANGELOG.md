@@ -38,10 +38,10 @@ contract — see `Removed` at the bottom of this entry for that.
  site; `AXONFLOW_TELEMETRY=off` is the only telemetry knob.
 - **`TelemetryReporter.isEnabled` and `TelemetryReporter.sendPing`
  signatures simplified.** Both methods previously took the
- `(mode, configOverride, hasCredentials,.)` parameter shape from
+ `(mode, configOverride, hasCredentials, ...)` parameter shape from
  the v7 mode-and-override gate. v8 collapses to a single env-var
  signal: `isEnabled(String axonflowTelemetry)` and
- `sendPing(String mode, String sdkEndpoint, boolean debug,.)`.
+ `sendPing(String mode, String sdkEndpoint, boolean debug, ...)`.
  Application code does not call these directly; only test harnesses
  that exercise the testability surface need to update.
 
@@ -287,7 +287,7 @@ If you need content-equality (e.g. to detect a rotated `secret`), compare the re
 ### Fixed
 
 - **409 dispatch on step gate/complete** — previously all 409 responses on
- `markStepCompleted` fell through to a generic `AxonFlowException(., 409,
+ `markStepCompleted` fell through to a generic `AxonFlowException(..., 409,
  "VERSION_CONFLICT")`, conflating step idempotency conflicts with plan version
  conflicts. The step gate/complete call sites now inspect the 409 body and dispatch
  to `IdempotencyKeyMismatchException` when `error.code` matches, falling back to a
@@ -844,7 +844,7 @@ AxonFlowClient client = AxonFlowClient.builder()
 
 - **Sensitive Data Category**: Added `SENSITIVE_DATA` to `PolicyCategory` enum for policies that return `sensitive-data` category
 - **Provider Restrictions for Compliance**: Support for `allowed_providers` in dynamic policy action config
- - Specify allowed providers via `DynamicPolicyAction` with `config.put("allowed_providers", List.of(.))`
+ - Specify allowed providers via `DynamicPolicyAction` with `config.put("allowed_providers", List.of(...))`
  - Enables GDPR, HIPAA, and RBI compliance by restricting LLM routing to specific providers
  - Example: `new DynamicPolicyAction("route", Map.of("allowed_providers", List.of("ollama", "azure-eu")))`
 - **Category field**: Added `category` field to `CreateDynamicPolicyRequest` and `UpdateDynamicPolicyRequest`
