@@ -6,11 +6,18 @@ name: Definition of Done
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, edited]
+    # Trim out non-diff-changing event types: dropped `edited` (title/body
+    # edit re-runs the gate without any code change). `reopened` retained for
+    # PRs that were closed and reopened with new commits.
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
   pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint-no-mocks-in-runtime-e2e:

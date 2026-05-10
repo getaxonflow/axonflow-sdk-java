@@ -9,6 +9,12 @@ on:
 permissions:
   contents: read
 
+# Cancel orphaned PR runs when a new commit is pushed; push to main uses SHA so
+# main runs never queue or cancel each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   AXONFLOW_TELEMETRY: 'off'
 
@@ -17,8 +23,12 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      # PR runs only Java 17 (current release toolchain). Push to main and
+      # workflow_dispatch run the full [11, 17, 21] matrix to validate
+      # version-specific drift before the next tag. Cuts PR-time wallclock
+      # ~2/3 (5.2m → ~2m on the heaviest workflow in the SDK fleet).
       matrix:
-        java-version: [11, 17, 21]
+        java-version: ${{ fromJson(github.event_name == 'pull_request' && '[17]' || '[11, 17, 21]') }}
 
     steps:
       - name: Checkout code
