@@ -94,6 +94,26 @@ jobs:
         if: matrix.java-version == 17
         run: mvn jacoco:check -B
 
+  # Aggregator that always reports a single check name regardless of the
+  # matrix shape (PR-time matrix is `[17]`; push/dispatch is `[11, 17, 21]`).
+  # Branch protection requires `Build Summary`, not the per-version names,
+  # so matrix changes don't strand required checks.
+  build-summary:
+    name: Build Summary
+    needs: [build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate build matrix result
+        run: |
+          result="${{ needs.build.result }}"
+          echo "build matrix result: $result"
+          if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+            echo "::error::build matrix did not all pass (result: $result)"
+            exit 1
+          fi
+          echo "Build matrix OK"
+
   lint:
     runs-on: ubuntu-latest
 
