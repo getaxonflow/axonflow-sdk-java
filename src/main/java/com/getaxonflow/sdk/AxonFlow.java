@@ -3907,6 +3907,11 @@ public final class AxonFlow implements Closeable {
     // so the agent can derive request scope (sdk) and validate it against the
     // token's aud.scope via HasScope(). Sourced from SDK_VERSION; no env override.
     builder.header("X-Axonflow-Client", config.getClientHeader());
+    // X-Client-ID (v9): server-side identity decisions don't have to
+    // re-decode Basic auth. The agent's apiAuthMiddleware overwrites
+    // the header with its auth-derived value, so caller-supplied
+    // values are harmless (no spoofing surface).
+    builder.header("X-Client-ID", effectiveClientId);
   }
 
   /**
