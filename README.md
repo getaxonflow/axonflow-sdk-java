@@ -337,19 +337,35 @@ try {
 
 ## Retry Configuration
 
-The SDK includes automatic retry with exponential backoff:
+The SDK includes automatic retry with exponential backoff. The retry policy
+itself is not configurable per HTTP status — retries fire on connect/timeout
+errors, `5xx` server errors, and `429 Too Many Requests`. Authentication
+failures (`401`/`403`), policy violations, and other `4xx` client errors are
+always terminal and never retried (see `RetryExecutor.isRetryable`). This
+contract is locked in as a regression test for
+[getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
+— a retry storm on `401` against a misconfigured agent.
+
+The `RetryConfig.Builder` exposes the following knobs:
+
+- `enabled(boolean)` — turn retries off entirely (defaults to `true`).
+- `maxAttempts(int)` — total attempts including the first, `1`–`10` (default `3`).
+- `initialDelay(Duration)` — base delay before the second attempt (default `1s`).
+- `maxDelay(Duration)` — cap on the exponential backoff (default `30s`).
+- `multiplier(double)` — backoff multiplier, ≥ `1.0` (default `2.0`).
 
 ```java
+import java.time.Duration;
+
 AxonFlowConfig config = AxonFlowConfig.builder()
     .endpoint("https://agent.getaxonflow.com")
     .clientId("your-client-id")
-            .clientSecret("your-client-secret")
+    .clientSecret("your-client-secret")
     .retryConfig(RetryConfig.builder()
         .maxAttempts(3)
-        .initialDelayMs(100)
-        .maxDelayMs(5000)
+        .initialDelay(Duration.ofMillis(100))
+        .maxDelay(Duration.ofSeconds(5))
         .multiplier(2.0)
-        .retryableStatusCodes(Set.of(429, 500, 502, 503, 504))
         .build())
     .build();
 ```
