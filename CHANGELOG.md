@@ -5,6 +5,21 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **README "Retry Configuration" section.** Removed three `RetryConfig.Builder`
+  methods that do not exist on the public API (`initialDelayMs(int)`,
+  `maxDelayMs(int)`, `retryableStatusCodes(Set<Integer>)`). The example now
+  uses the actual `initialDelay(Duration)` / `maxDelay(Duration)` builders, and
+  the surrounding prose documents the real retry contract from
+  `RetryExecutor.isRetryable`: retries fire on connect/timeout, `5xx`, and
+  `429`; `401`/`403` and other `4xx` are always terminal. Locked in by the
+  regression test added for
+  [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
+  in PR #178. Documentation-only — no code or behavior change.
+
 ## [8.1.0] - 2026-05-19 — `X-Client-ID` header on every outbound request (v9 identity)
 
 **Companion release to the v9 identity cleanup on the platform (Epic #2230).**
