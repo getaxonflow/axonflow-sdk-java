@@ -243,4 +243,34 @@ class AuditToolCallTest {
     assertThat(str).contains("aud_1");
     assertThat(str).contains("recorded");
   }
+
+  // Regression test for getaxonflow/axonflow-enterprise#2275: 401 on
+  // /api/v1/audit/tool-call must be terminal — the SDK must NOT retry an
+  // auth failure, because retrying with the same invalid token just
+  // compounds the storm on the agent (716 × 401 / 24h observed from one
+  // source IP against community-saas on 2026-05-19).
+  //
+  // Java SDK is already safe: the orchestrator response handler maps 401
+  // to AuthenticationException (AxonFlow.java handleErrorResponse) and
+  // RetryExecutor.isRetryable returns false for AuthenticationException
+  // (RetryExecutor.java:119-122). This test locks in the contract
+  // end-to-end through the WireMock HTTP path, since the existing
+  // RetryExecutorTest.shouldNotRetryOnAuthenticationException is at the
+  // exception-class level rather than the HTTP-status-code level.
+  @Test
+  @DisplayName("401 must not be retried — issue #2275")
+  void shouldNotRetryOn401Issue2275() {
+    stubFor(
+        post(urlEqualTo("/api/v1/audit/tool-call"))
+            .willReturn(aResponse().withStatus(401).withBody("{\"error\":\"unauthorized\"}")));
+
+    AuditToolCallRequest request =
+        AuditToolCallRequest.builder().toolName("web_search").build();
+
+    assertThatThrownBy(() -> axonflow.auditToolCall(request))
+        .isInstanceOf(AxonFlowException.class);
+
+    // wiremock counts requests; exactly one means the SDK did NOT retry.
+    verify(1, postRequestedFor(urlEqualTo("/api/v1/audit/tool-call")));
+  }
 }
