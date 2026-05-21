@@ -5,52 +5,10 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [8.1.0] - 2026-05-19 — `X-Client-ID` header on every outbound request + `org_id` in telemetry heartbeat + retry-config doc honesty
 
-### Added
-
-- **`org_id` field in the telemetry heartbeat body (v9.1 preflight, #2277).**
-  Brings Java SDK telemetry up to parity with the platform's
-  `startup_telemetry.go` emitter — every heartbeat now identifies which
-  deployment-organization emitted it. Two sources in precedence order:
-  1. The `ORG_ID` env var when set (the operator's explicit configuration
-     on self-hosted deployments, or the `cs_<uuid>` tenant identifier on
-     Community SaaS).
-  2. Otherwise the `local-dev-org` sentinel.
-
-  Exposed as `TelemetryReporter.telemetryOrgId()` +
-  `TelemetryReporter.ORG_ID_LOCAL_DEV_SENTINEL`. The receiver already
-  accepts the field with `omitempty` for backward compat with pre-v8.1
-  SDKs that don't send it. Honors `AXONFLOW_TELEMETRY=off` like every
-  other heartbeat field. See `axonflow-landing/content/privacy.html`
-  for the customer-facing commitment that covers this field.
-
-### Changed
-
-- **Telemetry-enabled log line** softened from "anonymous telemetry
-  enabled" to "telemetry enabled" to stay coherent with the v9.1
-  `org_id` addition (the operator-supplied `ORG_ID` on self-hosted is
-  not anonymized; only the `instance_id` and `cs_<uuid>` Community
-  SaaS identifier remain anonymous-by-design). `HeartbeatState` and
-  `TelemetryReporter` JavaDoc softened similarly.
-
-### Fixed
-
-- **README "Retry Configuration" section.** Removed three `RetryConfig.Builder`
-  methods that do not exist on the public API (`initialDelayMs(int)`,
-  `maxDelayMs(int)`, `retryableStatusCodes(Set<Integer>)`). The example now
-  uses the actual `initialDelay(Duration)` / `maxDelay(Duration)` builders, and
-  the surrounding prose documents the real retry contract from
-  `RetryExecutor.isRetryable`: retries fire on connect/timeout, `5xx`, and
-  `429`; `401`/`403` and other `4xx` are always terminal. Locked in by the
-  regression test added for
-  [getaxonflow/axonflow-enterprise#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
-  in PR #178. Documentation-only — no code or behavior change.
-
-## [8.1.0] - 2026-05-19 — `X-Client-ID` header on every outbound request (v9 identity)
-
-**Companion release to the v9 identity cleanup on the platform (Epic #2230).**
-Every governed request now carries an `X-Client-ID: <effective_client_id>`
+Companion release to the v9 identity cleanup on the platform. Every
+governed request now carries an `X-Client-ID: <effective_client_id>`
 header alongside the existing Basic Auth + `X-Axonflow-Client` headers.
 Value matches the SDK's Basic Auth username — smart default `community`
 when no `clientId` is configured.
@@ -58,17 +16,57 @@ when no `clientId` is configured.
 ### Added
 
 - **`X-Client-ID` header on outbound HTTP requests.** Server-side identity
- decisions no longer need to re-decode Basic Auth. The agent's
- `apiAuthMiddleware` overwrites the header with its own auth-derived
- value, so caller-supplied values are harmless (no spoofing surface).
- Set in `addAuthHeaders` (`AxonFlow.java`), the canonical funnel for
- every governed request.
+ decisions no longer need to re-decode Basic Auth. The platform's auth
+ middleware overwrites the header with its own auth-derived value, so
+ caller-supplied values are harmless (no spoofing surface).
+- **`org_id` field in the telemetry heartbeat body.** Brings the Java SDK
+ telemetry up to parity with the platform — every heartbeat now
+ identifies which deployment-organization emitted it. Two sources in
+ precedence order:
+  1. The `ORG_ID` env var when set (the operator's explicit configuration
+     on self-hosted deployments, or the `cs_<uuid>` tenant identifier on
+     Community SaaS).
+  2. Otherwise the `local-dev-org` sentinel.
+
+  Exposed as `TelemetryReporter.telemetryOrgId()` +
+  `TelemetryReporter.ORG_ID_LOCAL_DEV_SENTINEL`. Always emitted by v8.1+
+  SDKs; older receivers ignore the field cleanly for backward compat.
+  Honors `AXONFLOW_TELEMETRY=off` like every other heartbeat field. See
+  [getaxonflow.com/privacy/](https://getaxonflow.com/privacy/) for the
+  customer-facing commitment that covers this field.
+
+### Changed
+
+- **Telemetry-enabled log line** softened from "anonymous telemetry
+ enabled" to "telemetry enabled" to stay coherent with the `org_id`
+ addition — the operator-supplied `ORG_ID` on self-hosted is not
+ anonymized; only the `instance_id` and `cs_<uuid>` Community SaaS
+ identifier remain anonymous-by-design.
+
+### Fixed
+
+- **README "Retry Configuration" section** now reflects the real public
+ API + retry contract. Three `RetryConfig.Builder` methods that do not
+ exist (`initialDelayMs(int)`, `maxDelayMs(int)`,
+ `retryableStatusCodes(Set<Integer>)`) were removed; the example uses
+ the actual `initialDelay(Duration)` / `maxDelay(Duration)` builders.
+ Surrounding prose documents the real retry contract: retries fire on
+ connect/timeout, 5xx, and 429; 401/403 and other 4xx are always
+ terminal. Documentation-only — no code or behavior change.
 
 ### Compatibility
 
 - Backward-compatible against v8 and v9 platforms: v8 agents ignore the
  unknown header; v9 agents derive identity from Basic Auth regardless.
+- `org_id` is an additive field — older receivers ignore it cleanly,
+ legacy SDK builds keep working unchanged.
 - No SDK config changes. No removed fields. No changed defaults.
+
+### Tracking
+
+- [#2230](https://github.com/getaxonflow/axonflow-enterprise/issues/2230)
+- [#2275](https://github.com/getaxonflow/axonflow-enterprise/issues/2275)
+- [#2277](https://github.com/getaxonflow/axonflow-enterprise/issues/2277)
 
 ## [8.0.0] - 2026-05-09 — Decision History API + policy_version recorded on every decision + telemetry simplification
 
