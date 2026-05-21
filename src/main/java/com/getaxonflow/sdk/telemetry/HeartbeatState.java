@@ -22,7 +22,7 @@ import org.slf4j.LoggerFactory;
  * <p>Implements the cross-SDK contract:
  *
  * <pre>
- *   AxonFlow emits at most one anonymous heartbeat per environment every
+ *   AxonFlow emits at most one heartbeat per environment every
  *   7 days during SDK activity.
  * </pre>
  *
