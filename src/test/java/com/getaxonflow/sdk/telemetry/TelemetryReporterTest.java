@@ -26,6 +26,8 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.ClearEnvironmentVariable;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 @DisplayName("TelemetryReporter")
 @WireMockTest
@@ -428,5 +430,109 @@ class TelemetryReporterTest {
         .matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
     // enterprise mode is not "sandbox", so stream is omitted
     assertThat(body.has("stream")).isFalse();
+  }
+
+  // --- v9.1 org_id tests (issue #2277) ---
+
+  @Test
+  @SetEnvironmentVariable(key = "ORG_ID", value = "acme-corp")
+  @DisplayName("v9.1: telemetryOrgId returns ORG_ID env when set (operator-supplied)")
+  void testTelemetryOrgIdEnvWins() {
+    assertThat(TelemetryReporter.telemetryOrgId()).isEqualTo("acme-corp");
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "ORG_ID")
+  @DisplayName("v9.1: telemetryOrgId returns local-dev-org sentinel when ORG_ID unset")
+  void testTelemetryOrgIdSentinelWhenUnset() {
+    assertThat(TelemetryReporter.telemetryOrgId())
+        .isEqualTo(TelemetryReporter.ORG_ID_LOCAL_DEV_SENTINEL);
+    assertThat(TelemetryReporter.ORG_ID_LOCAL_DEV_SENTINEL).isEqualTo("local-dev-org");
+  }
+
+  @Test
+  @SetEnvironmentVariable(key = "ORG_ID", value = "")
+  @DisplayName("v9.1: telemetryOrgId treats empty ORG_ID as unset")
+  void testTelemetryOrgIdEmptyFallsThrough() {
+    assertThat(TelemetryReporter.telemetryOrgId())
+        .isEqualTo(TelemetryReporter.ORG_ID_LOCAL_DEV_SENTINEL);
+  }
+
+  @Test
+  @SetEnvironmentVariable(key = "ORG_ID", value = "cs_e3a4b5c6-d7e8-4f90-a1b2-c3d4e5f6a7b8")
+  @DisplayName("v9.1: telemetryOrgId passes through cs_<uuid> Community SaaS tenant identifier")
+  void testTelemetryOrgIdCsPrefixedPassesThrough() {
+    assertThat(TelemetryReporter.telemetryOrgId())
+        .isEqualTo("cs_e3a4b5c6-d7e8-4f90-a1b2-c3d4e5f6a7b8");
+  }
+
+  @Test
+  @SetEnvironmentVariable(key = "ORG_ID", value = "acme-corp")
+  @DisplayName("v9.1: buildPayload includes ORG_ID env on the wire")
+  void testPayloadIncludesOrgIdFromEnv() throws Exception {
+    String payload = TelemetryReporter.buildPayload("production", null);
+    JsonNode root = objectMapper.readTree(payload);
+    assertThat(root.get("org_id").asText()).isEqualTo("acme-corp");
+    // Wire-literal substring assertion defends against tag-removal mutations.
+    assertThat(payload).contains("\"org_id\":\"acme-corp\"");
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "ORG_ID")
+  @DisplayName("v9.1: buildPayload emits local-dev-org sentinel when ORG_ID unset")
+  void testPayloadIncludesSentinelWhenUnset() throws Exception {
+    String payload = TelemetryReporter.buildPayload("production", null);
+    JsonNode root = objectMapper.readTree(payload);
+    assertThat(root.get("org_id").asText()).isEqualTo("local-dev-org");
+    assertThat(payload).contains("\"org_id\":\"local-dev-org\"");
+  }
+
+  @Test
+  @SetEnvironmentVariable(key = "ORG_ID", value = "cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff")
+  @DisplayName("v9.1: buildPayload passes through cs_<uuid> on the wire")
+  void testPayloadIncludesCsPrefixedTenant() throws Exception {
+    String payload = TelemetryReporter.buildPayload("production", null);
+    JsonNode root = objectMapper.readTree(payload);
+    assertThat(root.get("org_id").asText())
+        .isEqualTo("cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff");
+    assertThat(payload).contains("\"org_id\":\"cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff\"");
+  }
+
+  @Test
+  @SetEnvironmentVariable(key = "ORG_ID", value = "acme-corp")
+  @DisplayName(
+      "v9.1: functional E2E — ORG_ID arrives on the wire at the receiver (WireMock real HTTP)")
+  void testOrgIdReachesReceiverOverHttp(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+    stubFor(post("/v1/ping").willReturn(ok()));
+    String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+    TelemetryReporter.sendPing(
+        "production", "http://localhost:8080", false, null, customUrl);
+    Thread.sleep(2000);
+
+    var requests = WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping")));
+    assertThat(requests).hasSize(1);
+    String body = requests.get(0).getBodyAsString();
+    JsonNode root = objectMapper.readTree(body);
+    assertThat(root.get("org_id").asText()).isEqualTo("acme-corp");
+    assertThat(body).contains("\"org_id\":\"acme-corp\"");
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "ORG_ID")
+  @DisplayName("v9.1: functional E2E — sentinel arrives on the wire when ORG_ID unset")
+  void testOrgIdSentinelReachesReceiver(WireMockRuntimeInfo wmRuntimeInfo) throws Exception {
+    stubFor(post("/v1/ping").willReturn(ok()));
+    String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
+
+    TelemetryReporter.sendPing(
+        "production", "http://localhost:8080", false, null, customUrl);
+    Thread.sleep(2000);
+
+    var requests = WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping")));
+    assertThat(requests).hasSize(1);
+    String body = requests.get(0).getBodyAsString();
+    JsonNode root = objectMapper.readTree(body);
+    assertThat(root.get("org_id").asText()).isEqualTo("local-dev-org");
   }
 }

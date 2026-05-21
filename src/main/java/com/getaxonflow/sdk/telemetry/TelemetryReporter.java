@@ -65,7 +65,7 @@ public class TelemetryReporter {
   private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
   /**
-   * Sends an anonymous telemetry ping synchronously (blocks until the round-trip completes).
+   * Sends a telemetry ping synchronously (blocks until the round-trip completes).
    *
    * @param mode the deployment mode (e.g. "production", "sandbox")
    * @param sdkEndpoint the configured SDK endpoint, used to detect platform version via /health
@@ -113,7 +113,7 @@ public class TelemetryReporter {
   public static boolean sendPingNow(
       String mode, String sdkEndpoint, boolean debug, String checkpointUrl) {
     logger.info(
-        "AxonFlow: anonymous telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry");
+        "AxonFlow: telemetry enabled. Opt out: AXONFLOW_TELEMETRY=off | https://docs.getaxonflow.com/docs/telemetry");
 
     String endpoint =
         (checkpointUrl != null && !checkpointUrl.isEmpty()) ? checkpointUrl : DEFAULT_ENDPOINT;
@@ -244,11 +244,38 @@ public class TelemetryReporter {
         root.put("stream", "sandbox");
       }
 
+      // v9.1 deployment-organization identifier (#2277). Two sources, precedence order:
+      // ORG_ID env (operator-supplied on self-hosted, or cs_<uuid> on Community SaaS) or
+      // the "local-dev-org" sentinel. Always emitted. See axonflow-landing/content/privacy.html
+      // for the customer-facing commitment that covers this field.
+      root.put("org_id", telemetryOrgId());
+
       return mapper.writeValueAsString(root);
     } catch (Exception e) {
       // Fallback minimal payload
       return "{\"sdk\":\"java\",\"sdk_version\":\"" + AxonFlowConfig.SDK_VERSION + "\"}";
     }
+  }
+
+  /**
+   * Sentinel emitted on the telemetry wire when {@code ORG_ID} is unset — the
+   * default-config Community-mode developer case. See #2277.
+   */
+  public static final String ORG_ID_LOCAL_DEV_SENTINEL = "local-dev-org";
+
+  /**
+   * Returns the {@code org_id} value to emit on the next telemetry ping. Reads
+   * {@code ORG_ID} from the environment (the operator's explicit configuration for
+   * self-hosted deployments, or the {@code cs_<uuid>} tenant identifier on Community
+   * SaaS) and falls back to {@link #ORG_ID_LOCAL_DEV_SENTINEL} when unset. Always
+   * returns a non-empty string. See #2277.
+   */
+  static String telemetryOrgId() {
+    String value = System.getenv("ORG_ID");
+    if (value == null || value.isEmpty()) {
+      return ORG_ID_LOCAL_DEV_SENTINEL;
+    }
+    return value;
   }
 
   /**

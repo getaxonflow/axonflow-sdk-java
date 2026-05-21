@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`org_id` field in the telemetry heartbeat body (v9.1 preflight, #2277).**
+  Brings Java SDK telemetry up to parity with the platform's
+  `startup_telemetry.go` emitter — every heartbeat now identifies which
+  deployment-organization emitted it. Two sources in precedence order:
+  1. The `ORG_ID` env var when set (the operator's explicit configuration
+     on self-hosted deployments, or the `cs_<uuid>` tenant identifier on
+     Community SaaS).
+  2. Otherwise the `local-dev-org` sentinel.
+
+  Exposed as `TelemetryReporter.telemetryOrgId()` +
+  `TelemetryReporter.ORG_ID_LOCAL_DEV_SENTINEL`. The receiver already
+  accepts the field with `omitempty` for backward compat with pre-v8.1
+  SDKs that don't send it. Honors `AXONFLOW_TELEMETRY=off` like every
+  other heartbeat field. See `axonflow-landing/content/privacy.html`
+  for the customer-facing commitment that covers this field.
+
+### Changed
+
+- **Telemetry-enabled log line** softened from "anonymous telemetry
+  enabled" to "telemetry enabled" to stay coherent with the v9.1
+  `org_id` addition (the operator-supplied `ORG_ID` on self-hosted is
+  not anonymized; only the `instance_id` and `cs_<uuid>` Community
+  SaaS identifier remain anonymous-by-design). `HeartbeatState` and
+  `TelemetryReporter` JavaDoc softened similarly.
+
 ### Fixed
 
 - **README "Retry Configuration" section.** Removed three `RetryConfig.Builder`
