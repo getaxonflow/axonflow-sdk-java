@@ -6417,6 +6417,67 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
+   * Creates a new HITL approval request via {@code POST /api/v1/hitl/queue}.
+   *
+   * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license. The platform returns 403
+   * with {@code ErrHITLApprovalDisabledByTier} when called against a community tier that hasn't
+   * enabled HITL, and 401 when credentials are invalid.
+   *
+   * <p>This is the explicit row-creation step for callers that detect {@code require_approval}
+   * from a separate gate ({@code pre_check}, {@code check_tool_input}, MAP plan approvals) and
+   * want the row enqueued so a reviewer can act on it. After creating, either poll
+   * {@link #getHITLRequest(String)} until terminal state, or supply
+   * {@link HITLCreateInput#setNotifyUrl(String) notifyUrl} so the platform fires a signed webhook
+   * on the transition (n8n Wait-node "On Webhook Call" pattern, ADK plugin polling-free mode).
+   *
+   * <p>{@code clientId}, {@code originalQuery}, and {@code requestType} are required; all other
+   * fields are optional. Bad {@code notifyUrl} schemes are rejected by the platform with HTTP
+   * 400 (surfaced here via {@link AxonFlowException}); only {@code https://} (and {@code http://}
+   * for self-hosted local-dev) are accepted.
+   *
+   * @param input the create-request input
+   * @return the created approval request with {@code requestId} populated
+   * @throws AxonFlowException if validation or the platform call fails
+   */
+  public HITLApprovalRequest createHITLRequest(HITLCreateInput input) {
+    Objects.requireNonNull(input, "input cannot be null");
+    if (input.getClientId() == null || input.getClientId().isEmpty()) {
+      throw new IllegalArgumentException("client_id is required");
+    }
+    if (input.getOriginalQuery() == null || input.getOriginalQuery().isEmpty()) {
+      throw new IllegalArgumentException("original_query is required");
+    }
+    if (input.getRequestType() == null || input.getRequestType().isEmpty()) {
+      throw new IllegalArgumentException("request_type is required");
+    }
+
+    return retryExecutor.execute(
+        () -> {
+          Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/hitl/queue", input);
+          try (Response response = executeHttp(httpClient, httpRequest)) {
+            JsonNode node = parseResponseNode(response);
+
+            // Server wraps response: {"success": true, "data": {...}}
+            if (node.has("data") && node.get("data").isObject()) {
+              return objectMapper.treeToValue(node.get("data"), HITLApprovalRequest.class);
+            }
+            return objectMapper.treeToValue(node, HITLApprovalRequest.class);
+          }
+        },
+        "createHITLRequest");
+  }
+
+  /**
+   * Asynchronously creates a new HITL approval request.
+   *
+   * @param input the create-request input
+   * @return a future containing the created approval request
+   */
+  public CompletableFuture<HITLApprovalRequest> createHITLRequestAsync(HITLCreateInput input) {
+    return CompletableFuture.supplyAsync(() -> createHITLRequest(input), asyncExecutor);
+  }
+
+  /**
    * Approves a HITL approval request.
    *
    * <p><b>Enterprise Feature:</b> Requires AxonFlow Enterprise license.

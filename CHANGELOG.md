@@ -5,6 +5,61 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.2.0] - 2026-05-23 — `createHITLRequest` for explicit HITL row creation
+
+Enables agent-framework callers (Google ADK, n8n, OpenAI Agents SDK) to
+implement the full 4-step HITL approval flow against AxonFlow:
+
+  1. Gate evaluates `require_approval` (via `pre_check` / `checkToolInput`)
+  2. Caller invokes `axonflow.createHITLRequest(...)` to enqueue the row
+  3. Caller polls `axonflow.getHITLRequest(approvalId)` until terminal state
+  4. Caller resumes the agent or denies the call based on the decision
+
+Prior to this release the SDK exposed `getHITLRequest` /
+`approveHITLRequest` / `rejectHITLRequest` (the read + review
+surface) but had no method to **create** a row. The platform's
+`POST /api/v1/hitl/queue` endpoint has existed since v6.x; only the
+SDK surface was missing.
+
+### Added
+
+- **`AxonFlow#createHITLRequest(HITLCreateInput) -> HITLApprovalRequest`**
+  + `AxonFlow#createHITLRequestAsync(HITLCreateInput) -> CompletableFuture<HITLApprovalRequest>`.
+  Required fields: `clientId`, `originalQuery`, `requestType`.
+  Optional fields cover policy attribution, severity, compliance
+  framework, an expiry override, and the new `notifyUrl` callback.
+  Server-side `X-Org-ID` / `X-Tenant-ID` headers are derived by the
+  platform's auth middleware from the SDK client's configured
+  credentials — callers do not pass them through this method.
+- **`HITLCreateInput` POJO + Builder** in
+  `com.getaxonflow.sdk.types.hitl.HITLTypes` mirroring
+  `platform/agent/hitl/handler.go:86 CreateRequestInput`.
+- **`notifyUrl` field on `HITLCreateInput` and `HITLApprovalRequest`.**
+  Opt-in webhook URL fired after the request reaches a terminal state
+  (approved / rejected / expired / overridden). Pairs with the
+  HMAC-SHA256 `X-AxonFlow-Signature` header on the receiver side.
+  Scheme allowlist (`https://`, plus `http://` for self-hosted
+  local-dev) is enforced server-side; bad schemes surface as an
+  exception from the SDK carrying the platform's `HTTP 400`. Companion
+  platform work in getaxonflow/axonflow-enterprise#2419.
+- 8 JUnit cases covering: full-fields create, minimal required-fields
+  create, bad-`notifyUrl`-scheme 400 propagation, 401 propagation,
+  connect failure propagation (via WireMock `CONNECTION_RESET_BY_PEER`
+  fault), and the three required-field validation guards
+  (`client_id` / `original_query` / `request_type`).
+
+### Compatibility
+
+No breaking changes. New types are additive in
+`com.getaxonflow.sdk.types.hitl.HITLTypes`. The existing
+`getHITLRequest` / `approveHITLRequest` / `rejectHITLRequest` /
+`listHITLQueue` / `getHITLStats` methods are unchanged. `notifyUrl`
+on the response POJO is optional and absent in payloads from platforms
+that don't yet implement the field; older code parses the new shape
+cleanly via `@JsonIgnoreProperties(ignoreUnknown = true)`.
+
+Cross-SDK parity sweep: getaxonflow/axonflow-enterprise#2421.
+
 ## [8.1.0] - 2026-05-22 — `X-Client-ID` header on every outbound request + `org_id` in telemetry heartbeat + retry-config doc honesty
 
 Companion release to the v9 identity cleanup on the platform. Every

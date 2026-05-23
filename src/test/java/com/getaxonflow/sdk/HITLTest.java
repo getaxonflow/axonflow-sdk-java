@@ -18,6 +18,7 @@ package com.getaxonflow.sdk;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.*;
 
+import com.getaxonflow.sdk.exceptions.AxonFlowException;
 import com.getaxonflow.sdk.types.hitl.HITLTypes.*;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
@@ -77,11 +78,7 @@ class HITLTest {
   @BeforeEach
   void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
     axonflow =
-        AxonFlow.create(
-            AxonFlowConfig.builder()
-                .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-                .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-                .build());
+        AxonFlow.create(AxonFlowConfig.builder().endpoint(wmRuntimeInfo.getHttpBaseUrl()).build());
   }
 
   // ========================================================================
@@ -197,6 +194,219 @@ class HITLTest {
       assertThat(result.getItems()).hasSize(1);
       assertThat(result.getTotal()).isEqualTo(100);
       assertThat(result.isHasMore()).isTrue();
+    }
+  }
+
+  // ========================================================================
+  // createHITLRequest Tests
+  // ========================================================================
+
+  @Nested
+  @DisplayName("createHITLRequest")
+  class CreateHITLRequest {
+
+    private static final String CREATED_APPROVAL_REQUEST =
+        "{"
+            + "\"request_id\": \"hitl-req-new-001\","
+            + "\"org_id\": \"org-1\","
+            + "\"tenant_id\": \"tenant-1\","
+            + "\"client_id\": \"loan-desk\","
+            + "\"user_id\": \"cust-001\","
+            + "\"original_query\": \"disburse $50000 to cust-001\","
+            + "\"request_type\": \"adk-tool\","
+            + "\"request_context\": {\"tool_name\": \"disburse_payment\"},"
+            + "\"triggered_policy_id\": \"loan-amount-cap\","
+            + "\"triggered_policy_name\": \"Loan amount cap\","
+            + "\"trigger_reason\": \"Disbursement above $10k requires manager approval\","
+            + "\"severity\": \"high\","
+            + "\"notify_url\": \"https://workflows.example.com/hooks/loan-approve\","
+            + "\"status\": \"pending\","
+            + "\"expires_at\": \"2026-05-23T11:00:00Z\","
+            + "\"created_at\": \"2026-05-23T10:00:00Z\","
+            + "\"updated_at\": \"2026-05-23T10:00:00Z\""
+            + "}";
+
+    @Test
+    @DisplayName("should POST a full create-input and return the created record")
+    void shouldPostFullCreateInputAndReturnCreatedRecord() {
+      stubFor(
+          post(urlEqualTo("/api/v1/hitl/queue"))
+              .willReturn(
+                  aResponse()
+                      .withStatus(201)
+                      .withHeader("Content-Type", "application/json")
+                      .withBody(
+                          "{\"success\": true, \"data\": " + CREATED_APPROVAL_REQUEST + "}")));
+
+      HITLCreateInput input =
+          HITLCreateInput.builder()
+              .clientId("loan-desk")
+              .userId("cust-001")
+              .originalQuery("disburse $50000 to cust-001")
+              .requestType("adk-tool")
+              .triggeredPolicyId("loan-amount-cap")
+              .triggeredPolicyName("Loan amount cap")
+              .triggerReason("Disbursement above $10k requires manager approval")
+              .severity("high")
+              .notifyUrl("https://workflows.example.com/hooks/loan-approve")
+              .build();
+
+      HITLApprovalRequest result = axonflow.createHITLRequest(input);
+
+      assertThat(result.getRequestId()).isEqualTo("hitl-req-new-001");
+      assertThat(result.getStatus()).isEqualTo("pending");
+      assertThat(result.getNotifyUrl())
+          .isEqualTo("https://workflows.example.com/hooks/loan-approve");
+      assertThat(result.getTriggeredPolicyName()).isEqualTo("Loan amount cap");
+
+      verify(
+          postRequestedFor(urlEqualTo("/api/v1/hitl/queue"))
+              .withRequestBody(matchingJsonPath("$.client_id", equalTo("loan-desk")))
+              .withRequestBody(
+                  matchingJsonPath(
+                      "$.notify_url",
+                      equalTo("https://workflows.example.com/hooks/loan-approve")))
+              .withRequestBody(matchingJsonPath("$.severity", equalTo("high"))));
+    }
+
+    @Test
+    @DisplayName("should accept minimal required-field set (clientId + originalQuery + requestType)")
+    void shouldAcceptMinimalRequiredFields() {
+      stubFor(
+          post(urlEqualTo("/api/v1/hitl/queue"))
+              .willReturn(
+                  aResponse()
+                      .withStatus(201)
+                      .withHeader("Content-Type", "application/json")
+                      .withBody(
+                          "{\"success\": true, \"data\": {"
+                              + "\"request_id\": \"hitl-req-minimal\","
+                              + "\"org_id\": \"org-1\","
+                              + "\"tenant_id\": \"tenant-1\","
+                              + "\"client_id\": \"c1\","
+                              + "\"original_query\": \"q\","
+                              + "\"request_type\": \"chat\","
+                              + "\"triggered_policy_id\": \"\","
+                              + "\"triggered_policy_name\": \"\","
+                              + "\"trigger_reason\": \"\","
+                              + "\"severity\": \"high\","
+                              + "\"status\": \"pending\","
+                              + "\"expires_at\": \"2026-05-23T11:00:00Z\","
+                              + "\"created_at\": \"2026-05-23T10:00:00Z\","
+                              + "\"updated_at\": \"2026-05-23T10:00:00Z\""
+                              + "}}")));
+
+      HITLCreateInput input =
+          HITLCreateInput.builder()
+              .clientId("c1")
+              .originalQuery("q")
+              .requestType("chat")
+              .build();
+
+      HITLApprovalRequest result = axonflow.createHITLRequest(input);
+      assertThat(result.getRequestId()).isEqualTo("hitl-req-minimal");
+      assertThat(result.getNotifyUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName(
+        "should surface a platform 400 on bad notify_url scheme as an exception from the SDK")
+    void shouldSurfaceBadNotifyUrlSchemeAsException() {
+      // Mirrors platform/agent/hitl/webhook.go:105 ValidateNotifyURL.
+      stubFor(
+          post(urlEqualTo("/api/v1/hitl/queue"))
+              .willReturn(
+                  aResponse()
+                      .withStatus(400)
+                      .withHeader("Content-Type", "application/json")
+                      .withBody(
+                          "{\"success\":false,\"error\":\"notify_url scheme \\\"javascript\\\""
+                              + " is not allowed (use https:// or http://)\"}")));
+
+      HITLCreateInput input =
+          HITLCreateInput.builder()
+              .clientId("loan-desk")
+              .originalQuery("disburse $50000")
+              .requestType("adk-tool")
+              .notifyUrl("javascript:alert(1)")
+              .build();
+
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(AxonFlowException.class);
+    }
+
+    @Test
+    @DisplayName("should propagate 401 as an exception")
+    void shouldPropagateAuthFailure() {
+      stubFor(
+          post(urlEqualTo("/api/v1/hitl/queue"))
+              .willReturn(
+                  aResponse()
+                      .withStatus(401)
+                      .withHeader("Content-Type", "application/json")
+                      .withBody("{\"success\":false,\"error\":\"Invalid API key\"}")));
+
+      HITLCreateInput input =
+          HITLCreateInput.builder()
+              .clientId("loan-desk")
+              .originalQuery("disburse $50000")
+              .requestType("adk-tool")
+              .build();
+
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(AxonFlowException.class);
+    }
+
+    @Test
+    @DisplayName("should propagate network/connect failure as an exception")
+    void shouldPropagateNetworkFailure() {
+      // Stop the WireMock-driven endpoint by stubbing a fault that closes
+      // the connection before reply. Mirrors a real ECONNRESET on the
+      // wire.
+      stubFor(
+          post(urlEqualTo("/api/v1/hitl/queue"))
+              .willReturn(
+                  aResponse().withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER)));
+
+      HITLCreateInput input =
+          HITLCreateInput.builder()
+              .clientId("loan-desk")
+              .originalQuery("disburse $50000")
+              .requestType("adk-tool")
+              .build();
+
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(AxonFlowException.class);
+    }
+
+    @Test
+    @DisplayName("should reject missing client_id")
+    void shouldRejectMissingClientId() {
+      HITLCreateInput input =
+          HITLCreateInput.builder().originalQuery("q").requestType("chat").build();
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("client_id");
+    }
+
+    @Test
+    @DisplayName("should reject missing original_query")
+    void shouldRejectMissingOriginalQuery() {
+      HITLCreateInput input =
+          HITLCreateInput.builder().clientId("c1").requestType("chat").build();
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("original_query");
+    }
+
+    @Test
+    @DisplayName("should reject missing request_type")
+    void shouldRejectMissingRequestType() {
+      HITLCreateInput input =
+          HITLCreateInput.builder().clientId("c1").originalQuery("q").build();
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("request_type");
     }
   }
 
