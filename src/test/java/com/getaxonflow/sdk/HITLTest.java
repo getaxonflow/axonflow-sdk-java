@@ -18,6 +18,7 @@ package com.getaxonflow.sdk;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.*;
 
+import com.getaxonflow.sdk.exceptions.AxonFlowException;
 import com.getaxonflow.sdk.types.hitl.HITLTypes.*;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
@@ -77,11 +78,7 @@ class HITLTest {
   @BeforeEach
   void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
     axonflow =
-        AxonFlow.create(
-            AxonFlowConfig.builder()
-                .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-                .endpoint(wmRuntimeInfo.getHttpBaseUrl())
-                .build());
+        AxonFlow.create(AxonFlowConfig.builder().endpoint(wmRuntimeInfo.getHttpBaseUrl()).build());
   }
 
   // ========================================================================
@@ -334,7 +331,8 @@ class HITLTest {
               .notifyUrl("javascript:alert(1)")
               .build();
 
-      assertThatThrownBy(() -> axonflow.createHITLRequest(input)).isInstanceOf(Exception.class);
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(AxonFlowException.class);
     }
 
     @Test
@@ -355,7 +353,8 @@ class HITLTest {
               .requestType("adk-tool")
               .build();
 
-      assertThatThrownBy(() -> axonflow.createHITLRequest(input)).isInstanceOf(Exception.class);
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(AxonFlowException.class);
     }
 
     @Test
@@ -376,7 +375,8 @@ class HITLTest {
               .requestType("adk-tool")
               .build();
 
-      assertThatThrownBy(() -> axonflow.createHITLRequest(input)).isInstanceOf(Exception.class);
+      assertThatThrownBy(() -> axonflow.createHITLRequest(input))
+          .isInstanceOf(AxonFlowException.class);
     }
 
     @Test
