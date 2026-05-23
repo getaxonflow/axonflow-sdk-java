@@ -113,6 +113,20 @@ public final class HITLTypes {
     @JsonProperty("reviewed_at")
     private String reviewedAt;
 
+    /**
+     * Optional outbound webhook URL associated with the request.
+     *
+     * <p>Mirrors the value supplied on creation. Platforms that
+     * implement the outbound-webhook dispatcher (introduced in
+     * getaxonflow/axonflow-enterprise#2419) fire a signed POST to this
+     * URL after the request reaches a terminal state
+     * (approved/rejected/expired/overridden). Platforms that don't,
+     * simply round-trip the field. Enables webhook-driven resume
+     * (n8n Wait-node, ADK plugin polling-free mode).
+     */
+    @JsonProperty("notify_url")
+    private String notifyUrl;
+
     @JsonProperty("expires_at")
     private String expiresAt;
 
@@ -285,6 +299,14 @@ public final class HITLTypes {
       this.reviewedAt = reviewedAt;
     }
 
+    public String getNotifyUrl() {
+      return notifyUrl;
+    }
+
+    public void setNotifyUrl(String notifyUrl) {
+      this.notifyUrl = notifyUrl;
+    }
+
     public String getExpiresAt() {
       return expiresAt;
     }
@@ -436,6 +458,274 @@ public final class HITLTypes {
 
     public void setHasMore(boolean hasMore) {
       this.hasMore = hasMore;
+    }
+  }
+
+  // ========================================================================
+  // Create Input
+  // ========================================================================
+
+  /**
+   * Input for creating a HITL approval request.
+   *
+   * <p>Mirrors {@code platform/agent/hitl/handler.go:86 CreateRequestInput}. The platform's
+   * {@code POST /api/v1/hitl/queue} handler reads {@code X-Org-ID} and {@code X-Tenant-ID} from
+   * request headers (set by the auth middleware from the SDK client's credentials), and the JSON
+   * body must carry the fields below.
+   *
+   * <p>Used by agent-framework callers that detect {@code require_approval} from
+   * {@code pre_check} / {@code check_tool_input} and want to enqueue the corresponding HITL row
+   * before polling the reviewer's decision (or pivoting to webhook-driven resume via
+   * {@code notifyUrl}).
+   */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class HITLCreateInput {
+
+    @JsonProperty("client_id")
+    private String clientId;
+
+    @JsonProperty("user_id")
+    private String userId;
+
+    @JsonProperty("original_query")
+    private String originalQuery;
+
+    @JsonProperty("request_type")
+    private String requestType;
+
+    @JsonProperty("request_context")
+    private Map<String, Object> requestContext;
+
+    @JsonProperty("triggered_policy_id")
+    private String triggeredPolicyId;
+
+    @JsonProperty("triggered_policy_name")
+    private String triggeredPolicyName;
+
+    @JsonProperty("trigger_reason")
+    private String triggerReason;
+
+    @JsonProperty("severity")
+    private String severity;
+
+    /**
+     * Optional outbound webhook URL fired async after terminal state transition. Must be
+     * {@code https://} (or {@code http://} for self-hosted local-dev). Server-side validation
+     * rejects bad schemes with HTTP 400. Pair with the HMAC-SHA256 {@code X-AxonFlow-Signature}
+     * header on the receiver side; signing key is the deployment-configured
+     * {@code AXONFLOW_HITL_WEBHOOK_SIGNING_KEY}. Introduced in
+     * getaxonflow/axonflow-enterprise#2419.
+     */
+    @JsonProperty("notify_url")
+    private String notifyUrl;
+
+    @JsonProperty("eu_ai_act_article")
+    private String euAiActArticle;
+
+    @JsonProperty("compliance_framework")
+    private String complianceFramework;
+
+    @JsonProperty("risk_classification")
+    private String riskClassification;
+
+    @JsonProperty("expires_in_seconds")
+    private Integer expiresInSeconds;
+
+    public HITLCreateInput() {}
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public String getClientId() {
+      return clientId;
+    }
+
+    public void setClientId(String clientId) {
+      this.clientId = clientId;
+    }
+
+    public String getUserId() {
+      return userId;
+    }
+
+    public void setUserId(String userId) {
+      this.userId = userId;
+    }
+
+    public String getOriginalQuery() {
+      return originalQuery;
+    }
+
+    public void setOriginalQuery(String originalQuery) {
+      this.originalQuery = originalQuery;
+    }
+
+    public String getRequestType() {
+      return requestType;
+    }
+
+    public void setRequestType(String requestType) {
+      this.requestType = requestType;
+    }
+
+    public Map<String, Object> getRequestContext() {
+      return requestContext;
+    }
+
+    public void setRequestContext(Map<String, Object> requestContext) {
+      this.requestContext = requestContext;
+    }
+
+    public String getTriggeredPolicyId() {
+      return triggeredPolicyId;
+    }
+
+    public void setTriggeredPolicyId(String triggeredPolicyId) {
+      this.triggeredPolicyId = triggeredPolicyId;
+    }
+
+    public String getTriggeredPolicyName() {
+      return triggeredPolicyName;
+    }
+
+    public void setTriggeredPolicyName(String triggeredPolicyName) {
+      this.triggeredPolicyName = triggeredPolicyName;
+    }
+
+    public String getTriggerReason() {
+      return triggerReason;
+    }
+
+    public void setTriggerReason(String triggerReason) {
+      this.triggerReason = triggerReason;
+    }
+
+    public String getSeverity() {
+      return severity;
+    }
+
+    public void setSeverity(String severity) {
+      this.severity = severity;
+    }
+
+    public String getNotifyUrl() {
+      return notifyUrl;
+    }
+
+    public void setNotifyUrl(String notifyUrl) {
+      this.notifyUrl = notifyUrl;
+    }
+
+    public String getEuAiActArticle() {
+      return euAiActArticle;
+    }
+
+    public void setEuAiActArticle(String euAiActArticle) {
+      this.euAiActArticle = euAiActArticle;
+    }
+
+    public String getComplianceFramework() {
+      return complianceFramework;
+    }
+
+    public void setComplianceFramework(String complianceFramework) {
+      this.complianceFramework = complianceFramework;
+    }
+
+    public String getRiskClassification() {
+      return riskClassification;
+    }
+
+    public void setRiskClassification(String riskClassification) {
+      this.riskClassification = riskClassification;
+    }
+
+    public Integer getExpiresInSeconds() {
+      return expiresInSeconds;
+    }
+
+    public void setExpiresInSeconds(Integer expiresInSeconds) {
+      this.expiresInSeconds = expiresInSeconds;
+    }
+
+    /** Builder for {@link HITLCreateInput}. */
+    public static class Builder {
+      private final HITLCreateInput input = new HITLCreateInput();
+
+      public Builder clientId(String clientId) {
+        input.clientId = clientId;
+        return this;
+      }
+
+      public Builder userId(String userId) {
+        input.userId = userId;
+        return this;
+      }
+
+      public Builder originalQuery(String originalQuery) {
+        input.originalQuery = originalQuery;
+        return this;
+      }
+
+      public Builder requestType(String requestType) {
+        input.requestType = requestType;
+        return this;
+      }
+
+      public Builder requestContext(Map<String, Object> requestContext) {
+        input.requestContext = requestContext;
+        return this;
+      }
+
+      public Builder triggeredPolicyId(String triggeredPolicyId) {
+        input.triggeredPolicyId = triggeredPolicyId;
+        return this;
+      }
+
+      public Builder triggeredPolicyName(String triggeredPolicyName) {
+        input.triggeredPolicyName = triggeredPolicyName;
+        return this;
+      }
+
+      public Builder triggerReason(String triggerReason) {
+        input.triggerReason = triggerReason;
+        return this;
+      }
+
+      public Builder severity(String severity) {
+        input.severity = severity;
+        return this;
+      }
+
+      public Builder notifyUrl(String notifyUrl) {
+        input.notifyUrl = notifyUrl;
+        return this;
+      }
+
+      public Builder euAiActArticle(String euAiActArticle) {
+        input.euAiActArticle = euAiActArticle;
+        return this;
+      }
+
+      public Builder complianceFramework(String complianceFramework) {
+        input.complianceFramework = complianceFramework;
+        return this;
+      }
+
+      public Builder riskClassification(String riskClassification) {
+        input.riskClassification = riskClassification;
+        return this;
+      }
+
+      public Builder expiresInSeconds(Integer expiresInSeconds) {
+        input.expiresInSeconds = expiresInSeconds;
+        return this;
+      }
+
+      public HITLCreateInput build() {
+        return input;
+      }
     }
   }
 
