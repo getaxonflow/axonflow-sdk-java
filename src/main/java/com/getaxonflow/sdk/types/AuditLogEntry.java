@@ -78,6 +78,12 @@ public final class AuditLogEntry {
   @JsonProperty("metadata")
   private final Map<String, Object> metadata;
 
+  @JsonProperty("data_residency")
+  private final String dataResidency;
+
+  @JsonProperty("transfer_basis")
+  private final String transferBasis;
+
   public AuditLogEntry(
       @JsonProperty("id") String id,
       @JsonProperty("request_id") String requestId,
@@ -95,7 +101,9 @@ public final class AuditLogEntry {
       @JsonProperty("tokens_used") Integer tokensUsed,
       @JsonProperty("latency_ms") Integer latencyMs,
       @JsonProperty("policy_violations") List<String> policyViolations,
-      @JsonProperty("metadata") Map<String, Object> metadata) {
+      @JsonProperty("metadata") Map<String, Object> metadata,
+      @JsonProperty("data_residency") String dataResidency,
+      @JsonProperty("transfer_basis") String transferBasis) {
     this.id = id != null ? id : "";
     this.requestId = requestId != null ? requestId : "";
     this.timestamp = timestamp != null ? timestamp : Instant.now();
@@ -113,6 +121,8 @@ public final class AuditLogEntry {
     this.latencyMs = latencyMs != null ? latencyMs : 0;
     this.policyViolations = policyViolations != null ? policyViolations : Collections.emptyList();
     this.metadata = metadata != null ? metadata : Collections.emptyMap();
+    this.dataResidency = dataResidency;
+    this.transferBasis = transferBasis;
   }
 
   /** Returns the unique audit log ID. */
@@ -200,6 +210,16 @@ public final class AuditLogEntry {
     return metadata;
   }
 
+  /** Returns the ISO 3166-1 alpha-2 data residency country code, or null if not set. */
+  public String getDataResidency() {
+    return dataResidency;
+  }
+
+  /** Returns the cross-border transfer basis (adequacy, safeguards, or consent), or null if not set. */
+  public String getTransferBasis() {
+    return transferBasis;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -221,7 +241,9 @@ public final class AuditLogEntry {
         && Objects.equals(provider, that.provider)
         && Objects.equals(model, that.model)
         && Objects.equals(policyViolations, that.policyViolations)
-        && Objects.equals(metadata, that.metadata);
+        && Objects.equals(metadata, that.metadata)
+        && Objects.equals(dataResidency, that.dataResidency)
+        && Objects.equals(transferBasis, that.transferBasis);
   }
 
   @Override
@@ -243,7 +265,9 @@ public final class AuditLogEntry {
         tokensUsed,
         latencyMs,
         policyViolations,
-        metadata);
+        metadata,
+        dataResidency,
+        transferBasis);
   }
 
   @Override
@@ -269,6 +293,12 @@ public final class AuditLogEntry {
         + blocked
         + ", riskScore="
         + riskScore
+        + ", dataResidency='"
+        + dataResidency
+        + '\''
+        + ", transferBasis='"
+        + transferBasis
+        + '\''
         + '}';
   }
 }
