@@ -11,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Canonical payload returned by {@code AxonFlow.explainDecision}.
@@ -36,6 +37,8 @@ public final class DecisionExplanation {
   private final int historicalHitCountSession;
   private final String policySourceLink;
   private final String toolSignature;
+  private final Map<String, String> context;
+  private final boolean contextTruncated;
 
   @JsonCreator
   public DecisionExplanation(
@@ -50,7 +53,9 @@ public final class DecisionExplanation {
       @JsonProperty("override_existing_id") String overrideExistingId,
       @JsonProperty("historical_hit_count_session") int historicalHitCountSession,
       @JsonProperty("policy_source_link") String policySourceLink,
-      @JsonProperty("tool_signature") String toolSignature) {
+      @JsonProperty("tool_signature") String toolSignature,
+      @JsonProperty("context") Map<String, String> context,
+      @JsonProperty("context_truncated") boolean contextTruncated) {
     this.decisionId = decisionId;
     this.timestamp = timestamp;
     this.policyMatches = policyMatches != null ? policyMatches : Collections.emptyList();
@@ -63,6 +68,8 @@ public final class DecisionExplanation {
     this.historicalHitCountSession = historicalHitCountSession;
     this.policySourceLink = policySourceLink;
     this.toolSignature = toolSignature;
+    this.context = context;
+    this.contextTruncated = contextTruncated;
   }
 
   public String getDecisionId() {
@@ -111,5 +118,22 @@ public final class DecisionExplanation {
 
   public String getToolSignature() {
     return toolSignature;
+  }
+
+  /**
+   * The FULL sanitized request context the PEP attached to the decision
+   * (canonical {@code lower_snake_case} keys, string values), read from the
+   * audit row's {@code policy_details->'context'}. Unlike {@link DecisionSummary}
+   * (truncated to 5 keys), explain returns every persisted key up to the
+   * platform's 10-key cap. May be {@code null} for pre-v8.4.0 audit rows.
+   * (platform #2509 / epic #2508)
+   */
+  public Map<String, String> getContext() {
+    return context;
+  }
+
+  /** True when the agent dropped surplus context keys at write time. */
+  public boolean isContextTruncated() {
+    return contextTruncated;
   }
 }

@@ -5,6 +5,35 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.4.0] - 2026-05-30 — Decision request context + Pasal 56(b) transfer basis
+
+Targets AxonFlow platform **v8.5.0**.
+
+### Added
+
+- **`context` field on `DecisionSummary` and `DecisionExplanation`** —
+  `Map<String, String>` (nullable). Surfaces the sanitized request context a PEP
+  attaches to a Decision Mode call (canonical `lower_snake_case` keys such as
+  `x_ai_agent`, `x_session_id`, `x_leader_identity`, and `x-bukuwarung-*`),
+  persisted by the platform at the audit row's `policy_details->'context'`.
+  `listDecisions()` returns the platform-truncated summary (5 keys);
+  `explainDecision()` returns the full map. `null` for pre-v8.4.0 audit rows.
+- **`contextTruncated` accessor on `DecisionExplanation`** (`boolean`,
+  `isContextTruncated()`). True when the agent dropped surplus context keys at
+  write time.
+- **`AuditLogEntry.TRANSFER_BASIS_*` constants** (`TRANSFER_BASIS_ADEQUACY`,
+  `TRANSFER_BASIS_SAFEGUARDS`, `TRANSFER_BASIS_PASAL_56B_DPA` = `"pasal_56b_dpa"`,
+  `TRANSFER_BASIS_CONSENT`). Type-safe access to the Indonesia UU PDP Pasal 56
+  legal bases.
+
+### Changed
+
+- **`AuditLogEntry.getTransferBasis()` documentation** now records `pasal_56b_dpa`
+  (Pasal 56(b) explicit DPA tag) alongside `adequacy`, `safeguards`, and
+  `consent`. The field stays a `String` (surfaced verbatim), so existing code
+  reading `safeguards` is unaffected and the SDK never rejects a value a newer
+  platform may add.
+
 ## [8.3.0] - 2026-05-27 — Indonesia PII category + cross-border audit fields
 
 ### Added
