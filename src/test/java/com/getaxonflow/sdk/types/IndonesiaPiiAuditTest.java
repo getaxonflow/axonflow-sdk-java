@@ -135,4 +135,42 @@ class IndonesiaPiiAuditTest {
       assertThat(str).contains("transferBasis='safeguards'");
     }
   }
+
+  @Nested
+  @DisplayName("transfer_basis Pasal 56(b) (v8.4.0)")
+  class TransferBasisPasal56b {
+
+    @Test
+    @DisplayName("TRANSFER_BASIS_* constants carry the canonical wire values")
+    void constantsWireValues() {
+      assertThat(AuditLogEntry.TRANSFER_BASIS_ADEQUACY).isEqualTo("adequacy");
+      assertThat(AuditLogEntry.TRANSFER_BASIS_SAFEGUARDS).isEqualTo("safeguards");
+      assertThat(AuditLogEntry.TRANSFER_BASIS_PASAL_56B_DPA).isEqualTo("pasal_56b_dpa");
+      assertThat(AuditLogEntry.TRANSFER_BASIS_CONSENT).isEqualTo("consent");
+    }
+
+    @Test
+    @DisplayName("pasal_56b_dpa round-trips verbatim (never translated to safeguards)")
+    void pasal56bDpaRoundTrips() throws Exception {
+      String json =
+          "{\"id\":\"aud-56b\",\"timestamp\":\"2026-05-30T10:00:00Z\","
+              + "\"data_residency\":\"ID\",\"transfer_basis\":\"pasal_56b_dpa\"}";
+      AuditLogEntry entry = MAPPER.readValue(json, AuditLogEntry.class);
+      assertThat(entry.getTransferBasis()).isEqualTo("pasal_56b_dpa");
+
+      String reserialized = MAPPER.writeValueAsString(entry);
+      AuditLogEntry back = MAPPER.readValue(reserialized, AuditLogEntry.class);
+      assertThat(back.getTransferBasis()).isEqualTo(AuditLogEntry.TRANSFER_BASIS_PASAL_56B_DPA);
+    }
+
+    @Test
+    @DisplayName("existing safeguards value still parses after the widening (backward compat)")
+    void safeguardsBackwardCompat() throws Exception {
+      String json =
+          "{\"id\":\"aud-sg\",\"timestamp\":\"2026-05-26T10:00:00Z\","
+              + "\"transfer_basis\":\"safeguards\"}";
+      AuditLogEntry entry = MAPPER.readValue(json, AuditLogEntry.class);
+      assertThat(entry.getTransferBasis()).isEqualTo(AuditLogEntry.TRANSFER_BASIS_SAFEGUARDS);
+    }
+  }
 }

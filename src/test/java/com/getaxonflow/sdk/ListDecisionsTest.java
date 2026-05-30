@@ -65,6 +65,36 @@ class ListDecisionsTest {
   }
 
   @Test
+  @DisplayName("v8.4.0 — surfaces the PEP-forwarded request context on the summary")
+  void surfacesRequestContext() {
+    stubFor(
+        get(urlPathEqualTo("/api/v1/decisions"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"decisions\":["
+                            + "{\"decision_id\":\"dec-ctx\",\"timestamp\":\"2026-05-30T12:00:00Z\","
+                            + "\"decision\":\"deny\",\"context\":{"
+                            + "\"x_ai_agent\":\"refund-bot\",\"x_session_id\":\"sess-42\","
+                            + "\"x_leader_identity\":\"ops-lead\"}},"
+                            + "{\"decision_id\":\"dec-noctx\",\"timestamp\":\"2026-05-30T11:00:00Z\","
+                            + "\"decision\":\"allow\"}"
+                            + "]}")));
+
+    List<DecisionSummary> got = axonflow.listDecisions(null);
+    assertThat(got).hasSize(2);
+    assertThat(got.get(0).getContext())
+        .containsEntry("x_ai_agent", "refund-bot")
+        .containsEntry("x_session_id", "sess-42")
+        .containsEntry("x_leader_identity", "ops-lead")
+        .hasSize(3);
+    // A decision with no context keeps a null map (pre-v8.4.0 byte-shape).
+    assertThat(got.get(1).getContext()).isNull();
+  }
+
+  @Test
   @DisplayName("filter serialization — every option lands in the URL")
   void filterSerialization() {
     stubFor(

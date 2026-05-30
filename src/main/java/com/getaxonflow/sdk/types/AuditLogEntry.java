@@ -27,6 +27,28 @@ import java.util.Objects;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class AuditLogEntry {
 
+  /**
+   * Cross-border transfer-basis values recognized under Indonesia UU PDP Pasal 56,
+   * for the {@link #getTransferBasis()} field:
+   *
+   * <ul>
+   *   <li>{@code adequacy} — Pasal 56(a): destination with adequate protection
+   *   <li>{@code safeguards} — Pasal 56(b): binding legal instrument (generic label)
+   *   <li>{@code pasal_56b_dpa} — Pasal 56(b): binding legal instrument, explicit DPA tag
+   *   <li>{@code consent} — Pasal 56(c): explicit data-subject consent
+   * </ul>
+   *
+   * <p>{@code safeguards} and {@code pasal_56b_dpa} are semantic equivalents; the
+   * platform surfaces whichever was recorded at decision time, verbatim. The field
+   * itself stays a {@code String} so the SDK never rejects a value a newer platform
+   * may add. (platform #2513 / epic #2508)
+   */
+  public static final String TRANSFER_BASIS_ADEQUACY = "adequacy";
+
+  public static final String TRANSFER_BASIS_SAFEGUARDS = "safeguards";
+  public static final String TRANSFER_BASIS_PASAL_56B_DPA = "pasal_56b_dpa";
+  public static final String TRANSFER_BASIS_CONSENT = "consent";
+
   @JsonProperty("id")
   private final String id;
 
@@ -215,7 +237,12 @@ public final class AuditLogEntry {
     return dataResidency;
   }
 
-  /** Returns the cross-border transfer basis (adequacy, safeguards, or consent), or null if not set. */
+  /**
+   * Returns the cross-border transfer basis under Indonesia UU PDP Pasal 56
+   * ({@code adequacy}, {@code safeguards}, {@code pasal_56b_dpa}, or
+   * {@code consent}), or null if not set. Surfaced verbatim — see the
+   * {@code TRANSFER_BASIS_*} constants.
+   */
   public String getTransferBasis() {
     return transferBasis;
   }

@@ -102,6 +102,49 @@ class DecisionExplainTest {
   }
 
   @Test
+  @DisplayName("v8.4.0 — surfaces the full request context + contextTruncated")
+  void surfacesRequestContext() {
+    String body =
+        "{"
+            + "\"decision_id\": \"dec-ctx\","
+            + "\"timestamp\": \"2026-05-30T12:00:00Z\","
+            + "\"decision\": \"deny\","
+            + "\"reason\": \"\","
+            + "\"policy_matches\": [],"
+            + "\"override_available\": false,"
+            + "\"historical_hit_count_session\": 0,"
+            + "\"context\": {\"x_ai_agent\":\"refund-bot\",\"x_session_id\":\"sess-42\"},"
+            + "\"context_truncated\": true"
+            + "}";
+    stubFor(
+        get(urlEqualTo("/api/v1/decisions/dec-ctx/explain"))
+            .willReturn(aResponse().withStatus(200).withBody(body)));
+
+    DecisionExplanation exp = axonflow.explainDecision("dec-ctx");
+    assertThat(exp.getContext())
+        .containsEntry("x_ai_agent", "refund-bot")
+        .containsEntry("x_session_id", "sess-42")
+        .hasSize(2);
+    assertThat(exp.isContextTruncated()).isTrue();
+  }
+
+  @Test
+  @DisplayName("v8.4.0 — context is null + contextTruncated false for pre-v8.4.0 rows")
+  void contextAbsentDefaults() {
+    String body =
+        "{\"decision_id\":\"dec-1\",\"timestamp\":\"2026-04-17T12:00:00Z\","
+            + "\"decision\":\"allow\",\"reason\":\"\",\"policy_matches\":[],"
+            + "\"override_available\":false,\"historical_hit_count_session\":0}";
+    stubFor(
+        get(urlEqualTo("/api/v1/decisions/dec-1/explain"))
+            .willReturn(aResponse().withStatus(200).withBody(body)));
+
+    DecisionExplanation exp = axonflow.explainDecision("dec-1");
+    assertThat(exp.getContext()).isNull();
+    assertThat(exp.isContextTruncated()).isFalse();
+  }
+
+  @Test
   @DisplayName("ignores unknown fields for forward compatibility (ADR-043)")
   void forwardCompat() {
     // EXPLAIN_BODY contains future_field_unknown; parsing must succeed regardless.
@@ -204,9 +247,13 @@ class DecisionExplainTest {
             null,
             0,
             null,
-            null);
+            null,
+            null, // context
+            false); // contextTruncated
     assertThat(exp.getPolicyMatches()).isEmpty();
     assertThat(exp.getMatchedRules()).isNull();
+    assertThat(exp.getContext()).isNull();
+    assertThat(exp.isContextTruncated()).isFalse();
   }
 
   @Test

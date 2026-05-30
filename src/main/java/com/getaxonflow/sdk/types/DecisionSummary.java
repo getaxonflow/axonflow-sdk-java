@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
+import java.util.Map;
 
 /**
  * Slim 5-field row returned by {@code AxonFlow.listDecisions}.
@@ -36,6 +37,7 @@ public final class DecisionSummary {
   private final String decision;
   private final String policyId;
   private final String toolSignature;
+  private final Map<String, String> context;
 
   @JsonCreator
   public DecisionSummary(
@@ -43,12 +45,14 @@ public final class DecisionSummary {
       @JsonProperty("timestamp") Instant timestamp,
       @JsonProperty("decision") String decision,
       @JsonProperty("policy_id") String policyId,
-      @JsonProperty("tool_signature") String toolSignature) {
+      @JsonProperty("tool_signature") String toolSignature,
+      @JsonProperty("context") Map<String, String> context) {
     this.decisionId = decisionId;
     this.timestamp = timestamp;
     this.decision = decision;
     this.policyId = policyId;
     this.toolSignature = toolSignature;
+    this.context = context;
   }
 
   public String getDecisionId() {
@@ -72,5 +76,17 @@ public final class DecisionSummary {
   /** May be null when the decision had no tool context. */
   public String getToolSignature() {
     return toolSignature;
+  }
+
+  /**
+   * The sanitized request context the PEP attached to the decision (canonical
+   * {@code lower_snake_case} keys, string values), surfaced from the audit
+   * row's {@code policy_details->'context'}. The list summary is truncated by
+   * the platform to the 5 most-correlated keys; the full map is available via
+   * {@code AxonFlow.explainDecision}. May be {@code null} for pre-v8.4.0 audit
+   * rows or decisions with no context. (platform #2509 / epic #2508)
+   */
+  public Map<String, String> getContext() {
+    return context;
   }
 }
