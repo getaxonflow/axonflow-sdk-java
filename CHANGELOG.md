@@ -5,6 +5,66 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.5.0] - 2026-06-09 — Decision Mode PEP: decide → fulfill → forward
+
+Adds the SDK analog of the platform PEP client (`platform/shared/pep`, ADR-056,
+epic #2563). A Policy Enforcement Point now follows one path —
+**decide → fulfill → forward** — and the SDK makes the engine-fulfillable
+obligation contract impossible to misuse: there is **no local redaction path**,
+so a `redact_pii` obligation can only be discharged by round-tripping content
+through the engine endpoint the obligation names.
+
+This is a minor, additive release (the SDK's semver is decoupled from the
+platform's).
+
+### Added
+
+- **`AxonFlow.decide(DecideRequest)`** — the PDP step. `POST /api/v1/decide`
+  returns a `DecideResponse` whose `getObligations()` is always a (possibly
+  empty) list of self-describing `Obligation`s. Decision Mode auth is HTTP Basic
+  (org:license), which the client already sends; wrong/demo credentials are
+  refused with `AuthenticationException`. A `deny` verdict is returned in the
+  body (HTTP 200), not as an error. `decideAsync(...)` mirror provided.
+- **`AxonFlow.fulfillRequest(DecideResponse, String)`** — discharges every
+  request-phase `redact_pii` obligation by POSTing the statement to the engine's
+  `check-input` endpoint and returning the **engine-redacted** statement
+  (`FulfillResult`: content + `didRedact()`). Fails closed with
+  `ObligationNotFulfillableException` when an obligation names no request-phase
+  fulfillment, advertises a content-type the PEP is not holding, names an
+  endpoint the client will not call, the engine call fails, or the engine reports
+  `redaction_evaluated=false`. Never redacts locally.
+- **`AxonFlow.decideAndFulfill(DecideRequest)`** — the blessed one-call path
+  (decide, then fulfill any request-phase obligation; `DecideAndFulfillResult`
+  carries verdict, content, and decision); fail-closed by construction.
+  `decideAndFulfillAsync(...)` mirror provided.
+- **New types**: `DecideRequest` (fluent builder), `DecideResponse`,
+  `Obligation`, `ObligationFulfillment`, `DecisionCallerIdentity`,
+  `DecisionTarget`.
+- **New exception**: `ObligationNotFulfillableException` (a fail-closed signal,
+  extends `AxonFlowException`).
+- **PEP constants + `Pep.hasRequestRedaction(List<Obligation>)` helper**
+  (`OBLIGATION_REDACT_PII`, `PHASE_REQUEST`/`PHASE_RESPONSE`,
+  `CONTENT_TYPE_TEXT`, `VERDICT_ALLOW`/`VERDICT_DENY`/`VERDICT_NEEDS_APPROVAL`,
+  endpoint-path constants).
+- **`redacted` / `redactedStatement` / `redactionEvaluated` on
+  `MCPCheckInputResponse`** and **`redactionEvaluated` on
+  `MCPCheckOutputResponse`** — the request-redaction contract fields the agent
+  emits (ADR-056). A PEP fulfilling an obligation fails closed when
+  `redactionEvaluated` is false.
+- **`contentType` on `MCPCheckInputRequest`** (new 5-arg constructor) and a
+  `content_type` option on `mcpCheckInput(connectorType, statement, options)` —
+  selects the request-redaction detector (defaults to `text/plain`
+  server-side).
+
+### Notes
+
+- Wire field names are byte-identical across the Go / Python / TypeScript / Java
+  SDKs (snake_case on the wire). The new MCP response fields are an acknowledged
+  SDK superset of the pinned community OpenAPI spec; the wire-shape baseline is
+  annotated without bumping the pinned spec SHA.
+- Existing source-compatible `MCPCheckInputResponse` / `MCPCheckOutputResponse`
+  constructors are preserved; the new fields default to `false` / `null`.
+
 ## [8.4.0] - 2026-05-30 — Decision request context + Pasal 56(b) transfer basis
 
 Targets AxonFlow platform **v8.5.0**.

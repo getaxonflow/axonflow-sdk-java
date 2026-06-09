@@ -28,10 +28,10 @@ import java.util.Objects;
  * (tabular) or a redacted message (text) if PII redaction policies are active, and exfiltration
  * check information if data volume limits are configured.
  *
- * <p>The three Plugin Batch 1 / ADR-043 fields ({@code decisionId}, {@code policyMatches},
- * {@code redactedMessage}) are populated when the AxonFlow platform is v7.1.0+. Pre-v7.1.0
- * platforms leave these as {@code null}. Source of truth: {@code
- * platform/agent/mcp_server_handler.go:988, 1005, 1051}.
+ * <p>The three Plugin Batch 1 / ADR-043 fields ({@code decisionId}, {@code policyMatches}, {@code
+ * redactedMessage}) are populated when the AxonFlow platform is v7.1.0+. Pre-v7.1.0 platforms leave
+ * these as {@code null}. Source of truth: {@code platform/agent/mcp_server_handler.go:988, 1005,
+ * 1051}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class MCPCheckOutputResponse {
@@ -63,6 +63,16 @@ public final class MCPCheckOutputResponse {
   @JsonProperty("policy_matches")
   private final List<ExplainPolicy> policyMatches;
 
+  /**
+   * Reports whether the response-phase redaction detector actually RAN (ADR-056 / #2563). A PEP
+   * fulfilling a response-phase {@code redact_pii} obligation MUST fail closed when this is {@code
+   * false} — the redactor did not run, so absence of redacted output cannot be trusted as "nothing
+   * to mask". Default {@code false} keeps a PEP fail-closed when the platform predates the field.
+   * Source of truth: {@code platform/agent/mcp_handler.go}.
+   */
+  @JsonProperty("redaction_evaluated")
+  private final boolean redactionEvaluated;
+
   @JsonCreator
   public MCPCheckOutputResponse(
       @JsonProperty("allowed") boolean allowed,
@@ -73,7 +83,8 @@ public final class MCPCheckOutputResponse {
       @JsonProperty("exfiltration_info") ExfiltrationCheckInfo exfiltrationInfo,
       @JsonProperty("policy_info") ConnectorPolicyInfo policyInfo,
       @JsonProperty("decision_id") String decisionId,
-      @JsonProperty("policy_matches") List<ExplainPolicy> policyMatches) {
+      @JsonProperty("policy_matches") List<ExplainPolicy> policyMatches,
+      @JsonProperty("redaction_evaluated") boolean redactionEvaluated) {
     this.allowed = allowed;
     this.blockReason = blockReason;
     this.redactedData = redactedData;
@@ -83,13 +94,15 @@ public final class MCPCheckOutputResponse {
     this.policyInfo = policyInfo;
     this.decisionId = decisionId;
     this.policyMatches = policyMatches;
+    this.redactionEvaluated = redactionEvaluated;
   }
 
   /**
    * Source-compat overload. Callers that build {@code MCPCheckOutputResponse} instances locally
    * with the v6.0.0 6-argument shape continue to compile — {@code redactedMessage}, {@code
-   * decisionId}, and {@code policyMatches} default to {@code null}. Server-side responses always
-   * go through the {@code @JsonCreator} 9-arg constructor regardless.
+   * decisionId}, {@code policyMatches}, and {@code redactionEvaluated} default to {@code null} /
+   * {@code false}. Server-side responses always go through the {@code @JsonCreator} constructor
+   * regardless.
    */
   public MCPCheckOutputResponse(
       boolean allowed,
@@ -107,7 +120,35 @@ public final class MCPCheckOutputResponse {
         exfiltrationInfo,
         policyInfo,
         null,
-        null);
+        null,
+        false);
+  }
+
+  /**
+   * Source-compat overload preserving the v7.1.0 9-argument shape — {@code redactionEvaluated}
+   * defaults to {@code false}.
+   */
+  public MCPCheckOutputResponse(
+      boolean allowed,
+      String blockReason,
+      Object redactedData,
+      String redactedMessage,
+      int policiesEvaluated,
+      ExfiltrationCheckInfo exfiltrationInfo,
+      ConnectorPolicyInfo policyInfo,
+      String decisionId,
+      List<ExplainPolicy> policyMatches) {
+    this(
+        allowed,
+        blockReason,
+        redactedData,
+        redactedMessage,
+        policiesEvaluated,
+        exfiltrationInfo,
+        policyInfo,
+        decisionId,
+        policyMatches,
+        false);
   }
 
   /** Returns whether the output data is allowed by policies. */
@@ -154,18 +195,24 @@ public final class MCPCheckOutputResponse {
   }
 
   /**
-   * Returns the audit correlator for this policy decision (Plugin Batch 1, v7.1.0+). Null on
-   * older platforms.
+   * Returns the audit correlator for this policy decision (Plugin Batch 1, v7.1.0+). Null on older
+   * platforms.
    */
   public String getDecisionId() {
     return decisionId;
   }
 
-  /**
-   * Returns the per-policy explainability records (ADR-043, v7.1.0+). Null on older platforms.
-   */
+  /** Returns the per-policy explainability records (ADR-043, v7.1.0+). Null on older platforms. */
   public List<ExplainPolicy> getPolicyMatches() {
     return policyMatches;
+  }
+
+  /**
+   * Returns whether the response-phase redaction detector actually ran (ADR-056 / #2563). A PEP
+   * MUST fail closed when this is false.
+   */
+  public boolean isRedactionEvaluated() {
+    return redactionEvaluated;
   }
 
   @Override
@@ -175,6 +222,7 @@ public final class MCPCheckOutputResponse {
     MCPCheckOutputResponse that = (MCPCheckOutputResponse) o;
     return allowed == that.allowed
         && policiesEvaluated == that.policiesEvaluated
+        && redactionEvaluated == that.redactionEvaluated
         && Objects.equals(blockReason, that.blockReason)
         && Objects.equals(redactedData, that.redactedData)
         && Objects.equals(redactedMessage, that.redactedMessage)
@@ -195,7 +243,8 @@ public final class MCPCheckOutputResponse {
         exfiltrationInfo,
         policyInfo,
         decisionId,
-        policyMatches);
+        policyMatches,
+        redactionEvaluated);
   }
 
   @Override
@@ -217,6 +266,8 @@ public final class MCPCheckOutputResponse {
         + '\''
         + ", policyMatches="
         + policyMatches
+        + ", redactionEvaluated="
+        + redactionEvaluated
         + '}';
   }
 }
