@@ -2682,9 +2682,15 @@ public final class AxonFlow implements Closeable {
       throw new ObligationNotFulfillableException(
           "engine reported the redactor did not run (redaction disabled)");
     }
-    if (result.isRedacted()
-        && result.getRedactedStatement() != null
-        && !result.getRedactedStatement().isEmpty()) {
+    if (result.isRedacted()) {
+      // FAIL CLOSED on a self-contradictory engine response: redacted=true with
+      // no (or empty) redacted_statement means the engine claims it masked
+      // something but gave us nothing to forward — never fall back to the
+      // unredacted original.
+      if (result.getRedactedStatement() == null || result.getRedactedStatement().isEmpty()) {
+        throw new ObligationNotFulfillableException(
+            "engine reported redacted=true but returned no redacted_statement");
+      }
       return result.getRedactedStatement();
     }
     // Redactor ran and found nothing to mask — forward unchanged.

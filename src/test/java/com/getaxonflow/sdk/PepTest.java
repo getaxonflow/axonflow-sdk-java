@@ -346,6 +346,18 @@ class PepTest {
     }
 
     @Test
+    @DisplayName("fail-closed: redacted=true but no redacted_statement (self-contradictory)")
+    void failClosedRedactedTrueNoStatement() {
+      // Engine claims it masked something but returned nothing to forward —
+      // must fail closed, never fall back to the unredacted original.
+      stubCheckInput(checkInputResponse(true, null, true));
+      DecideResponse d = decisionWithRedactObligation("/api/v1/mcp/check-input", null);
+      assertThatThrownBy(() -> axonflow.fulfillRequest(d, "secret a@b.com"))
+          .isInstanceOf(ObligationNotFulfillableException.class)
+          .hasMessageContaining("no redacted_statement");
+    }
+
+    @Test
     @DisplayName("fail-closed: redaction_evaluated absent defaults false → fails closed")
     void failClosedRedactionEvaluatedAbsent() {
       // No redaction_evaluated key at all — Jackson defaults the primitive to false.
