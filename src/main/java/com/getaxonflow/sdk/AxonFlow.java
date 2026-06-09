@@ -53,7 +53,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import okhttp3.*;
 import org.slf4j.Logger;
@@ -158,8 +157,8 @@ public final class AxonFlow implements Closeable {
    * config.getMapTimeout()}. Used for every plan-lifecycle call (generate, execute, get, update,
    * cancel, resume, rollback) where a single call may outlive the default request timeout. MAP
    * plans chain multiple LLM calls end-to-end and commonly take 60-120s; the global timeout
-   * (default 60s) would cut them off. Shares the connection pool, interceptors, and dispatcher
-   * with {@link #httpClient} — only the call-timeout attribute differs.
+   * (default 60s) would cut them off. Shares the connection pool, interceptors, and dispatcher with
+   * {@link #httpClient} — only the call-timeout attribute differs.
    */
   private final OkHttpClient planHttpClient;
 
@@ -187,9 +186,12 @@ public final class AxonFlow implements Closeable {
     this.planHttpClient =
         this.httpClient
             .newBuilder()
-            .callTimeout(config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
-            .readTimeout(config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
-            .writeTimeout(config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+            .callTimeout(
+                config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+            .readTimeout(
+                config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
+            .writeTimeout(
+                config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
             .build();
     this.objectMapper = createObjectMapper();
     this.retryExecutor = new RetryExecutor(config.getRetryConfig());
@@ -211,20 +213,16 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Run the heartbeat gate against the process-global singleton. Constructs
-   * the gating decision from this client's mode/config, then asks
-   * {@link HeartbeatState#shared()} to decide whether to send (and to
-   * write the stamp on success).
+   * Run the heartbeat gate against the process-global singleton. Constructs the gating decision
+   * from this client's mode/config, then asks {@link HeartbeatState#shared()} to decide whether to
+   * send (and to write the stamp on success).
    *
-   * <p>This call is synchronous and bounded by the per-call HTTP timeout
-   * (3s) WHEN the gate decides to fire. When the gate decides not to fire
-   * (typical hot-path case after the first cold-start ping), the cost is
-   * a single mutex acquire and a {@code System.currentTimeMillis()}
-   * comparison.
+   * <p>This call is synchronous and bounded by the per-call HTTP timeout (3s) WHEN the gate decides
+   * to fire. When the gate decides not to fire (typical hot-path case after the first cold-start
+   * ping), the cost is a single mutex acquire and a {@code System.currentTimeMillis()} comparison.
    *
-   * <p>For the request hot path, see {@link #invokeHeartbeatAsync()},
-   * which delegates to a daemon thread so a 3-second firing-block never
-   * delays a user API call.
+   * <p>For the request hot path, see {@link #invokeHeartbeatAsync()}, which delegates to a daemon
+   * thread so a 3-second firing-block never delays a user API call.
    */
   private void invokeHeartbeat() {
     String modeStr = config.getMode() != null ? config.getMode().getValue() : "production";
@@ -245,22 +243,20 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Async variant of {@link #invokeHeartbeat()} — dispatches the gate
-   * onto {@link #HEARTBEAT_EXECUTOR} so a user-facing API call is never
-   * delayed by the 3-second telemetry POST when the gate decides to fire.
+   * Async variant of {@link #invokeHeartbeat()} — dispatches the gate onto {@link
+   * #HEARTBEAT_EXECUTOR} so a user-facing API call is never delayed by the 3-second telemetry POST
+   * when the gate decides to fire.
    *
-   * <p>The executor is a single-threaded daemon — concurrent dispatches
-   * queue rather than spawning threads (10k req/s would otherwise create
-   * 10k threads/s pre-fix). The gate's in-flight + 1-hour cache means
-   * queued runs immediately fast-path past the work, so queue depth is
-   * bounded in practice.
+   * <p>The executor is a single-threaded daemon — concurrent dispatches queue rather than spawning
+   * threads (10k req/s would otherwise create 10k threads/s pre-fix). The gate's in-flight + 1-hour
+   * cache means queued runs immediately fast-path past the work, so queue depth is bounded in
+   * practice.
    *
-   * <p>Daemon thread choice: long-running services have stable JVMs so
-   * the executor completes the POST normally. Short-lived processes
-   * (Lambda cold start, CLI binaries) deliver the boot ping via the
-   * synchronous {@link #invokeHeartbeat} call from the constructor, so
-   * the async request-path heartbeat is "extra" — its loss to JVM exit
-   * is acceptable and only matters across the 7-day boundary.
+   * <p>Daemon thread choice: long-running services have stable JVMs so the executor completes the
+   * POST normally. Short-lived processes (Lambda cold start, CLI binaries) deliver the boot ping
+   * via the synchronous {@link #invokeHeartbeat} call from the constructor, so the async
+   * request-path heartbeat is "extra" — its loss to JVM exit is acceptable and only matters across
+   * the 7-day boundary.
    */
   private void invokeHeartbeatAsync() {
     try {
@@ -273,14 +269,12 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Single HTTP wrapper used by every public-API request path. Invokes
-   * the heartbeat gate as a side effect, ASYNCHRONOUSLY so the user's
-   * API call is never delayed by telemetry.
+   * Single HTTP wrapper used by every public-API request path. Invokes the heartbeat gate as a side
+   * effect, ASYNCHRONOUSLY so the user's API call is never delayed by telemetry.
    *
-   * <p>IMPORTANT: This wrapper must NOT be called from telemetry code
-   * itself ({@link TelemetryReporter#sendPingNow} or its private helpers).
-   * Those build their own throw-away {@code OkHttpClient} instances to
-   * avoid any recursive heartbeat triggering.
+   * <p>IMPORTANT: This wrapper must NOT be called from telemetry code itself ({@link
+   * TelemetryReporter#sendPingNow} or its private helpers). Those build their own throw-away {@code
+   * OkHttpClient} instances to avoid any recursive heartbeat triggering.
    */
   private Response executeHttp(OkHttpClient client, Request request) throws java.io.IOException {
     invokeHeartbeatAsync();
@@ -687,12 +681,12 @@ public final class AxonFlow implements Closeable {
    * Fetches the full explanation for a previously-made policy decision.
    *
    * <p>Implements ADR-043 (Explainability Data Contract). Calls {@code GET
-   * /api/v1/decisions/:id/explain} and returns a {@link DecisionExplanation} including
-   * matched policies, risk level, reason, override availability, existing override ID (if
-   * any), and a rolling-24h session hit count for the matched rule.
+   * /api/v1/decisions/:id/explain} and returns a {@link DecisionExplanation} including matched
+   * policies, risk level, reason, override availability, existing override ID (if any), and a
+   * rolling-24h session hit count for the matched rule.
    *
-   * <p>The caller must either own the decision (user_email match) or belong to the same
-   * tenant as the decision's originator.
+   * <p>The caller must either own the decision (user_email match) or belong to the same tenant as
+   * the decision's originator.
    *
    * <p>Example usage:
    *
@@ -703,8 +697,8 @@ public final class AxonFlow implements Closeable {
    * }
    * }</pre>
    *
-   * @param decisionId the global decision identifier returned in the original step gate or
-   *     policy evaluation response
+   * @param decisionId the global decision identifier returned in the original step gate or policy
+   *     evaluation response
    * @return the decision explanation (frozen shape per ADR-043)
    * @throws IllegalArgumentException if decisionId is null or empty
    * @throws AxonFlowException if the request fails or the decision is past retention
@@ -750,14 +744,12 @@ public final class AxonFlow implements Closeable {
   /**
    * Lists recent policy decisions for the caller's tenant (Session γ / #1982).
    *
-   * <p>Returns the slim 5-field {@link DecisionSummary} page; the platform applies
-   * a tier-gated cap (5/24h Free + Community, 100/30d Pro + Evaluation, 1000/full
-   * retention Enterprise). Over-cap requests yield a 429 with the V1 upgrade
-   * envelope, surfaced as {@link RateLimitException} carrying
-   * {@code limitType}, {@code tier}, and {@code upgrade.{tier,compareUrl,buyUrl}}.
+   * <p>Returns the slim 5-field {@link DecisionSummary} page; the platform applies a tier-gated cap
+   * (5/24h Free + Community, 100/30d Pro + Evaluation, 1000/full retention Enterprise). Over-cap
+   * requests yield a 429 with the V1 upgrade envelope, surfaced as {@link RateLimitException}
+   * carrying {@code limitType}, {@code tier}, and {@code upgrade.{tier,compareUrl,buyUrl}}.
    *
-   * <p>Filters compose; null fields are omitted from the URL so the platform applies
-   * tier defaults.
+   * <p>Filters compose; null fields are omitted from the URL so the platform applies tier defaults.
    *
    * <p>Example:
    *
@@ -851,9 +843,8 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Serialize {@link ListDecisionsOptions} into a "?k=v&k=v" query string.
-   * Empty when opts or all fields are null. Stable field order so test
-   * mocks can match the URL exactly.
+   * Serialize {@link ListDecisionsOptions} into a "?k=v&k=v" query string. Empty when opts or all
+   * fields are null. Stable field order so test mocks can match the URL exactly.
    */
   static String buildListDecisionsQuery(ListDecisionsOptions opts) {
     if (opts == null) {
@@ -1991,10 +1982,10 @@ public final class AxonFlow implements Closeable {
   /**
    * Lists configured LLM providers from a SINGLE page of results.
    *
-   * <p>Calls {@code GET /api/v1/llm-providers}. Mirrors the Python SDK's {@code
-   * list_providers()}, the Go SDK's {@code ListProviders()}, and the TypeScript
-   * SDK's {@code listProviders()}. For multi-page traversal use {@link
-   * #listAllLLMProviders}; for pagination metadata use {@link #listLLMProvidersPaged}.
+   * <p>Calls {@code GET /api/v1/llm-providers}. Mirrors the Python SDK's {@code list_providers()},
+   * the Go SDK's {@code ListProviders()}, and the TypeScript SDK's {@code listProviders()}. For
+   * multi-page traversal use {@link #listAllLLMProviders}; for pagination metadata use {@link
+   * #listLLMProvidersPaged}.
    *
    * @return list of configured providers
    */
@@ -2029,8 +2020,7 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Lists one page of providers along with pagination metadata so callers can
-   * paginate manually.
+   * Lists one page of providers along with pagination metadata so callers can paginate manually.
    */
   public LLMProviderListResponse listLLMProvidersPaged(
       String type, Boolean enabled, Integer page, Integer pageSize) {
@@ -2096,9 +2086,7 @@ public final class AxonFlow implements Closeable {
       LLMProviderListResponse resp = listLLMProvidersPaged(type, enabled, page, pageSize);
       all.addAll(resp.getProviders());
       PaginationMeta meta = resp.getPagination();
-      if (meta == null
-          || meta.getTotalPages() <= page
-          || resp.getProviders().isEmpty()) {
+      if (meta == null || meta.getTotalPages() <= page || resp.getProviders().isEmpty()) {
         break;
       }
       page += 1;
@@ -2496,7 +2484,12 @@ public final class AxonFlow implements Closeable {
             String operation = (String) options.getOrDefault("operation", "execute");
             @SuppressWarnings("unchecked")
             Map<String, Object> parameters = (Map<String, Object>) options.get("parameters");
-            request = new MCPCheckInputRequest(connectorType, statement, parameters, operation);
+            // content_type selects the request-redaction detector (ADR-056 / #2563); null
+            // defaults to text/plain server-side.
+            String contentType = (String) options.get("content_type");
+            request =
+                new MCPCheckInputRequest(
+                    connectorType, statement, parameters, operation, contentType);
           } else {
             request = new MCPCheckInputRequest(connectorType, statement);
           }
@@ -2558,6 +2551,244 @@ public final class AxonFlow implements Closeable {
       String connectorType, String statement, Map<String, Object> options) {
     return CompletableFuture.supplyAsync(
         () -> mcpCheckInput(connectorType, statement, options), asyncExecutor);
+  }
+
+  // ========================================================================
+  // Decision Mode PEP — decide -> fulfill -> forward (ADR-056, epic #2563)
+  // ========================================================================
+
+  /**
+   * Asks the PDP for a verdict on a request ({@code POST /api/v1/decide}).
+   *
+   * <p>This is the PDP step of a PEP. {@code /decide} is a pure decision point: it NEVER mutates
+   * content. When an allow verdict carries a {@code redact_pii} obligation, discharge it with
+   * {@link #fulfillRequest(DecideResponse, String)} (or use the one-call {@link
+   * #decideAndFulfill(DecideRequest)}) — never by redacting locally.
+   *
+   * <p>Decision Mode auth is HTTP Basic (org:license), which this client already sends; demo /
+   * wrong credentials are refused with HTTP 401 → {@link
+   * com.getaxonflow.sdk.exceptions.AuthenticationException}. A deny verdict is returned in the body
+   * with HTTP 200, not as an error.
+   *
+   * @param request the {@link DecideRequest} ({@code stage} ∈ {@code {"llm","tool","agent"}} and
+   *     {@code query} are required)
+   * @return the {@link DecideResponse} verdict, with {@code obligations} always a (possibly empty)
+   *     list
+   * @throws com.getaxonflow.sdk.exceptions.AuthenticationException on HTTP 401 (bad / demo
+   *     credentials)
+   * @throws AxonFlowException on other non-200 responses
+   */
+  public DecideResponse decide(DecideRequest request) {
+    Objects.requireNonNull(request, "request cannot be null");
+    return retryExecutor.execute(
+        () -> {
+          Request httpRequest = buildRequest("POST", Pep.DECIDE_PATH, request);
+          try (Response response = executeHttp(httpClient, httpRequest)) {
+            return parseResponse(response, DecideResponse.class);
+          }
+        },
+        "decide");
+  }
+
+  /**
+   * Asynchronously asks the PDP for a verdict on a request.
+   *
+   * @param request the {@link DecideRequest}
+   * @return a future containing the {@link DecideResponse}
+   */
+  public CompletableFuture<DecideResponse> decideAsync(DecideRequest request) {
+    return CompletableFuture.supplyAsync(() -> decide(request), asyncExecutor);
+  }
+
+  /**
+   * Discharges every request-phase {@code redact_pii} obligation on {@code decision} by calling the
+   * engine endpoint each obligation names, returning the engine-redacted statement to forward.
+   *
+   * <p>There is NO code path in which this method redacts locally — fulfillment is always the
+   * engine round-trip (ADR-056 / #2563). It NEVER returns the original statement under an
+   * unfulfillable condition; it throws {@link
+   * com.getaxonflow.sdk.exceptions.ObligationNotFulfillableException} so the caller fails closed.
+   *
+   * @param decision the verdict whose obligations to discharge (null is treated as no obligations)
+   * @param statement the request content to redact
+   * @return a {@link FulfillResult} with the (possibly engine-redacted) content and whether the
+   *     engine actually changed it
+   * @throws com.getaxonflow.sdk.exceptions.ObligationNotFulfillableException when a {@code
+   *     redact_pii} obligation named no request-phase fulfillment, advertised a content-type the
+   *     PEP is not holding, named an endpoint this client will not call, the engine call failed, or
+   *     the engine reported the redactor did not run ({@code redaction_evaluated=false}). The
+   *     caller MUST fail closed (block) — never forward the original {@code statement}.
+   */
+  public FulfillResult fulfillRequest(DecideResponse decision, String statement) {
+    if (decision == null) {
+      return new FulfillResult(statement, false);
+    }
+    String redacted = statement;
+    boolean didRedact = false;
+    for (Obligation ob : decision.getObligations()) {
+      if (ob == null || !Pep.OBLIGATION_REDACT_PII.equals(ob.getType())) {
+        // redact_pii is the only content-mutating obligation today; other types are
+        // pass-through by contract.
+        continue;
+      }
+      ObligationFulfillment f = ob.getFulfillment();
+      if (f == null || !Pep.PHASE_REQUEST.equals(f.getPhase())) {
+        throw new ObligationNotFulfillableException(
+            "redact_pii obligation missing request-phase fulfillment");
+      }
+      List<String> contentTypes = f.getContentTypes();
+      if (contentTypes != null
+          && !contentTypes.isEmpty()
+          && !contentTypes.contains(Pep.CONTENT_TYPE_TEXT)) {
+        throw new ObligationNotFulfillableException(
+            "fulfillment endpoint does not advertise a " + Pep.CONTENT_TYPE_TEXT + " detector");
+      }
+      if (!Pep.endpointPathMatches(f.getEndpoint(), Pep.REQUEST_REDACTION_PATH)) {
+        throw new ObligationNotFulfillableException(
+            "fulfillment endpoint '" + f.getEndpoint() + "' is not the request-redaction endpoint");
+      }
+      redacted = fulfillViaCheckInput(redacted);
+      // didRedact reflects whether the ENGINE changed the content, not merely that an
+      // obligation was present.
+      if (!redacted.equals(statement)) {
+        didRedact = true;
+      }
+    }
+    return new FulfillResult(redacted, didRedact);
+  }
+
+  /**
+   * POSTs {@code statement} to the request-redaction engine endpoint and returns the engine-masked
+   * statement. Fails closed (throws {@link
+   * com.getaxonflow.sdk.exceptions.ObligationNotFulfillableException}) when the engine call errors,
+   * the engine returns a non-200, or {@code redaction_evaluated} is false — never returns
+   * unredacted content under an unfulfillable condition.
+   */
+  private String fulfillViaCheckInput(String statement) {
+    MCPCheckInputResponse result;
+    try {
+      Map<String, Object> options = new HashMap<>();
+      options.put("operation", "execute");
+      options.put("content_type", Pep.CONTENT_TYPE_TEXT);
+      result = mcpCheckInput("gateway", statement, options);
+    } catch (AxonFlowException e) {
+      throw new ObligationNotFulfillableException(
+          "request-redaction engine call failed: " + e.getMessage(), e);
+    }
+    // FAIL CLOSED if the redactor did not actually run (#2563 B1). Without this the PEP cannot
+    // distinguish "engine looked, found nothing" (safe to forward) from "engine wasn't looking"
+    // (would leak PII).
+    if (!result.isRedactionEvaluated()) {
+      throw new ObligationNotFulfillableException(
+          "engine reported the redactor did not run (redaction disabled)");
+    }
+    if (result.isRedacted()) {
+      // FAIL CLOSED on a self-contradictory engine response: redacted=true with
+      // no (or empty) redacted_statement means the engine claims it masked
+      // something but gave us nothing to forward — never fall back to the
+      // unredacted original.
+      if (result.getRedactedStatement() == null || result.getRedactedStatement().isEmpty()) {
+        throw new ObligationNotFulfillableException(
+            "engine reported redacted=true but returned no redacted_statement");
+      }
+      return result.getRedactedStatement();
+    }
+    // Redactor ran and found nothing to mask — forward unchanged.
+    return statement;
+  }
+
+  /**
+   * One-call PEP path: decide, then fulfill any request-phase obligation (ADR-056 / #2563).
+   *
+   * <p>Returns a {@link DecideAndFulfillResult} carrying the verdict, the content to forward
+   * (engine-redacted when an obligation applied), and the raw decision. Branch on the verdict:
+   * forward {@link DecideAndFulfillResult#getContent()} on {@code allow}; block on {@code deny} /
+   * {@code needs_approval}.
+   *
+   * <p>On the not-fulfillable path this throws {@link
+   * com.getaxonflow.sdk.exceptions.ObligationNotFulfillableException} — a caller that catches it
+   * has NO content to accidentally forward, so the path is fail-closed by construction.
+   *
+   * @param request the {@link DecideRequest}
+   * @return the verdict, content, and decision
+   * @throws com.getaxonflow.sdk.exceptions.AuthenticationException on HTTP 401
+   * @throws com.getaxonflow.sdk.exceptions.ObligationNotFulfillableException when an allow verdict
+   *     carries an unfulfillable {@code redact_pii} obligation
+   */
+  public DecideAndFulfillResult decideAndFulfill(DecideRequest request) {
+    DecideResponse decision = decide(request);
+    if (!Pep.VERDICT_ALLOW.equals(decision.getVerdict())) {
+      return new DecideAndFulfillResult(decision.getVerdict(), request.getQuery(), decision);
+    }
+    FulfillResult fulfilled = fulfillRequest(decision, request.getQuery());
+    return new DecideAndFulfillResult(decision.getVerdict(), fulfilled.getContent(), decision);
+  }
+
+  /**
+   * Asynchronously runs the one-call PEP path.
+   *
+   * @param request the {@link DecideRequest}
+   * @return a future containing the {@link DecideAndFulfillResult}
+   */
+  public CompletableFuture<DecideAndFulfillResult> decideAndFulfillAsync(DecideRequest request) {
+    return CompletableFuture.supplyAsync(() -> decideAndFulfill(request), asyncExecutor);
+  }
+
+  /**
+   * Result of {@link #fulfillRequest(DecideResponse, String)}: the content to forward and whether
+   * the engine actually changed it.
+   */
+  public static final class FulfillResult {
+    private final String content;
+    private final boolean didRedact;
+
+    FulfillResult(String content, boolean didRedact) {
+      this.content = content;
+      this.didRedact = didRedact;
+    }
+
+    /** Returns the content to forward (engine-redacted when an obligation mutated the request). */
+    public String getContent() {
+      return content;
+    }
+
+    /** Returns whether the engine actually changed the content. */
+    public boolean didRedact() {
+      return didRedact;
+    }
+  }
+
+  /**
+   * Result of {@link #decideAndFulfill(DecideRequest)}: verdict, content to forward, and decision.
+   */
+  public static final class DecideAndFulfillResult {
+    private final String verdict;
+    private final String content;
+    private final DecideResponse decision;
+
+    DecideAndFulfillResult(String verdict, String content, DecideResponse decision) {
+      this.verdict = verdict;
+      this.content = content;
+      this.decision = decision;
+    }
+
+    /** Returns the verdict: {@code allow}, {@code deny}, or {@code needs_approval}. */
+    public String getVerdict() {
+      return verdict;
+    }
+
+    /**
+     * Returns the content to forward on {@code allow} (engine-redacted when an obligation applied),
+     * or the original query on a non-allow verdict.
+     */
+    public String getContent() {
+      return content;
+    }
+
+    /** Returns the raw PDP decision. */
+    public DecideResponse getDecision() {
+      return decision;
+    }
   }
 
   /**
@@ -5489,9 +5720,9 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Inspects a 409 response on a step gate/complete call. If the body carries {@code
-   * error.code == "IDEMPOTENCY_KEY_MISMATCH"}, returns a typed {@link
-   * IdempotencyKeyMismatchException}; otherwise falls back to a generic {@link AxonFlowException}.
+   * Inspects a 409 response on a step gate/complete call. If the body carries {@code error.code ==
+   * "IDEMPOTENCY_KEY_MISMATCH"}, returns a typed {@link IdempotencyKeyMismatchException}; otherwise
+   * falls back to a generic {@link AxonFlowException}.
    *
    * <p>Must only be called on responses with {@code response.code() == 409}. Consumes the response
    * body.
@@ -5682,7 +5913,8 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildOrchestratorRequest("GET", "/api/v1/workflows/" + workflowId + "/checkpoints", null);
+              buildOrchestratorRequest(
+                  "GET", "/api/v1/workflows/" + workflowId + "/checkpoints", null);
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
@@ -5699,18 +5931,20 @@ public final class AxonFlow implements Closeable {
    * @param workflowId workflow ID
    * @return resume result with fresh decision
    */
-  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse resumeFromLastCheckpoint(
-      String workflowId) {
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse
+      resumeFromLastCheckpoint(String workflowId) {
     Objects.requireNonNull(workflowId, "workflowId cannot be null");
     return retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildOrchestratorRequest("POST", "/api/v1/workflows/" + workflowId + "/checkpoints/resume", "{}");
+              buildOrchestratorRequest(
+                  "POST", "/api/v1/workflows/" + workflowId + "/checkpoints/resume", "{}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
                 new TypeReference<
-                    com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse>() {});
+                    com.getaxonflow.sdk.types.workflow.WorkflowTypes
+                        .ResumeFromCheckpointResponse>() {});
           }
         },
         "resumeFromLastCheckpoint");
@@ -5723,8 +5957,8 @@ public final class AxonFlow implements Closeable {
    * @param checkpointId checkpoint database ID
    * @return resume result with fresh decision
    */
-  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse resumeFromCheckpoint(
-      String workflowId, long checkpointId) {
+  public com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse
+      resumeFromCheckpoint(String workflowId, long checkpointId) {
     Objects.requireNonNull(workflowId, "workflowId cannot be null");
     return retryExecutor.execute(
         () -> {
@@ -5737,7 +5971,8 @@ public final class AxonFlow implements Closeable {
             return parseResponse(
                 response,
                 new TypeReference<
-                    com.getaxonflow.sdk.types.workflow.WorkflowTypes.ResumeFromCheckpointResponse>() {});
+                    com.getaxonflow.sdk.types.workflow.WorkflowTypes
+                        .ResumeFromCheckpointResponse>() {});
           }
         },
         "resumeFromCheckpoint");
@@ -5835,8 +6070,8 @@ public final class AxonFlow implements Closeable {
    * Approves a workflow step that requires human approval.
    *
    * <p>Call this when a step gate returns {@code require_approval} to approve the step and allow
-   * the workflow to proceed. Prefer the two-arg overload when you can pass a comment — the
-   * server requires a comment (min 10 chars) as an audit justification.
+   * the workflow to proceed. Prefer the two-arg overload when you can pass a comment — the server
+   * requires a comment (min 10 chars) as an audit justification.
    *
    * @param workflowId workflow ID
    * @param stepId step ID
@@ -5851,8 +6086,8 @@ public final class AxonFlow implements Closeable {
   /**
    * Approves a workflow step that requires human approval, with an audit comment.
    *
-   * <p>The server requires {@code comment} with a minimum of 10 characters — it's the
-   * audit-trail justification that every approval carries into the workflow history.
+   * <p>The server requires {@code comment} with a minimum of 10 characters — it's the audit-trail
+   * justification that every approval carries into the workflow history.
    *
    * @param workflowId workflow ID
    * @param stepId step ID
@@ -5953,9 +6188,7 @@ public final class AxonFlow implements Closeable {
           }
           Request httpRequest =
               buildOrchestratorRequest(
-                  "POST",
-                  "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/reject",
-                  body);
+                  "POST", "/api/v1/workflows/" + workflowId + "/steps/" + stepId + "/reject", body);
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(
                 response,
@@ -6023,8 +6256,9 @@ public final class AxonFlow implements Closeable {
   /**
    * Gets MAP-plane pending approvals — the counterpart of {@link #getPendingApprovals(int)}.
    *
-   * <p>Lists pending approvals for MAP-backed workflows ({@code GET /api/v1/plans/approvals/pending}).
-   * Every returned entry has {@code planId} populated; WCP-only approvals are not returned.
+   * <p>Lists pending approvals for MAP-backed workflows ({@code GET
+   * /api/v1/plans/approvals/pending}). Every returned entry has {@code planId} populated; WCP-only
+   * approvals are not returned.
    *
    * <p>Requires an Evaluation or Enterprise license (same tier gate as the MAP step approve/reject
    * endpoints).
@@ -6048,8 +6282,7 @@ public final class AxonFlow implements Closeable {
             path.append(hasQuery ? '&' : '?')
                 .append("plan_id=")
                 .append(
-                    java.net.URLEncoder.encode(
-                        planId, java.nio.charset.StandardCharsets.UTF_8));
+                    java.net.URLEncoder.encode(planId, java.nio.charset.StandardCharsets.UTF_8));
           }
 
           Request httpRequest = buildOrchestratorRequest("GET", path.toString(), null);
@@ -6423,17 +6656,17 @@ public final class AxonFlow implements Closeable {
    * with {@code ErrHITLApprovalDisabledByTier} when called against a community tier that hasn't
    * enabled HITL, and 401 when credentials are invalid.
    *
-   * <p>This is the explicit row-creation step for callers that detect {@code require_approval}
-   * from a separate gate ({@code pre_check}, {@code check_tool_input}, MAP plan approvals) and
-   * want the row enqueued so a reviewer can act on it. After creating, either poll
-   * {@link #getHITLRequest(String)} until terminal state, or supply
-   * {@link HITLCreateInput#setNotifyUrl(String) notifyUrl} so the platform fires a signed webhook
-   * on the transition (n8n Wait-node "On Webhook Call" pattern, ADK plugin polling-free mode).
+   * <p>This is the explicit row-creation step for callers that detect {@code require_approval} from
+   * a separate gate ({@code pre_check}, {@code check_tool_input}, MAP plan approvals) and want the
+   * row enqueued so a reviewer can act on it. After creating, either poll {@link
+   * #getHITLRequest(String)} until terminal state, or supply {@link
+   * HITLCreateInput#setNotifyUrl(String) notifyUrl} so the platform fires a signed webhook on the
+   * transition (n8n Wait-node "On Webhook Call" pattern, ADK plugin polling-free mode).
    *
    * <p>{@code clientId}, {@code originalQuery}, and {@code requestType} are required; all other
-   * fields are optional. Bad {@code notifyUrl} schemes are rejected by the platform with HTTP
-   * 400 (surfaced here via {@link AxonFlowException}); only {@code https://} (and {@code http://}
-   * for self-hosted local-dev) are accepted.
+   * fields are optional. Bad {@code notifyUrl} schemes are rejected by the platform with HTTP 400
+   * (surfaced here via {@link AxonFlowException}); only {@code https://} (and {@code http://} for
+   * self-hosted local-dev) are accepted.
    *
    * @param input the create-request input
    * @return the created approval request with {@code requestId} populated

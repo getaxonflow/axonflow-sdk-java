@@ -42,6 +42,16 @@ public final class MCPCheckInputRequest {
   private final String operation;
 
   /**
+   * Selects the request-redaction detector (ADR-056 / #2563 addendum). Null defaults to {@code
+   * text/plain} server-side. A content type with no registered detector is rejected (415) so a PEP
+   * fulfilling a {@code redact_pii} obligation fails closed rather than forwarding content the
+   * engine cannot govern. Source of truth: {@code platform/agent/mcp_handler.go
+   * MCPCheckInputRequest}.
+   */
+  @JsonProperty("content_type")
+  private final String contentType;
+
+  /**
    * Creates a request with connector type and statement only. Operation defaults to "execute".
    *
    * @param connectorType the MCP connector type (e.g., "postgres")
@@ -52,7 +62,8 @@ public final class MCPCheckInputRequest {
   }
 
   /**
-   * Creates a request with all fields.
+   * Creates a request with connector type, statement, parameters, and operation. Content type is
+   * left null (server defaults to {@code text/plain}).
    *
    * @param connectorType the MCP connector type (e.g., "postgres")
    * @param statement the statement to validate
@@ -61,10 +72,30 @@ public final class MCPCheckInputRequest {
    */
   public MCPCheckInputRequest(
       String connectorType, String statement, Map<String, Object> parameters, String operation) {
+    this(connectorType, statement, parameters, operation, null);
+  }
+
+  /**
+   * Creates a request with all fields, including the redaction content type.
+   *
+   * @param connectorType the MCP connector type (e.g., "postgres")
+   * @param statement the statement to validate
+   * @param parameters optional query parameters
+   * @param operation the operation type (e.g., "query", "execute")
+   * @param contentType the redaction content type (e.g., {@code text/plain}); null defaults
+   *     server-side
+   */
+  public MCPCheckInputRequest(
+      String connectorType,
+      String statement,
+      Map<String, Object> parameters,
+      String operation,
+      String contentType) {
     this.connectorType = connectorType;
     this.statement = statement;
     this.parameters = parameters;
     this.operation = operation;
+    this.contentType = contentType;
   }
 
   public String getConnectorType() {
@@ -83,6 +114,11 @@ public final class MCPCheckInputRequest {
     return operation;
   }
 
+  /** Returns the redaction content type (e.g., {@code text/plain}), or null when server-default. */
+  public String getContentType() {
+    return contentType;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -91,12 +127,13 @@ public final class MCPCheckInputRequest {
     return Objects.equals(connectorType, that.connectorType)
         && Objects.equals(statement, that.statement)
         && Objects.equals(parameters, that.parameters)
-        && Objects.equals(operation, that.operation);
+        && Objects.equals(operation, that.operation)
+        && Objects.equals(contentType, that.contentType);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(connectorType, statement, parameters, operation);
+    return Objects.hash(connectorType, statement, parameters, operation, contentType);
   }
 
   @Override

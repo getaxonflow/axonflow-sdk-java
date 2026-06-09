@@ -29,9 +29,9 @@ import java.util.Objects;
  * and {@code policyInfo}.
  *
  * <p>The five Plugin Batch 1 / ADR-042 / ADR-043 fields ({@code decisionId}, {@code riskLevel},
- * {@code policyMatches}, {@code overrideAvailable}, {@code overrideExistingId}) are populated
- * when the AxonFlow platform is v7.1.0+. Pre-v7.1.0 platforms leave these as {@code null}.
- * Source of truth: {@code platform/agent/mcp_server_handler.go:880-940}.
+ * {@code policyMatches}, {@code overrideAvailable}, {@code overrideExistingId}) are populated when
+ * the AxonFlow platform is v7.1.0+. Pre-v7.1.0 platforms leave these as {@code null}. Source of
+ * truth: {@code platform/agent/mcp_server_handler.go:880-940}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class MCPCheckInputResponse {
@@ -63,6 +63,28 @@ public final class MCPCheckInputResponse {
   @JsonProperty("override_existing_id")
   private final String overrideExistingId;
 
+  /**
+   * Request-phase redaction (ADR-056 / #2563). When an allowed statement carries PII under a redact
+   * (not block) policy, the engine returns the masked statement in {@code redactedStatement} so a
+   * PEP can forward redacted content WITHOUT hand-rolling its own patterns — this is what makes a
+   * {@code /decide} {@code redact_pii} obligation engine-fulfillable. Source of truth: {@code
+   * platform/agent/mcp_handler.go MCPCheckInputResponse}.
+   */
+  @JsonProperty("redacted")
+  private final boolean redacted;
+
+  @JsonProperty("redacted_statement")
+  private final String redactedStatement;
+
+  /**
+   * Reports whether the redaction detector actually RAN (regardless of whether it masked anything).
+   * A PEP fulfilling a {@code redact_pii} obligation MUST fail closed when this is {@code false} —
+   * it means the redactor did not run (detection disabled), so {@code redacted:false} would
+   * otherwise be indistinguishable from "looked, found nothing" (#2563 B1).
+   */
+  @JsonProperty("redaction_evaluated")
+  private final boolean redactionEvaluated;
+
   @JsonCreator
   public MCPCheckInputResponse(
       @JsonProperty("allowed") boolean allowed,
@@ -73,7 +95,10 @@ public final class MCPCheckInputResponse {
       @JsonProperty("risk_level") String riskLevel,
       @JsonProperty("policy_matches") List<ExplainPolicy> policyMatches,
       @JsonProperty("override_available") Boolean overrideAvailable,
-      @JsonProperty("override_existing_id") String overrideExistingId) {
+      @JsonProperty("override_existing_id") String overrideExistingId,
+      @JsonProperty("redacted") boolean redacted,
+      @JsonProperty("redacted_statement") String redactedStatement,
+      @JsonProperty("redaction_evaluated") boolean redactionEvaluated) {
     this.allowed = allowed;
     this.blockReason = blockReason;
     this.policiesEvaluated = policiesEvaluated;
@@ -83,17 +108,61 @@ public final class MCPCheckInputResponse {
     this.policyMatches = policyMatches;
     this.overrideAvailable = overrideAvailable;
     this.overrideExistingId = overrideExistingId;
+    this.redacted = redacted;
+    this.redactedStatement = redactedStatement;
+    this.redactionEvaluated = redactionEvaluated;
   }
 
   /**
-   * Source-compat overload. Callers that build {@code MCPCheckInputResponse} instances locally
-   * with the v6.0.0 4-argument shape continue to compile — the five Plugin Batch 1 fields default
-   * to {@code null}. Server-side responses always go through the {@code @JsonCreator} 9-arg
-   * constructor regardless.
+   * Source-compat overload. Callers that build {@code MCPCheckInputResponse} instances locally with
+   * the v6.0.0 4-argument shape continue to compile — the five Plugin Batch 1 fields and the three
+   * #2563 redaction fields default to {@code null} / {@code false}. Server-side responses always go
+   * through the {@code @JsonCreator} constructor regardless.
    */
   public MCPCheckInputResponse(
       boolean allowed, String blockReason, int policiesEvaluated, ConnectorPolicyInfo policyInfo) {
-    this(allowed, blockReason, policiesEvaluated, policyInfo, null, null, null, null, null);
+    this(
+        allowed,
+        blockReason,
+        policiesEvaluated,
+        policyInfo,
+        null,
+        null,
+        null,
+        null,
+        null,
+        false,
+        null,
+        false);
+  }
+
+  /**
+   * Source-compat overload preserving the v7.1.0 9-argument shape — the three #2563 redaction
+   * fields default to {@code false} / {@code null}.
+   */
+  public MCPCheckInputResponse(
+      boolean allowed,
+      String blockReason,
+      int policiesEvaluated,
+      ConnectorPolicyInfo policyInfo,
+      String decisionId,
+      String riskLevel,
+      List<ExplainPolicy> policyMatches,
+      Boolean overrideAvailable,
+      String overrideExistingId) {
+    this(
+        allowed,
+        blockReason,
+        policiesEvaluated,
+        policyInfo,
+        decisionId,
+        riskLevel,
+        policyMatches,
+        overrideAvailable,
+        overrideExistingId,
+        false,
+        null,
+        false);
   }
 
   /** Returns whether the input is allowed by policies. */
@@ -117,32 +186,30 @@ public final class MCPCheckInputResponse {
   }
 
   /**
-   * Returns the audit correlator for this policy decision (Plugin Batch 1, v7.1.0+). Null on
-   * older platforms.
+   * Returns the audit correlator for this policy decision (Plugin Batch 1, v7.1.0+). Null on older
+   * platforms.
    */
   public String getDecisionId() {
     return decisionId;
   }
 
   /**
-   * Returns the highest risk level across matched policies ({@code low} | {@code medium} |
-   * {@code high} | {@code critical}; Plugin Batch 1, v7.1.0+). Null on older platforms.
+   * Returns the highest risk level across matched policies ({@code low} | {@code medium} | {@code
+   * high} | {@code critical}; Plugin Batch 1, v7.1.0+). Null on older platforms.
    */
   public String getRiskLevel() {
     return riskLevel;
   }
 
-  /**
-   * Returns the per-policy explainability records (ADR-043, v7.1.0+). Null on older platforms.
-   */
+  /** Returns the per-policy explainability records (ADR-043, v7.1.0+). Null on older platforms. */
   public List<ExplainPolicy> getPolicyMatches() {
     return policyMatches;
   }
 
   /**
    * Returns whether at least one matched policy permits a session override (Plugin Batch 1,
-   * v7.1.0+). Null on older platforms; callers should treat null as "context not available"
-   * rather than {@code false}.
+   * v7.1.0+). Null on older platforms; callers should treat null as "context not available" rather
+   * than {@code false}.
    */
   public Boolean getOverrideAvailable() {
     return overrideAvailable;
@@ -156,6 +223,30 @@ public final class MCPCheckInputResponse {
     return overrideExistingId;
   }
 
+  /**
+   * Returns whether the engine masked PII in the statement (ADR-056 / #2563). A PEP forwards {@link
+   * #getRedactedStatement()} when this is true.
+   */
+  public boolean isRedacted() {
+    return redacted;
+  }
+
+  /**
+   * Returns the engine-masked statement when {@link #isRedacted()} is true, else null. This is the
+   * only content a PEP forwards for a {@code redact_pii} obligation; it is never produced locally.
+   */
+  public String getRedactedStatement() {
+    return redactedStatement;
+  }
+
+  /**
+   * Returns whether the redaction detector actually ran (ADR-056 / #2563). A PEP MUST fail closed
+   * when this is false — {@code redacted=false} alone cannot be trusted as "nothing to mask".
+   */
+  public boolean isRedactionEvaluated() {
+    return redactionEvaluated;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -163,13 +254,16 @@ public final class MCPCheckInputResponse {
     MCPCheckInputResponse that = (MCPCheckInputResponse) o;
     return allowed == that.allowed
         && policiesEvaluated == that.policiesEvaluated
+        && redacted == that.redacted
+        && redactionEvaluated == that.redactionEvaluated
         && Objects.equals(blockReason, that.blockReason)
         && Objects.equals(policyInfo, that.policyInfo)
         && Objects.equals(decisionId, that.decisionId)
         && Objects.equals(riskLevel, that.riskLevel)
         && Objects.equals(policyMatches, that.policyMatches)
         && Objects.equals(overrideAvailable, that.overrideAvailable)
-        && Objects.equals(overrideExistingId, that.overrideExistingId);
+        && Objects.equals(overrideExistingId, that.overrideExistingId)
+        && Objects.equals(redactedStatement, that.redactedStatement);
   }
 
   @Override
@@ -183,7 +277,10 @@ public final class MCPCheckInputResponse {
         riskLevel,
         policyMatches,
         overrideAvailable,
-        overrideExistingId);
+        overrideExistingId,
+        redacted,
+        redactedStatement,
+        redactionEvaluated);
   }
 
   @Override
@@ -211,6 +308,10 @@ public final class MCPCheckInputResponse {
         + ", overrideExistingId='"
         + overrideExistingId
         + '\''
+        + ", redacted="
+        + redacted
+        + ", redactionEvaluated="
+        + redactionEvaluated
         + '}';
   }
 }
