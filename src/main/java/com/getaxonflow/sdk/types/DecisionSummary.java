@@ -63,7 +63,7 @@ public final class DecisionSummary {
     return timestamp;
   }
 
-  /** allow | deny | require_approval */
+  /** Canonical audit verdict: allowed | blocked | redacted | needs_approval | error (9.0.0+). */
   public String getDecision() {
     return decision;
   }

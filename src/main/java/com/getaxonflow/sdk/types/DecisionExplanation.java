@@ -88,6 +88,7 @@ public final class DecisionExplanation {
     return matchedRules;
   }
 
+  /** Canonical audit verdict: allowed | blocked | redacted | needs_approval | error (9.0.0+). */
   public String getDecision() {
     return decision;
   }
