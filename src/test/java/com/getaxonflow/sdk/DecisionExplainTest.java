@@ -26,7 +26,7 @@ class DecisionExplainTest {
       "{"
           + "\"decision_id\": \"dec_wf1_step2\","
           + "\"timestamp\": \"2026-04-17T12:00:00Z\","
-          + "\"decision\": \"deny\","
+          + "\"decision\": \"blocked\","
           + "\"reason\": \"SQL injection detected\","
           + "\"risk_level\": \"high\","
           + "\"policy_matches\": [{"
@@ -87,7 +87,7 @@ class DecisionExplainTest {
     DecisionExplanation exp = axonflow.explainDecision("dec_wf1_step2");
 
     assertThat(exp.getDecisionId()).isEqualTo("dec_wf1_step2");
-    assertThat(exp.getDecision()).isEqualTo("deny");
+    assertThat(exp.getDecision()).isEqualTo("blocked");
     assertThat(exp.getReason()).isEqualTo("SQL injection detected");
     assertThat(exp.getRiskLevel()).isEqualTo("high");
     assertThat(exp.getPolicyMatches()).hasSize(1);
@@ -108,7 +108,7 @@ class DecisionExplainTest {
         "{"
             + "\"decision_id\": \"dec-ctx\","
             + "\"timestamp\": \"2026-05-30T12:00:00Z\","
-            + "\"decision\": \"deny\","
+            + "\"decision\": \"blocked\","
             + "\"reason\": \"\","
             + "\"policy_matches\": [],"
             + "\"override_available\": false,"
@@ -133,7 +133,7 @@ class DecisionExplainTest {
   void contextAbsentDefaults() {
     String body =
         "{\"decision_id\":\"dec-1\",\"timestamp\":\"2026-04-17T12:00:00Z\","
-            + "\"decision\":\"allow\",\"reason\":\"\",\"policy_matches\":[],"
+            + "\"decision\":\"allowed\",\"reason\":\"\",\"policy_matches\":[],"
             + "\"override_available\":false,\"historical_hit_count_session\":0}";
     stubFor(
         get(urlEqualTo("/api/v1/decisions/dec-1/explain"))
@@ -240,7 +240,7 @@ class DecisionExplainTest {
             java.time.Instant.now(),
             null, // policyMatches null should default to empty
             null,
-            "allow",
+            "allowed",
             "",
             null,
             false,

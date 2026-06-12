@@ -45,23 +45,23 @@ class ListDecisionsTest {
                     .withBody(
                         "{\"decisions\":["
                             + "{\"decision_id\":\"dec-1\",\"timestamp\":\"2026-05-07T12:00:00Z\","
-                            + "\"decision\":\"deny\",\"policy_id\":\"pol-sqli\","
+                            + "\"decision\":\"blocked\",\"policy_id\":\"pol-sqli\","
                             + "\"tool_signature\":\"postgres.query\"},"
                             + "{\"decision_id\":\"dec-2\",\"timestamp\":\"2026-05-07T11:00:00Z\","
-                            + "\"decision\":\"allow\",\"policy_id\":\"pol-default\","
+                            + "\"decision\":\"allowed\",\"policy_id\":\"pol-default\","
                             + "\"tool_signature\":\"github.status\"},"
                             + "{\"decision_id\":\"dec-3\",\"timestamp\":\"2026-05-07T10:00:00Z\","
-                            + "\"decision\":\"require_approval\",\"policy_id\":\"pol-amount\","
+                            + "\"decision\":\"needs_approval\",\"policy_id\":\"pol-amount\","
                             + "\"tool_signature\":\"stripe.charge\"}"
                             + "]}")));
 
     List<DecisionSummary> got = axonflow.listDecisions(null);
     assertThat(got).hasSize(3);
     assertThat(got.get(0).getDecisionId()).isEqualTo("dec-1");
-    assertThat(got.get(0).getDecision()).isEqualTo("deny");
+    assertThat(got.get(0).getDecision()).isEqualTo("blocked");
     assertThat(got.get(0).getPolicyId()).isEqualTo("pol-sqli");
     assertThat(got.get(0).getToolSignature()).isEqualTo("postgres.query");
-    assertThat(got.get(2).getDecision()).isEqualTo("require_approval");
+    assertThat(got.get(2).getDecision()).isEqualTo("needs_approval");
   }
 
   @Test
@@ -76,11 +76,11 @@ class ListDecisionsTest {
                     .withBody(
                         "{\"decisions\":["
                             + "{\"decision_id\":\"dec-ctx\",\"timestamp\":\"2026-05-30T12:00:00Z\","
-                            + "\"decision\":\"deny\",\"context\":{"
+                            + "\"decision\":\"blocked\",\"context\":{"
                             + "\"x_ai_agent\":\"refund-bot\",\"x_session_id\":\"sess-42\","
                             + "\"x_leader_identity\":\"ops-lead\"}},"
                             + "{\"decision_id\":\"dec-noctx\",\"timestamp\":\"2026-05-30T11:00:00Z\","
-                            + "\"decision\":\"allow\"}"
+                            + "\"decision\":\"allowed\"}"
                             + "]}")));
 
     List<DecisionSummary> got = axonflow.listDecisions(null);
@@ -100,7 +100,7 @@ class ListDecisionsTest {
     stubFor(
         get(urlPathEqualTo("/api/v1/decisions"))
             .withQueryParam("since", equalTo("2026-05-07T00:00:00Z"))
-            .withQueryParam("decision", equalTo("deny"))
+            .withQueryParam("decision", equalTo("blocked"))
             .withQueryParam("policy_id", equalTo("pol-sqli"))
             .withQueryParam("tool_signature", equalTo("postgres.query"))
             .withQueryParam("limit", equalTo("25"))
@@ -109,7 +109,7 @@ class ListDecisionsTest {
     ListDecisionsOptions opts =
         ListDecisionsOptions.builder()
             .since(Instant.parse("2026-05-07T00:00:00Z"))
-            .decision("deny")
+            .decision("blocked")
             .policyId("pol-sqli")
             .toolSignature("postgres.query")
             .limit(25)
@@ -123,7 +123,7 @@ class ListDecisionsTest {
   void omitsUnsetFilters() {
     stubFor(
         get(urlPathEqualTo("/api/v1/decisions"))
-            .withQueryParam("decision", equalTo("deny"))
+            .withQueryParam("decision", equalTo("blocked"))
             // wiremock fails the test if the URL contains any of these:
             .withQueryParam("policy_id", absent())
             .withQueryParam("tool_signature", absent())
@@ -131,7 +131,7 @@ class ListDecisionsTest {
             .withQueryParam("since", absent())
             .willReturn(aResponse().withStatus(200).withBody("{\"decisions\":[]}")));
 
-    axonflow.listDecisions(ListDecisionsOptions.builder().decision("deny").build());
+    axonflow.listDecisions(ListDecisionsOptions.builder().decision("blocked").build());
   }
 
   @Test
@@ -219,7 +219,7 @@ class ListDecisionsTest {
                         "{\"decisions\":[{"
                             + "\"decision_id\":\"dec-fwd\","
                             + "\"timestamp\":\"2026-05-07T12:00:00Z\","
-                            + "\"decision\":\"deny\","
+                            + "\"decision\":\"blocked\","
                             + "\"policy_id\":\"pol-x\","
                             + "\"tool_signature\":\"tool-x\","
                             + "\"policy_version\":7,"
@@ -244,7 +244,7 @@ class ListDecisionsTest {
                         "{\"decisions\":[{"
                             + "\"decision_id\":\"dec-min\","
                             + "\"timestamp\":\"2026-05-07T12:00:00Z\","
-                            + "\"decision\":\"deny\""
+                            + "\"decision\":\"blocked\""
                             + "}]}")));
 
     List<DecisionSummary> got = axonflow.listDecisions(null);
@@ -263,8 +263,8 @@ class ListDecisionsTest {
   @DisplayName("buildListDecisionsQuery — partial options omit None fields")
   void buildQueryPartial() {
     ListDecisionsOptions opts =
-        ListDecisionsOptions.builder().decision("deny").limit(7).build();
-    assertThat(AxonFlow.buildListDecisionsQuery(opts)).isEqualTo("?decision=deny&limit=7");
+        ListDecisionsOptions.builder().decision("blocked").limit(7).build();
+    assertThat(AxonFlow.buildListDecisionsQuery(opts)).isEqualTo("?decision=blocked&limit=7");
   }
 
   @Test

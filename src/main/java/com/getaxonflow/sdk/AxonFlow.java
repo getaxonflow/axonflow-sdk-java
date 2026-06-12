@@ -756,7 +756,7 @@ public final class AxonFlow implements Closeable {
    * <pre>{@code
    * try {
    *     List<DecisionSummary> decisions = axonflow.listDecisions(
-   *         ListDecisionsOptions.builder().decision("deny").limit(10).build());
+   *         ListDecisionsOptions.builder().decision("blocked").limit(10).build());
    *     for (DecisionSummary d : decisions) {
    *         System.out.println(d.getDecisionId() + " " + d.getDecision());
    *     }
