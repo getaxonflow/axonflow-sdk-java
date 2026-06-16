@@ -5,6 +5,27 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.5.1] - 2026-06-16: TLS security hardening (production guard)
+
+Patch release. No public API changes.
+
+### Security
+
+- **Hard production guard on the insecure-TLS escape hatch.**
+  `HttpClientFactory` already required BOTH `insecureSkipVerify(true)` on the
+  config builder AND the `AXONFLOW_INSECURE_TLS` environment variable before it
+  would disable TLS certificate verification (a development-only path for
+  self-signed certificates). It now additionally refuses to disable verification
+  whenever a production-like deployment environment is detected, even if both
+  gates are set. A production environment is signalled by any of a set of common
+  deployment environment variables (for example `ENVIRONMENT`,
+  `AXONFLOW_ENVIRONMENT`, `APP_ENV`, `SPRING_PROFILES_ACTIVE`, `NODE_ENV`)
+  carrying a `prod` or `production` token. When the guard trips, TLS certificate
+  verification remains enabled and a `SECURITY` error is logged naming the
+  signalling variable. This is belt-and-suspenders hardening; the development
+  escape hatch for local self-signed certificates is unchanged. Clears CodeQL
+  `java/insecure-trustmanager` (alert #8).
+
 ## [8.5.0] - 2026-06-09 — Decision Mode PEP: decide → fulfill → forward
 
 Adds the SDK analog of the platform PEP client (`platform/shared/pep`, ADR-056,
