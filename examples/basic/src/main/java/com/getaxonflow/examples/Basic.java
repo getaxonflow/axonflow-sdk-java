@@ -88,15 +88,20 @@ public class Basic {
         System.out.println("Step 2: Protected proxyLLMCall");
         System.out.println("============================================================");
         try {
-            // Don't set userToken — the SDK auto-populates it from clientId
-            // when omitted. Sending a literal "demo-user" string is rejected
-            // by the agent's JWT middleware on stacks with token validation.
-            ClientRequest request =
+            // Enterprise stacks (DEPLOYMENT_MODE=enterprise) validate user
+            // tokens as JWTs — export AXONFLOW_USER_TOKEN (see
+            // scripts/generate-jwt.sh in the platform repo). Community
+            // stacks skip JWT validation, so omitting it is fine there.
+            String userToken = System.getenv("AXONFLOW_USER_TOKEN");
+            ClientRequest.Builder requestBuilder =
                     ClientRequest.builder()
                             .query("What is the capital of France?")
                             .clientId(clientId)
-                            .requestType(RequestType.CHAT)
-                            .build();
+                            .requestType(RequestType.CHAT);
+            if (userToken != null && !userToken.isEmpty()) {
+                requestBuilder.userToken(userToken);
+            }
+            ClientRequest request = requestBuilder.build();
 
             ClientResponse response = client.proxyLLMCall(request);
             System.out.printf("  Success: %s%n", response.isSuccess());
@@ -110,10 +115,15 @@ public class Basic {
             System.err.println("proxyLLMCall failed: " + e.getMessage());
             System.exit(1);
         } catch (AxonFlowException e) {
-            // Other SDK-level failures (e.g. agent returns non-2xx because
-            // no LLM provider is configured) — log and continue. Tightening
-            // this further requires capability detection from /health,
-            // tracked in axonflow-sdk-java#146.
+            // Invalid-user-token rejections are real failures (export
+            // AXONFLOW_USER_TOKEN on JWT-validating stacks). Other
+            // SDK-level failures (e.g. no LLM provider configured) — log
+            // and continue; tightening further requires capability
+            // detection from /health, tracked in axonflow-sdk-java#146.
+            if (e.getMessage() != null && e.getMessage().contains("Invalid user token")) {
+                System.err.println("proxyLLMCall failed: " + e.getMessage());
+                System.exit(1);
+            }
             System.out.println("  proxyLLMCall non-success: " + e.getMessage());
         }
     }

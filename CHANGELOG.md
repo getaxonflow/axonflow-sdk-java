@@ -5,6 +5,28 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Hostile-testing sweep ahead of the BukuWarung integration
+(getaxonflow/axonflow-enterprise#2861). Examples + runtime-e2e only — no
+library changes.
+
+### Fixed
+
+- **`examples/basic` passes on enterprise (JWT-validating) stacks.** It
+  omitted the user token entirely (SDK falls back to `anonymous`), which
+  `DEPLOYMENT_MODE=enterprise` rejects — and the rejection was swallowed by
+  the generic `AxonFlowException` catch with exit 0. The example now reads
+  `AXONFLOW_USER_TOKEN` and exits non-zero on invalid-user-token rejections.
+
+### Added
+
+- `runtime-e2e/async_verdict_parity/` — live-agent assertion that
+  `decideAsync`/`mcpCheckInputAsync` (joined) deliver the same enforcement
+  verdict as their sync counterparts (async-adapter-bypass class): stacked
+  SQLi → `deny` on `/api/v1/decide`, `allowed=false` on check-input, sync ==
+  async on both planes.
+
 ## [8.5.1] - 2026-06-16: TLS security hardening (production guard)
 
 Patch release. No public API changes.
