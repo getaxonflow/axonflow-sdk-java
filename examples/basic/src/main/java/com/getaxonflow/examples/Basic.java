@@ -115,13 +115,18 @@ public class Basic {
             System.err.println("proxyLLMCall failed: " + e.getMessage());
             System.exit(1);
         } catch (AxonFlowException e) {
-            // Invalid-user-token rejections are real failures (export
-            // AXONFLOW_USER_TOKEN on JWT-validating stacks). Other
-            // SDK-level failures (e.g. no LLM provider configured) — log
-            // and continue; tightening further requires capability
-            // detection from /health, tracked in axonflow-sdk-java#146.
-            if (e.getMessage() != null && e.getMessage().contains("Invalid user token")) {
-                System.err.println("proxyLLMCall failed: " + e.getMessage());
+            // Auth/token rejections are real failures (export AXONFLOW_USER_TOKEN
+            // on JWT-validating stacks). Match on any auth-rejection phrasing
+            // (case-insensitive) rather than one exact string, so a
+            // differently-worded rejection isn't silently swallowed. Non-auth
+            // SDK failures (e.g. "no LLM provider configured") — log and
+            // continue; fully distinguishing them needs /health capability
+            // detection, tracked in axonflow-sdk-java#146.
+            String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+            if (msg.contains("token") || msg.contains("unauthorized")
+                    || msg.contains("authentication") || msg.contains("jwt")
+                    || msg.contains("credential")) {
+                System.err.println("proxyLLMCall failed (auth): " + e.getMessage());
                 System.exit(1);
             }
             System.out.println("  proxyLLMCall non-success: " + e.getMessage());
