@@ -107,8 +107,20 @@ public class Basic {
             System.out.printf("  Success: %s%n", response.isSuccess());
             System.out.printf("  Blocked: %s%n", response.isBlocked());
         } catch (PolicyViolationException e) {
-            // Policy block is a valid outcome — community policies can match
-            // the demo query depending on configuration.
+            // SDK <= 8.5.1 misclassifies 403 auth rejections as policy
+            // violations: every agent error body carries a literal
+            // "blocked":false key, which trips handleErrorResponse's
+            // body.contains("blocked") heuristic. Until the library fix
+            // ships, treat tenant mismatch as the auth failure it is —
+            // otherwise a wrong AXONFLOW_CLIENT_ID (it must match the
+            // user token's tenant) sails through the smoke with exit 0.
+            if (e.getMessage() != null && e.getMessage().contains("Tenant mismatch")) {
+                System.err.println("proxyLLMCall failed (auth): " + e.getMessage()
+                        + " — AXONFLOW_CLIENT_ID must match the user token's tenant");
+                System.exit(1);
+            }
+            // Genuine policy block is a valid outcome — community policies
+            // can match the demo query depending on configuration.
             System.out.printf("  Blocked by policy: %s%n", e.getMessage());
         } catch (AuthenticationException | ConnectionException e) {
             // These are real failures: bad creds or stack down. Fail loud.
