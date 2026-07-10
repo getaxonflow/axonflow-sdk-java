@@ -39,6 +39,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   side-effect: `jackson-databind` 2.17.0 depended on `net.bytebuddy:byte-buddy`
   and 2.22.1 does not.
 
+### Fixed
+
+- **403 authorization rejections no longer surface as policy blocks.** Every
+  agent error envelope carries a literal `"blocked"` JSON key (a
+  tenant-mismatch rejection is
+  `{"success":false,"error":"Tenant mismatch","blocked":false}`), so
+  `handleErrorResponse`'s `body.contains("policy") || body.contains("blocked")`
+  substring heuristic misclassified EVERY 403 auth rejection as
+  `PolicyViolationException` - and callers treating policy blocks as an
+  expected, non-fatal outcome silently swallowed real auth failures. The SDK
+  now parses the JSON body and treats a present `blocked` boolean as
+  authoritative: `true` -> `PolicyViolationException`, `false` ->
+  `AuthenticationException` (HTTP 403). Only unparseable or `blocked`-less
+  bodies fall back to the policy-phrase heuristic (`policy` / `block_reason`;
+  the bare `blocked` substring no longer counts). Live-stack regression leg:
+  `runtime-e2e/error_classification_403/`.
+
 ## [9.0.0] - 2026-07-18
 
 ### Changed (BREAKING)
