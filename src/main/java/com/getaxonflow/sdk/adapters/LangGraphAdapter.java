@@ -443,20 +443,23 @@ public final class LangGraphAdapter implements AutoCloseable {
    */
   public MCPToolInterceptor mcpToolInterceptor(MCPInterceptorOptions options) {
     Function<MCPToolRequest, String> connectorTypeFn;
+    Function<MCPToolRequest, String> toolFn;
     String operation;
 
     if (options != null) {
       connectorTypeFn =
           options.getConnectorTypeFn() != null
               ? options.getConnectorTypeFn()
-              : req -> req.getServerName() + "." + req.getName();
+              : MCPToolRequest::getServerName;
+      toolFn = options.getToolFn() != null ? options.getToolFn() : MCPToolRequest::getName;
       operation = options.getOperation();
     } else {
-      connectorTypeFn = req -> req.getServerName() + "." + req.getName();
+      connectorTypeFn = MCPToolRequest::getServerName;
+      toolFn = MCPToolRequest::getName;
       operation = "execute";
     }
 
-    return new MCPToolInterceptor(client, connectorTypeFn, operation);
+    return new MCPToolInterceptor(client, connectorTypeFn, toolFn, operation);
   }
 
   // ========================================================================

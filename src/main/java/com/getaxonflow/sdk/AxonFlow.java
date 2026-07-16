@@ -2468,7 +2468,7 @@ public final class AxonFlow implements Closeable {
    *
    * @param connectorType name of the MCP connector type (e.g., "postgres")
    * @param statement the statement to validate
-   * @param options optional parameters: "operation" (String), "parameters" (Map)
+   * @param options optional parameters: "operation" (String), "parameters" (Map), "tool" (String)
    * @return MCPCheckInputResponse with allowed status, block reason, and policy info
    * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
    */
@@ -2487,9 +2487,13 @@ public final class AxonFlow implements Closeable {
             // content_type selects the request-redaction detector (ADR-056 / #2563); null
             // defaults to text/plain server-side.
             String contentType = (String) options.get("content_type");
+            // tool identifies the specific tool/action invoked on the MCP server, distinct
+            // from connectorType which identifies the server/connector itself (epic #2905 /
+            // #2904).
+            String tool = (String) options.get("tool");
             request =
                 new MCPCheckInputRequest(
-                    connectorType, statement, parameters, operation, contentType);
+                    connectorType, statement, parameters, operation, contentType, tool);
           } else {
             request = new MCPCheckInputRequest(connectorType, statement);
           }
@@ -2828,7 +2832,8 @@ public final class AxonFlow implements Closeable {
    *
    * @param connectorType name of the MCP connector type (e.g., "postgres")
    * @param responseData the response data rows to validate
-   * @param options optional parameters: "message" (String), "metadata" (Map), "row_count" (int)
+   * @param options optional parameters: "message" (String), "metadata" (Map), "row_count" (int),
+   *     "tool" (String)
    * @return MCPCheckOutputResponse with allowed status, redacted data, and policy info
    * @throws ConnectorException if the request fails (note: 403 is not an error, it means blocked)
    */
@@ -2844,9 +2849,14 @@ public final class AxonFlow implements Closeable {
           Map<String, Object> metadata =
               options != null ? (Map<String, Object>) options.get("metadata") : null;
           int rowCount = options != null ? (int) options.getOrDefault("row_count", 0) : 0;
+          // tool identifies the specific tool/action invoked on the MCP server, distinct
+          // from connectorType which identifies the server/connector itself (epic #2905 /
+          // #2904).
+          String tool = options != null ? (String) options.get("tool") : null;
 
           MCPCheckOutputRequest request =
-              new MCPCheckOutputRequest(connectorType, responseData, message, metadata, rowCount);
+              new MCPCheckOutputRequest(
+                  connectorType, responseData, message, metadata, rowCount, tool);
 
           Request httpRequest = buildRequest("POST", "/api/v1/mcp/check-output", request);
           try (Response response = executeHttp(httpClient, httpRequest)) {

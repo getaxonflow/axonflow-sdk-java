@@ -8,8 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 Hostile-testing sweep ahead of the BukuWarung integration
-(getaxonflow/axonflow-enterprise#2861). Examples + runtime-e2e only — no
-library changes.
+(getaxonflow/axonflow-enterprise#2861).
 
 ### Fixed
 
@@ -19,6 +18,15 @@ library changes.
   the generic `AxonFlowException` catch with exit 0. The example now reads
   `AXONFLOW_USER_TOKEN` and exits non-zero on invalid-user-token rejections.
 
+- **`LangGraphAdapter.mcpToolInterceptor()` no longer concatenates MCP server
+  and tool name into a single `connectorType` string** (epic #2905, #2909).
+  `MCPToolRequest#getServerName()` and `MCPToolRequest#getName()` are now
+  threaded through as two separate identity fields — `connector_type` and the
+  new `tool` field — on `mcpCheckInput`/`mcpCheckOutput`, matching the
+  platform's two-field (server, tool) MCP identity contract (#2904).
+  `MCPInterceptorOptions` gains a `toolFn` alongside the existing
+  `connectorTypeFn` for callers who need custom derivation logic.
+
 ### Added
 
 - `runtime-e2e/async_verdict_parity/` — live-agent assertion that
@@ -26,6 +34,15 @@ library changes.
   verdict as their sync counterparts (async-adapter-bypass class): stacked
   SQLi → `deny` on `/api/v1/decide`, `allowed=false` on check-input, sync ==
   async on both planes.
+
+- `runtime-e2e/mcp_server_tool_split/` — live-agent assertion for the
+  `connector_type`/`tool` split (#2909, epic #2905/#2904):
+  `LangGraphAdapter.mcpToolInterceptor()` round-trips a clean tool call
+  through check-input/check-output with the server and tool names as two
+  distinct wire fields, a direct `mcpCheckInput(..., options)` call with an
+  explicit `tool` option is accepted, and the pre-#2909 two-argument
+  `mcpCheckInput(connectorType, statement)` overload (no `tool` field) still
+  works unchanged.
 
 ## [8.5.1] - 2026-06-16: TLS security hardening (production guard)
 

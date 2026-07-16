@@ -47,12 +47,17 @@ public final class MCPToolInterceptor {
 
   private final AxonFlow client;
   private final Function<MCPToolRequest, String> connectorTypeFn;
+  private final Function<MCPToolRequest, String> toolFn;
   private final String operation;
 
   MCPToolInterceptor(
-      AxonFlow client, Function<MCPToolRequest, String> connectorTypeFn, String operation) {
+      AxonFlow client,
+      Function<MCPToolRequest, String> connectorTypeFn,
+      Function<MCPToolRequest, String> toolFn,
+      String operation) {
     this.client = client;
     this.connectorTypeFn = connectorTypeFn;
+    this.toolFn = toolFn;
     this.operation = operation;
   }
 
@@ -79,12 +84,14 @@ public final class MCPToolInterceptor {
    */
   public Object intercept(MCPToolRequest request, MCPToolHandler handler) throws Exception {
     String connectorType = connectorTypeFn.apply(request);
+    String tool = toolFn.apply(request);
     String argsStr = serializeArgs(request.getArgs());
-    String statement = connectorType + "(" + argsStr + ")";
+    String statement = connectorType + "." + tool + "(" + argsStr + ")";
 
     // Pre-check: validate input
     Map<String, Object> inputOptions = new HashMap<>();
     inputOptions.put("operation", operation);
+    inputOptions.put("tool", tool);
     if (request.getArgs() != null && !request.getArgs().isEmpty()) {
       inputOptions.put("parameters", request.getArgs());
     }
@@ -111,6 +118,7 @@ public final class MCPToolInterceptor {
 
     Map<String, Object> outputOptions = new HashMap<>();
     outputOptions.put("message", resultStr);
+    outputOptions.put("tool", tool);
 
     MCPCheckOutputResponse outputCheck = client.mcpCheckOutput(connectorType, null, outputOptions);
     if (!outputCheck.isAllowed()) {

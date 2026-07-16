@@ -874,7 +874,7 @@ class LangGraphAdapterTest {
     }
 
     @Test
-    @DisplayName("should use default connector type serverName.toolName")
+    @DisplayName("should use serverName as connectorType and name as tool, not concatenated")
     void shouldUseDefaultConnectorType() throws Exception {
       MCPCheckInputResponse inputOk = new MCPCheckInputResponse(true, null, 1, null);
       MCPCheckOutputResponse outputOk = new MCPCheckOutputResponse(true, null, null, 1, null, null);
@@ -887,8 +887,16 @@ class LangGraphAdapterTest {
 
       interceptor.intercept(request, req -> "ok");
 
-      verify(client).mcpCheckInput(eq("myserver.mytool"), anyString(), any());
-      verify(client).mcpCheckOutput(eq("myserver.mytool"), isNull(), any());
+      // connectorType is the bare MCP server name -- NOT "myserver.mytool" -- and the tool
+      // name is threaded separately via the "tool" option, so policies can match on server
+      // identity, tool identity, or both instead of a single opaque concatenated string.
+      ArgumentCaptor<Map<String, Object>> inputOptsCaptor = ArgumentCaptor.forClass(Map.class);
+      verify(client).mcpCheckInput(eq("myserver"), anyString(), inputOptsCaptor.capture());
+      assertThat(inputOptsCaptor.getValue()).containsEntry("tool", "mytool");
+
+      ArgumentCaptor<Map<String, Object>> outputOptsCaptor = ArgumentCaptor.forClass(Map.class);
+      verify(client).mcpCheckOutput(eq("myserver"), isNull(), outputOptsCaptor.capture());
+      assertThat(outputOptsCaptor.getValue()).containsEntry("tool", "mytool");
     }
 
     @Test
@@ -914,6 +922,31 @@ class LangGraphAdapterTest {
       ArgumentCaptor<Map<String, Object>> inputOptsCaptor = ArgumentCaptor.forClass(Map.class);
       verify(client).mcpCheckInput(eq("custom-pg"), anyString(), inputOptsCaptor.capture());
       assertThat(inputOptsCaptor.getValue()).containsEntry("operation", "query");
+      // Even with a custom connectorTypeFn, the tool name still defaults to
+      // MCPToolRequest#getName() and is threaded separately.
+      assertThat(inputOptsCaptor.getValue()).containsEntry("tool", "read");
+    }
+
+    @Test
+    @DisplayName("should use custom tool function independent of connector type function")
+    void shouldUseCustomToolFn() throws Exception {
+      MCPCheckInputResponse inputOk = new MCPCheckInputResponse(true, null, 1, null);
+      MCPCheckOutputResponse outputOk = new MCPCheckOutputResponse(true, null, null, 1, null, null);
+
+      when(client.mcpCheckInput(anyString(), anyString(), any())).thenReturn(inputOk);
+      when(client.mcpCheckOutput(anyString(), isNull(), any())).thenReturn(outputOk);
+
+      MCPInterceptorOptions opts =
+          MCPInterceptorOptions.builder().toolFn(req -> "renamed-" + req.getName()).build();
+
+      MCPToolInterceptor interceptor = adapter.mcpToolInterceptor(opts);
+      MCPToolRequest request = new MCPToolRequest("pg", "read", null);
+
+      interceptor.intercept(request, req -> "data");
+
+      ArgumentCaptor<Map<String, Object>> inputOptsCaptor = ArgumentCaptor.forClass(Map.class);
+      verify(client).mcpCheckInput(eq("pg"), anyString(), inputOptsCaptor.capture());
+      assertThat(inputOptsCaptor.getValue()).containsEntry("tool", "renamed-read");
     }
 
     @Test
