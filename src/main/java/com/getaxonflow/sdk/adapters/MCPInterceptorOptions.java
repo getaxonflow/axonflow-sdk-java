@@ -34,8 +34,12 @@ public final class MCPInterceptorOptions {
   }
 
   /**
-   * Returns the function that maps an MCP request to a connector type string. May be null, in which
-   * case the default "{serverName}.{toolName}" is used.
+   * Returns the function that maps an MCP request to a connector type string. May be null, in
+   * which case the default {@link MCPToolRequest#getServerName()} is used.
+   *
+   * <p>Connector type identifies the MCP server/connector itself; it is sent separately from the
+   * tool name (which is always {@link MCPToolRequest#getName()}) so policies can match on server
+   * identity, tool identity, or both.
    *
    * @return the connector type function, or null
    */
@@ -63,7 +67,12 @@ public final class MCPInterceptorOptions {
     private Builder() {}
 
     /**
-     * Sets a custom function to derive the connector type from an MCP request.
+     * Sets a custom function to derive the connector type (MCP server identity) from an MCP
+     * request. Defaults to {@link MCPToolRequest#getServerName()}.
+     *
+     * <p>There is deliberately no {@code toolFn} override: the tool identity is always {@link
+     * MCPToolRequest#getName()} so a caller cannot write an arbitrary tool identity into the audit
+     * trail (epic #2905, RULING 3).
      *
      * @param connectorTypeFn mapping function
      * @return this builder

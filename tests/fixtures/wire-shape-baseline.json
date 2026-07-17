@@ -373,7 +373,8 @@
     },
     "MCPCheckInputRequest": {
       "sdk_only": [
-        "content_type"
+        "content_type",
+        "tool"
       ],
       "spec_only": [
         "client_id",
@@ -392,7 +393,9 @@
       "spec_only": []
     },
     "MCPCheckOutputRequest": {
-      "sdk_only": [],
+      "sdk_only": [
+        "tool"
+      ],
       "spec_only": [
         "client_id",
         "tenant_id",

@@ -1640,6 +1640,39 @@ class MoreTypesTest {
       assertThat(request.toString()).contains("MCPCheckInputRequest");
       assertThat(request.toString()).contains("postgres");
     }
+
+    @Test
+    @DisplayName("should carry connector type and tool as separate fields, not concatenated")
+    void shouldCarryConnectorTypeAndToolSeparately() {
+      MCPCheckInputRequest request =
+          new MCPCheckInputRequest(
+              "myserver", "myserver.mytool({})", Map.of("timeout", 30), "execute", null, "mytool");
+
+      assertThat(request.getConnectorType()).isEqualTo("myserver");
+      assertThat(request.getTool()).isEqualTo("mytool");
+    }
+
+    @Test
+    @DisplayName("should default tool to null and omit it from JSON when not supplied")
+    void shouldDefaultToolToNullAndOmitFromJson() throws Exception {
+      MCPCheckInputRequest request = new MCPCheckInputRequest("postgres", "SELECT 1");
+
+      assertThat(request.getTool()).isNull();
+      String json = objectMapper.writeValueAsString(request);
+      assertThat(json).doesNotContain("\"tool\"");
+    }
+
+    @Test
+    @DisplayName("should serialize tool field to JSON when present")
+    void shouldSerializeToolToJson() throws Exception {
+      MCPCheckInputRequest request =
+          new MCPCheckInputRequest("myserver", "SELECT 1", null, "execute", null, "mytool");
+
+      String json = objectMapper.writeValueAsString(request);
+
+      assertThat(json).contains("\"connector_type\":\"myserver\"");
+      assertThat(json).contains("\"tool\":\"mytool\"");
+    }
   }
 
   @Nested
@@ -1809,6 +1842,41 @@ class MoreTypesTest {
       MCPCheckOutputRequest request = new MCPCheckOutputRequest("postgres", data);
       assertThat(request.toString()).contains("MCPCheckOutputRequest");
       assertThat(request.toString()).contains("postgres");
+    }
+
+    @Test
+    @DisplayName("should carry connector type and tool as separate fields, not concatenated")
+    void shouldCarryConnectorTypeAndToolSeparately() {
+      List<Map<String, Object>> data = List.of(Map.of("id", 1));
+      MCPCheckOutputRequest request =
+          new MCPCheckOutputRequest("myserver", data, "done", null, 1, "mytool");
+
+      assertThat(request.getConnectorType()).isEqualTo("myserver");
+      assertThat(request.getTool()).isEqualTo("mytool");
+    }
+
+    @Test
+    @DisplayName("should default tool to null and omit it from JSON when not supplied")
+    void shouldDefaultToolToNullAndOmitFromJson() throws Exception {
+      List<Map<String, Object>> data = List.of(Map.of("id", 1));
+      MCPCheckOutputRequest request = new MCPCheckOutputRequest("postgres", data);
+
+      assertThat(request.getTool()).isNull();
+      String json = objectMapper.writeValueAsString(request);
+      assertThat(json).doesNotContain("\"tool\"");
+    }
+
+    @Test
+    @DisplayName("should serialize tool field to JSON when present")
+    void shouldSerializeToolToJson() throws Exception {
+      List<Map<String, Object>> data = List.of(Map.of("id", 1));
+      MCPCheckOutputRequest request =
+          new MCPCheckOutputRequest("myserver", data, null, null, 0, "mytool");
+
+      String json = objectMapper.writeValueAsString(request);
+
+      assertThat(json).contains("\"connector_type\":\"myserver\"");
+      assertThat(json).contains("\"tool\":\"mytool\"");
     }
   }
 

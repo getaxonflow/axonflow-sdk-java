@@ -79,12 +79,18 @@ public final class MCPToolInterceptor {
    */
   public Object intercept(MCPToolRequest request, MCPToolHandler handler) throws Exception {
     String connectorType = connectorTypeFn.apply(request);
+    // The tool identity is always the request's tool name (epic #2905,
+    // RULING 3): there is no caller-supplied tool override, so an arbitrary
+    // identity can never be written into the audit trail. connectorTypeFn
+    // remains the escape hatch for the server/connector dimension only.
+    String tool = request.getName();
     String argsStr = serializeArgs(request.getArgs());
-    String statement = connectorType + "(" + argsStr + ")";
+    String statement = connectorType + "." + tool + "(" + argsStr + ")";
 
     // Pre-check: validate input
     Map<String, Object> inputOptions = new HashMap<>();
     inputOptions.put("operation", operation);
+    inputOptions.put("tool", tool);
     if (request.getArgs() != null && !request.getArgs().isEmpty()) {
       inputOptions.put("parameters", request.getArgs());
     }
@@ -111,6 +117,7 @@ public final class MCPToolInterceptor {
 
     Map<String, Object> outputOptions = new HashMap<>();
     outputOptions.put("message", resultStr);
+    outputOptions.put("tool", tool);
 
     MCPCheckOutputResponse outputCheck = client.mcpCheckOutput(connectorType, null, outputOptions);
     if (!outputCheck.isAllowed()) {

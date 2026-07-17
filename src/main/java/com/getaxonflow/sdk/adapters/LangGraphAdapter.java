@@ -449,13 +449,15 @@ public final class LangGraphAdapter implements AutoCloseable {
       connectorTypeFn =
           options.getConnectorTypeFn() != null
               ? options.getConnectorTypeFn()
-              : req -> req.getServerName() + "." + req.getName();
+              : MCPToolRequest::getServerName;
       operation = options.getOperation();
     } else {
-      connectorTypeFn = req -> req.getServerName() + "." + req.getName();
+      connectorTypeFn = MCPToolRequest::getServerName;
       operation = "execute";
     }
 
+    // The tool identity is always the request's tool name (epic #2905,
+    // RULING 3); there is no caller-supplied tool override.
     return new MCPToolInterceptor(client, connectorTypeFn, operation);
   }
 

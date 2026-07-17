@@ -7,9 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Hostile-testing sweep ahead of the BukuWarung integration
-(getaxonflow/axonflow-enterprise#2861), plus the `caller_name` audit field
-below.
+## [9.0.0] - 2026-07-18
+
+### Changed (BREAKING)
+
+- **The LangGraph adapter now reports the (server, tool) identity as two
+  separate wire fields instead of concatenating them into `connectorType`.**
+  `MCPToolRequest#getServerName()` and `MCPToolRequest#getName()` are threaded
+  through as `connector_type` and the new `tool` field on
+  `mcpCheckInput`/`mcpCheckOutput`, matching the platform's two-field
+  (server, tool) MCP identity contract. `mcpToolInterceptor()` sends
+  `connectorType = serverName` and `tool = getName()`; the default
+  `connectorTypeFn` returns the bare `serverName`. **`MCPInterceptorOptions`
+  has no `toolFn`:** the tool identity is always `MCPToolRequest#getName()`, so
+  a caller cannot write an arbitrary tool identity into the audit trail.
+  `connectorTypeFn` remains the escape hatch for the server/connector
+  dimension only.
+
+  **Migration.** Policies or per-connector settings matching the old
+  concatenated value — e.g. `connector_type == "filesystem.read_file"` — stop
+  matching after upgrade. Re-scope them to match `connector_type ==
+  "filesystem"` together with the `tool` field (e.g. `tool == "read_file"`).
+  The `connectorTypeFn` option is the compatibility lever: a caller can restore
+  any prior `connector_type` value (including the old concatenated form,
+  `req -> req.getServerName() + "." + req.getName()`) without losing the
+  separate `tool` field.
+
+  **Missing-server edge.** With the default resolver, a tool whose
+  `getServerName()` is empty now sends `connector_type=""`, which the platform
+  rejects with HTTP 400 → the call throws and the tool is blocked (fail-closed),
+  never run ungoverned. Previously the concatenated value was `".tool"` (a
+  non-empty string the platform accepted). Supply a `connectorTypeFn` for
+  server-less MCP tools.
+
+  **Minimum platform.** The `tool` field is consumed on `POST
+  /api/v1/mcp/check-input` by **AxonFlow platform v9.10.0+**. On platforms
+  below v9.10.0 the `tool` field is silently dropped and identity degrades to
+  the bare server name — coarser than the old concatenated value — so
+  **upgrade the platform to v9.10.0+ before adopting this SDK major.**
+  Response-plane (`check-output`) `tool` scoping requires **AxonFlow platform
+  v9.11.0+**; until then the SDK sends it forward-compatibly and older
+  platforms ignore it.
 
 ### Fixed
 
@@ -27,14 +65,19 @@ below.
   SQLi → `deny` on `/api/v1/decide`, `allowed=false` on check-input, sync ==
   async on both planes.
 
+- `runtime-e2e/mcp_server_tool_split/` — live-agent assertion for the
+  `connector_type`/`tool` split: `LangGraphAdapter.mcpToolInterceptor()`
+  round-trips a clean tool call through check-input/check-output with the
+  server and tool names as two distinct wire fields, a direct
+  `mcpCheckInput(..., options)` call with an explicit `tool` option is
+  accepted, and the two-argument `mcpCheckInput(connectorType, statement)`
+  overload (no `tool` field) still works unchanged.
 - **`AuditToolCallRequest.callerName` (wire: `caller_name`)** — identifies
   WHICH CLIENT made a tool call (e.g. `claude_code`, `codex`, `cursor`,
   `openclaw`), replacing the misleadingly-named `toolType` field for that
-  purpose (getaxonflow/axonflow-enterprise#2912, epic #2905). `toolType` is
-  kept as a **deprecated** input fallback — not removed, not renamed; the
-  server resolves `caller_name` if supplied, else the legacy `tool_type`,
-  else a default. `runtime-e2e/caller_name_audit/` proves `callerName`
-  reaches `policy_details.caller_name` on a live agent + orchestrator.
+  purpose. `toolType` is kept as a **deprecated** input fallback — not
+  removed, not renamed; the server resolves `caller_name` if supplied, else
+  the legacy `tool_type`, else a default.
 
 ## [8.5.1] - 2026-06-16: TLS security hardening (production guard)
 

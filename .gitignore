@@ -103,3 +103,7 @@ local.properties
 # Heartbeat real-stack smoke build dir
 tests/heartbeat-real-stack/build/
 tests/heartbeat-real-stack/cp.txt
+
+# Python bytecode (from scripts/wire_shape tooling)
+__pycache__/
+*.pyc

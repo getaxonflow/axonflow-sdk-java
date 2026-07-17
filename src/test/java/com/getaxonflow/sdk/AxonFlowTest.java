@@ -2176,6 +2176,33 @@ class AxonFlowTest {
   }
 
   @Test
+  @DisplayName("mcpCheckInput with a \"tool\" option should send connector_type and tool as "
+      + "separate fields")
+  void mcpCheckInputWithToolOptionShouldSendConnectorTypeAndToolSeparately() {
+    stubFor(
+        post(urlEqualTo("/api/v1/mcp/check-input"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"allowed\": true, \"policies_evaluated\": 5, "
+                            + "\"policy_info\": {\"policies_evaluated\": 5, \"blocked\": false, "
+                            + "\"redactions_applied\": 0, \"processing_time_ms\": 2}}")));
+
+    Map<String, Object> options = Map.of("operation", "execute", "tool", "mytool");
+    MCPCheckInputResponse response =
+        axonflow.mcpCheckInput("myserver", "myserver.mytool({})", options);
+
+    assertThat(response.isAllowed()).isTrue();
+
+    verify(
+        postRequestedFor(urlEqualTo("/api/v1/mcp/check-input"))
+            .withRequestBody(containing("\"connector_type\":\"myserver\""))
+            .withRequestBody(containing("\"tool\":\"mytool\"")));
+  }
+
+  @Test
   @DisplayName("mcpCheckInput should handle 403 as blocked result")
   void mcpCheckInputShouldHandle403AsBlockedResult() {
     stubFor(
@@ -2309,6 +2336,32 @@ class AxonFlowTest {
             .withRequestBody(containing("\"connector_type\":\"postgres\""))
             .withRequestBody(containing("\"message\":\"Query completed\""))
             .withRequestBody(containing("\"row_count\":1")));
+  }
+
+  @Test
+  @DisplayName("mcpCheckOutput with a \"tool\" option should send connector_type and tool as "
+      + "separate fields")
+  void mcpCheckOutputWithToolOptionShouldSendConnectorTypeAndToolSeparately() {
+    stubFor(
+        post(urlEqualTo("/api/v1/mcp/check-output"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"allowed\": true, \"policies_evaluated\": 6, "
+                            + "\"policy_info\": {\"policies_evaluated\": 6, \"blocked\": false, "
+                            + "\"redactions_applied\": 0, \"processing_time_ms\": 2}}")));
+
+    Map<String, Object> options = Map.of("message", "ok", "tool", "mytool");
+    MCPCheckOutputResponse response = axonflow.mcpCheckOutput("myserver", null, options);
+
+    assertThat(response.isAllowed()).isTrue();
+
+    verify(
+        postRequestedFor(urlEqualTo("/api/v1/mcp/check-output"))
+            .withRequestBody(containing("\"connector_type\":\"myserver\""))
+            .withRequestBody(containing("\"tool\":\"mytool\"")));
   }
 
   @Test

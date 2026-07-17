@@ -46,6 +46,20 @@ public final class MCPCheckOutputRequest {
   private final int rowCount;
 
   /**
+   * The specific tool/action name being invoked on the MCP server (e.g., "query", "search_docs").
+   * Distinct from {@code connectorType}, which identifies the MCP server/connector itself.
+   * Optional; null when the caller doesn't distinguish per-tool identity from the connector.
+   *
+   * <p>NOTE: unlike the input plane, the platform's check-output schema has NO {@code tool} field
+   * on any released version yet — #2904 added it input-side only, and check-output support is
+   * tracked by #2955 (targeted for v9.11.0). Sending it here is forward-compatible and harmless
+   * (the agent ignores unknown keys), but it is not consumed server-side on any platform today.
+   * Source of truth: {@code platform/agent} {@code MCPCheckInputRequest.Tool} (epic #2905 / #2904).
+   */
+  @JsonProperty("tool")
+  private final String tool;
+
+  /**
    * Creates a request with connector type and response data only.
    *
    * @param connectorType the MCP connector type (e.g., "postgres")
@@ -56,7 +70,7 @@ public final class MCPCheckOutputRequest {
   }
 
   /**
-   * Creates a request with all fields.
+   * Creates a request with all fields. Tool is left null.
    *
    * @param connectorType the MCP connector type (e.g., "postgres")
    * @param responseData the response data rows to validate
@@ -70,11 +84,33 @@ public final class MCPCheckOutputRequest {
       String message,
       Map<String, Object> metadata,
       int rowCount) {
+    this(connectorType, responseData, message, metadata, rowCount, null);
+  }
+
+  /**
+   * Creates a request with all fields, including the specific tool name.
+   *
+   * @param connectorType the MCP connector type/server (e.g., "postgres")
+   * @param responseData the response data rows to validate
+   * @param message optional message context
+   * @param metadata optional metadata
+   * @param rowCount the number of rows in the response
+   * @param tool the specific tool/action name (e.g., "query"); null when not distinguished from
+   *     {@code connectorType}
+   */
+  public MCPCheckOutputRequest(
+      String connectorType,
+      List<Map<String, Object>> responseData,
+      String message,
+      Map<String, Object> metadata,
+      int rowCount,
+      String tool) {
     this.connectorType = connectorType;
     this.responseData = responseData;
     this.message = message;
     this.metadata = metadata;
     this.rowCount = rowCount;
+    this.tool = tool;
   }
 
   public String getConnectorType() {
@@ -97,6 +133,14 @@ public final class MCPCheckOutputRequest {
     return rowCount;
   }
 
+  /**
+   * Returns the specific tool/action name being invoked, or null when not distinguished from
+   * {@code connectorType}.
+   */
+  public String getTool() {
+    return tool;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -106,12 +150,13 @@ public final class MCPCheckOutputRequest {
         && Objects.equals(connectorType, that.connectorType)
         && Objects.equals(responseData, that.responseData)
         && Objects.equals(message, that.message)
-        && Objects.equals(metadata, that.metadata);
+        && Objects.equals(metadata, that.metadata)
+        && Objects.equals(tool, that.tool);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(connectorType, responseData, message, metadata, rowCount);
+    return Objects.hash(connectorType, responseData, message, metadata, rowCount, tool);
   }
 
   @Override
