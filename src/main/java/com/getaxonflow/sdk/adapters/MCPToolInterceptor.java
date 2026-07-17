@@ -47,17 +47,12 @@ public final class MCPToolInterceptor {
 
   private final AxonFlow client;
   private final Function<MCPToolRequest, String> connectorTypeFn;
-  private final Function<MCPToolRequest, String> toolFn;
   private final String operation;
 
   MCPToolInterceptor(
-      AxonFlow client,
-      Function<MCPToolRequest, String> connectorTypeFn,
-      Function<MCPToolRequest, String> toolFn,
-      String operation) {
+      AxonFlow client, Function<MCPToolRequest, String> connectorTypeFn, String operation) {
     this.client = client;
     this.connectorTypeFn = connectorTypeFn;
-    this.toolFn = toolFn;
     this.operation = operation;
   }
 
@@ -84,7 +79,11 @@ public final class MCPToolInterceptor {
    */
   public Object intercept(MCPToolRequest request, MCPToolHandler handler) throws Exception {
     String connectorType = connectorTypeFn.apply(request);
-    String tool = toolFn.apply(request);
+    // The tool identity is always the request's tool name (epic #2905,
+    // RULING 3): there is no caller-supplied tool override, so an arbitrary
+    // identity can never be written into the audit trail. connectorTypeFn
+    // remains the escape hatch for the server/connector dimension only.
+    String tool = request.getName();
     String argsStr = serializeArgs(request.getArgs());
     String statement = connectorType + "." + tool + "(" + argsStr + ")";
 

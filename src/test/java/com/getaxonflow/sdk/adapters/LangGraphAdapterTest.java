@@ -928,16 +928,20 @@ class LangGraphAdapterTest {
     }
 
     @Test
-    @DisplayName("should use custom tool function independent of connector type function")
-    void shouldUseCustomToolFn() throws Exception {
+    @DisplayName("tool name is always getName(), never a caller override (RULING 3)")
+    void toolNameIsAlwaysRequestName() throws Exception {
       MCPCheckInputResponse inputOk = new MCPCheckInputResponse(true, null, 1, null);
       MCPCheckOutputResponse outputOk = new MCPCheckOutputResponse(true, null, null, 1, null, null);
 
       when(client.mcpCheckInput(anyString(), anyString(), any())).thenReturn(inputOk);
       when(client.mcpCheckOutput(anyString(), isNull(), any())).thenReturn(outputOk);
 
+      // A custom connectorTypeFn overrides only the connector/server dimension;
+      // the tool identity is always MCPToolRequest#getName() — there is no
+      // toolFn escape hatch that could write an arbitrary tool identity into
+      // the audit trail (epic #2905, RULING 3).
       MCPInterceptorOptions opts =
-          MCPInterceptorOptions.builder().toolFn(req -> "renamed-" + req.getName()).build();
+          MCPInterceptorOptions.builder().connectorTypeFn(req -> "renamed-server").build();
 
       MCPToolInterceptor interceptor = adapter.mcpToolInterceptor(opts);
       MCPToolRequest request = new MCPToolRequest("pg", "read", null);
@@ -945,8 +949,35 @@ class LangGraphAdapterTest {
       interceptor.intercept(request, req -> "data");
 
       ArgumentCaptor<Map<String, Object>> inputOptsCaptor = ArgumentCaptor.forClass(Map.class);
-      verify(client).mcpCheckInput(eq("pg"), anyString(), inputOptsCaptor.capture());
-      assertThat(inputOptsCaptor.getValue()).containsEntry("tool", "renamed-read");
+      verify(client).mcpCheckInput(eq("renamed-server"), anyString(), inputOptsCaptor.capture());
+      assertThat(inputOptsCaptor.getValue()).containsEntry("tool", "read");
+    }
+
+    @Test
+    @DisplayName("empty server name sends empty connector_type with the tool name (missing-server)")
+    void emptyServerNameSendsEmptyConnectorTypeAndTool() throws Exception {
+      // Missing-server edge (epic #2905): with the default resolver,
+      // connector_type is the server name, so an empty serverName sends
+      // connector_type="" while the tool name still travels in the "tool"
+      // option. A real platform rejects an empty connector_type with HTTP 400,
+      // which surfaces as an exception — the tool call is blocked (fail-closed)
+      // and the handler never runs. Before the de-concatenation the value was
+      // ".tool" (a non-empty string the platform accepted), so this is a
+      // deliberate, surfaced change for server-less tools.
+      MCPCheckInputResponse inputOk = new MCPCheckInputResponse(true, null, 1, null);
+      MCPCheckOutputResponse outputOk = new MCPCheckOutputResponse(true, null, null, 1, null, null);
+
+      when(client.mcpCheckInput(anyString(), anyString(), any())).thenReturn(inputOk);
+      when(client.mcpCheckOutput(anyString(), isNull(), any())).thenReturn(outputOk);
+
+      MCPToolInterceptor interceptor = adapter.mcpToolInterceptor();
+      MCPToolRequest request = new MCPToolRequest("", "tool", null);
+
+      interceptor.intercept(request, req -> "data");
+
+      ArgumentCaptor<Map<String, Object>> inputOptsCaptor = ArgumentCaptor.forClass(Map.class);
+      verify(client).mcpCheckInput(eq(""), anyString(), inputOptsCaptor.capture());
+      assertThat(inputOptsCaptor.getValue()).containsEntry("tool", "tool");
     }
 
     @Test

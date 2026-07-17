@@ -55,8 +55,9 @@ public final class MCPCheckInputRequest {
    * The specific tool/action name being invoked on the MCP server (e.g., "query", "search_docs").
    * Distinct from {@code connectorType}, which identifies the MCP server/connector itself.
    * Optional; null when the caller doesn't distinguish per-tool identity from the connector.
-   * Source of truth: {@code platform/agent} {@code MCPCheckInputRequest.Tool} (epic #2905 /
-   * #2904).
+   * Consumed on {@code POST /api/v1/mcp/check-input} by platform v9.10.0+ (enterprise c8df2006b);
+   * silently ignored by platforms below v9.10.0. Source of truth: {@code platform/agent}
+   * {@code MCPCheckInputRequest.Tool} (epic #2905 / #2904).
    */
   @JsonProperty("tool")
   private final String tool;

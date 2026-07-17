@@ -49,8 +49,12 @@ public final class MCPCheckOutputRequest {
    * The specific tool/action name being invoked on the MCP server (e.g., "query", "search_docs").
    * Distinct from {@code connectorType}, which identifies the MCP server/connector itself.
    * Optional; null when the caller doesn't distinguish per-tool identity from the connector.
-   * Source of truth: {@code platform/agent} {@code MCPCheckInputRequest.Tool} (epic #2905 /
-   * #2904), mirrored on check-output.
+   *
+   * <p>NOTE: unlike the input plane, the platform's check-output schema has NO {@code tool} field
+   * on any released version yet — #2904 added it input-side only, and check-output support is
+   * tracked by #2955 (targeted for v9.11.0). Sending it here is forward-compatible and harmless
+   * (the agent ignores unknown keys), but it is not consumed server-side on any platform today.
+   * Source of truth: {@code platform/agent} {@code MCPCheckInputRequest.Tool} (epic #2905 / #2904).
    */
   @JsonProperty("tool")
   private final String tool;

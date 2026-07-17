@@ -10,6 +10,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Hostile-testing sweep ahead of the BukuWarung integration
 (getaxonflow/axonflow-enterprise#2861).
 
+> **This release contains a breaking change and MUST be published as a major
+> version bump.** The `connector_type` wire value emitted by the LangGraph
+> adapter changes from `"{server}.{tool}"` to the bare server name; policies
+> matching the old concatenated value stop matching until re-scoped (see the
+> migration note below).
+
+### Changed (BREAKING)
+
+- **The LangGraph adapter now reports the (server, tool) identity as two
+  separate wire fields instead of concatenating them into `connectorType`**
+  (epic #2905, #2909). `MCPToolRequest#getServerName()` and
+  `MCPToolRequest#getName()` are threaded through as `connector_type` and the
+  new `tool` field on `mcpCheckInput`/`mcpCheckOutput`, matching the platform's
+  two-field (server, tool) MCP identity contract (#2904).
+  `mcpToolInterceptor()` sends `connectorType = serverName` and
+  `tool = getName()`; the default `connectorTypeFn` returns the bare
+  `serverName`. **`MCPInterceptorOptions` has no `toolFn`:** the tool identity
+  is always `MCPToolRequest#getName()` so a caller cannot write an arbitrary
+  tool identity into the audit trail (epic #2905, RULING 3). `connectorTypeFn`
+  remains the escape hatch for the server/connector dimension only.
+
+  **Migration.** Policies or per-connector settings matching the old
+  concatenated value — e.g. `connector_type == "filesystem.read_file"` — stop
+  matching after upgrade. Re-scope them to match `connector_type ==
+  "filesystem"` together with the `tool` field (e.g. `tool == "read_file"`).
+  The `connectorTypeFn` option is the compatibility lever: a caller can restore
+  any prior `connector_type` value (including the old concatenated form,
+  `req -> req.getServerName() + "." + req.getName()`) without losing the
+  separate `tool` field.
+
+  **Missing-server edge.** With the default resolver, a tool whose
+  `getServerName()` is empty now sends `connector_type=""`, which the platform
+  rejects with HTTP 400 → the call throws and the tool is blocked (fail-closed),
+  never run ungoverned. Previously the concatenated value was `".tool"` (a
+  non-empty string the platform accepted). Supply a `connectorTypeFn` for
+  server-less MCP tools.
+
+  **Minimum platform.** The `tool` field is consumed on `POST
+  /api/v1/mcp/check-input` by platform **v9.10.0+** (enterprise `c8df2006b`,
+  epic #2905 / #2904). On platforms below v9.10.0 the `tool` field is silently
+  dropped and identity degrades to the bare server name — coarser than the old
+  concatenated value — so **upgrade the platform to v9.10.0+ before adopting
+  this SDK major.** The response plane (`check-output`) does **not** consume
+  `tool` on any released platform version yet (tracked by #2955, targeted for
+  v9.11.0); the SDK sends it forward-compatibly and current platforms ignore
+  it.
+
 ### Fixed
 
 - **`examples/basic` passes on enterprise (JWT-validating) stacks.** It
@@ -17,15 +64,6 @@ Hostile-testing sweep ahead of the BukuWarung integration
   `DEPLOYMENT_MODE=enterprise` rejects — and the rejection was swallowed by
   the generic `AxonFlowException` catch with exit 0. The example now reads
   `AXONFLOW_USER_TOKEN` and exits non-zero on invalid-user-token rejections.
-
-- **`LangGraphAdapter.mcpToolInterceptor()` no longer concatenates MCP server
-  and tool name into a single `connectorType` string** (epic #2905, #2909).
-  `MCPToolRequest#getServerName()` and `MCPToolRequest#getName()` are now
-  threaded through as two separate identity fields — `connector_type` and the
-  new `tool` field — on `mcpCheckInput`/`mcpCheckOutput`, matching the
-  platform's two-field (server, tool) MCP identity contract (#2904).
-  `MCPInterceptorOptions` gains a `toolFn` alongside the existing
-  `connectorTypeFn` for callers who need custom derivation logic.
 
 ### Added
 

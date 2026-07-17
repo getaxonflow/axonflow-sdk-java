@@ -443,7 +443,6 @@ public final class LangGraphAdapter implements AutoCloseable {
    */
   public MCPToolInterceptor mcpToolInterceptor(MCPInterceptorOptions options) {
     Function<MCPToolRequest, String> connectorTypeFn;
-    Function<MCPToolRequest, String> toolFn;
     String operation;
 
     if (options != null) {
@@ -451,15 +450,15 @@ public final class LangGraphAdapter implements AutoCloseable {
           options.getConnectorTypeFn() != null
               ? options.getConnectorTypeFn()
               : MCPToolRequest::getServerName;
-      toolFn = options.getToolFn() != null ? options.getToolFn() : MCPToolRequest::getName;
       operation = options.getOperation();
     } else {
       connectorTypeFn = MCPToolRequest::getServerName;
-      toolFn = MCPToolRequest::getName;
       operation = "execute";
     }
 
-    return new MCPToolInterceptor(client, connectorTypeFn, toolFn, operation);
+    // The tool identity is always the request's tool name (epic #2905,
+    // RULING 3); there is no caller-supplied tool override.
+    return new MCPToolInterceptor(client, connectorTypeFn, operation);
   }
 
   // ========================================================================
