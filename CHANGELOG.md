@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 Hostile-testing sweep ahead of the BukuWarung integration
-(getaxonflow/axonflow-enterprise#2861).
+(getaxonflow/axonflow-enterprise#2861), plus the `caller_name` audit field
+below.
 
 > **This release contains a breaking change and MUST be published as a major
 > version bump.** The `connector_type` wire value emitted by the LangGraph
@@ -81,6 +82,14 @@ Hostile-testing sweep ahead of the BukuWarung integration
   explicit `tool` option is accepted, and the pre-#2909 two-argument
   `mcpCheckInput(connectorType, statement)` overload (no `tool` field) still
   works unchanged.
+- **`AuditToolCallRequest.callerName` (wire: `caller_name`)** — identifies
+  WHICH CLIENT made a tool call (e.g. `claude_code`, `codex`, `cursor`,
+  `openclaw`), replacing the misleadingly-named `toolType` field for that
+  purpose (getaxonflow/axonflow-enterprise#2912, epic #2905). `toolType` is
+  kept as a **deprecated** input fallback — not removed, not renamed; the
+  server resolves `caller_name` if supplied, else the legacy `tool_type`,
+  else a default. `runtime-e2e/caller_name_audit/` proves `callerName`
+  reaches `policy_details.caller_name` on a live agent + orchestrator.
 
 ## [8.5.1] - 2026-06-16: TLS security hardening (production guard)
 
