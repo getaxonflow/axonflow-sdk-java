@@ -128,8 +128,13 @@ public final class AuditToolCallRequest {
     return toolType;
   }
 
-  /** Returns the name of the client/integration that made this tool call (e.g. "claude_code",
-   * "codex", "cursor", "openclaw"). Preferred over the deprecated {@link #getToolType()}. */
+  /**
+   * Returns the name of the client/integration that made this tool call (e.g. "claude_code",
+   * "codex", "cursor", "openclaw"). Preferred over the deprecated {@link #getToolType()}.
+   *
+   * <p>Requires a platform with caller_name support (v9.11.0+); older platforms silently drop
+   * this field, so also set {@code toolType} if you need attribution there.
+   */
   public String getCallerName() {
     return callerName;
   }
