@@ -104,6 +104,93 @@ class AuditToolCallTest {
   }
 
   @Test
+  @DisplayName("should serialize caller_name (getaxonflow/axonflow-enterprise#2912)")
+  void shouldSerializeCallerName() {
+    stubFor(
+        post(urlEqualTo("/api/v1/audit/tool-call"))
+            .willReturn(
+                aResponse()
+                    .withStatus(201)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"audit_id\":\"aud_tc_caller\",\"status\":\"recorded\",\"timestamp\":\"2026-07-16T12:00:00Z\"}")));
+
+    AuditToolCallRequest request =
+        AuditToolCallRequest.builder().toolName("web_search").callerName("cursor").build();
+
+    AuditToolCallResponse response = axonflow.auditToolCall(request);
+
+    assertThat(response).isNotNull();
+    assertThat(request.getCallerName()).isEqualTo("cursor");
+
+    verify(
+        postRequestedFor(urlEqualTo("/api/v1/audit/tool-call"))
+            .withRequestBody(matchingJsonPath("$.tool_name", equalTo("web_search")))
+            .withRequestBody(matchingJsonPath("$.caller_name", equalTo("cursor")))
+            .withRequestBody(notMatching(".*\"tool_type\".*")));
+  }
+
+  @Test
+  @DisplayName("should serialize legacy tool_type standalone (deprecated fallback)")
+  void shouldSerializeLegacyToolTypeStandalone() {
+    stubFor(
+        post(urlEqualTo("/api/v1/audit/tool-call"))
+            .willReturn(
+                aResponse()
+                    .withStatus(201)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"audit_id\":\"aud_tc_legacy\",\"status\":\"recorded\",\"timestamp\":\"2026-07-16T12:01:00Z\"}")));
+
+    AuditToolCallRequest request =
+        AuditToolCallRequest.builder().toolName("web_search").toolType("claude_code").build();
+
+    AuditToolCallResponse response = axonflow.auditToolCall(request);
+
+    assertThat(response).isNotNull();
+    assertThat(request.getToolType()).isEqualTo("claude_code");
+    assertThat(request.getCallerName()).isNull();
+
+    verify(
+        postRequestedFor(urlEqualTo("/api/v1/audit/tool-call"))
+            .withRequestBody(matchingJsonPath("$.tool_name", equalTo("web_search")))
+            .withRequestBody(matchingJsonPath("$.tool_type", equalTo("claude_code")))
+            .withRequestBody(notMatching(".*\"caller_name\".*")));
+  }
+
+  @Test
+  @DisplayName("should serialize both caller_name and legacy tool_type together")
+  void shouldSerializeBothCallerNameAndToolType() {
+    stubFor(
+        post(urlEqualTo("/api/v1/audit/tool-call"))
+            .willReturn(
+                aResponse()
+                    .withStatus(201)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody(
+                        "{\"audit_id\":\"aud_tc_both\",\"status\":\"recorded\",\"timestamp\":\"2026-07-16T12:02:00Z\"}")));
+
+    AuditToolCallRequest request =
+        AuditToolCallRequest.builder()
+            .toolName("web_search")
+            .toolType("function")
+            .callerName("openclaw")
+            .build();
+
+    AuditToolCallResponse response = axonflow.auditToolCall(request);
+
+    assertThat(response).isNotNull();
+    assertThat(request.getToolType()).isEqualTo("function");
+    assertThat(request.getCallerName()).isEqualTo("openclaw");
+
+    verify(
+        postRequestedFor(urlEqualTo("/api/v1/audit/tool-call"))
+            .withRequestBody(matchingJsonPath("$.tool_name", equalTo("web_search")))
+            .withRequestBody(matchingJsonPath("$.tool_type", equalTo("function")))
+            .withRequestBody(matchingJsonPath("$.caller_name", equalTo("openclaw"))));
+  }
+
+  @Test
   @DisplayName("should audit tool call with required fields only")
   void shouldAuditToolCallWithRequiredFieldsOnly() {
     stubFor(
