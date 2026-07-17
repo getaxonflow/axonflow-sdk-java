@@ -52,8 +52,19 @@ public final class AuditToolCallRequest {
   @JsonProperty("tool_name")
   private final String toolName;
 
+  /**
+   * @deprecated (getaxonflow/axonflow-enterprise#2912) misnamed for what every real caller
+   *     (claude_code/codex/cursor/openclaw) actually used it for — identifying WHICH CLIENT made
+   *     the call, not any property of the tool. Use {@link #callerName} instead. Kept as a
+   *     deprecated input fallback: the server resolves {@code caller_name} if supplied, else this
+   *     legacy {@code tool_type} field, else a default.
+   */
+  @Deprecated
   @JsonProperty("tool_type")
   private final String toolType;
+
+  @JsonProperty("caller_name")
+  private final String callerName;
 
   @JsonProperty("input")
   private final Map<String, Object> input;
@@ -88,6 +99,7 @@ public final class AuditToolCallRequest {
       throw new IllegalArgumentException("toolName cannot be empty");
     }
     this.toolType = builder.toolType;
+    this.callerName = builder.callerName;
     this.input =
         builder.input != null ? Collections.unmodifiableMap(new HashMap<>(builder.input)) : null;
     this.output =
@@ -108,8 +120,18 @@ public final class AuditToolCallRequest {
     return toolName;
   }
 
+  /**
+   * @deprecated (getaxonflow/axonflow-enterprise#2912) use {@link #getCallerName()} instead.
+   */
+  @Deprecated
   public String getToolType() {
     return toolType;
+  }
+
+  /** Returns the name of the client/integration that made this tool call (e.g. "claude_code",
+   * "codex", "cursor", "openclaw"). Preferred over the deprecated {@link #getToolType()}. */
+  public String getCallerName() {
+    return callerName;
   }
 
   public Map<String, Object> getInput() {
@@ -159,6 +181,7 @@ public final class AuditToolCallRequest {
     AuditToolCallRequest that = (AuditToolCallRequest) o;
     return Objects.equals(toolName, that.toolName)
         && Objects.equals(toolType, that.toolType)
+        && Objects.equals(callerName, that.callerName)
         && Objects.equals(input, that.input)
         && Objects.equals(output, that.output)
         && Objects.equals(workflowId, that.workflowId)
@@ -175,6 +198,7 @@ public final class AuditToolCallRequest {
     return Objects.hash(
         toolName,
         toolType,
+        callerName,
         input,
         output,
         workflowId,
@@ -194,6 +218,9 @@ public final class AuditToolCallRequest {
         + '\''
         + ", toolType='"
         + toolType
+        + '\''
+        + ", callerName='"
+        + callerName
         + '\''
         + ", workflowId='"
         + workflowId
@@ -215,6 +242,7 @@ public final class AuditToolCallRequest {
   public static final class Builder {
     private String toolName;
     private String toolType;
+    private String callerName;
     private Map<String, Object> input;
     private Map<String, Object> output;
     private String workflowId;
@@ -243,9 +271,24 @@ public final class AuditToolCallRequest {
      *
      * @param toolType the tool type (e.g., "function", "mcp", "api")
      * @return this builder
+     * @deprecated (getaxonflow/axonflow-enterprise#2912) use {@link #callerName(String)} instead.
+     *     Kept as a deprecated input fallback: the server resolves {@code caller_name} if
+     *     supplied, else this legacy {@code tool_type} field, else a default.
      */
+    @Deprecated
     public Builder toolType(String toolType) {
       this.toolType = toolType;
+      return this;
+    }
+
+    /**
+     * Sets the name of the client/integration that made this tool call.
+     *
+     * @param callerName the caller name (e.g., "claude_code", "codex", "cursor", "openclaw")
+     * @return this builder
+     */
+    public Builder callerName(String callerName) {
+      this.callerName = callerName;
       return this;
     }
 

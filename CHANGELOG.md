@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 Hostile-testing sweep ahead of the BukuWarung integration
-(getaxonflow/axonflow-enterprise#2861). Examples + runtime-e2e only — no
-library changes.
+(getaxonflow/axonflow-enterprise#2861), plus the `caller_name` audit field
+below.
 
 ### Fixed
 
@@ -26,6 +26,15 @@ library changes.
   verdict as their sync counterparts (async-adapter-bypass class): stacked
   SQLi → `deny` on `/api/v1/decide`, `allowed=false` on check-input, sync ==
   async on both planes.
+
+- **`AuditToolCallRequest.callerName` (wire: `caller_name`)** — identifies
+  WHICH CLIENT made a tool call (e.g. `claude_code`, `codex`, `cursor`,
+  `openclaw`), replacing the misleadingly-named `toolType` field for that
+  purpose (getaxonflow/axonflow-enterprise#2912, epic #2905). `toolType` is
+  kept as a **deprecated** input fallback — not removed, not renamed; the
+  server resolves `caller_name` if supplied, else the legacy `tool_type`,
+  else a default. `runtime-e2e/caller_name_audit/` proves `callerName`
+  reaches `policy_details.caller_name` on a live agent + orchestrator.
 
 ## [8.5.1] - 2026-06-16: TLS security hardening (production guard)
 
