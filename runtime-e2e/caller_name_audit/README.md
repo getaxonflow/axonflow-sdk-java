@@ -29,17 +29,16 @@ authenticated with the identical Basic-auth credentials the SDK's own
 transport sent for the write — the same pattern
 `runtime-e2e/decision_context_transfer_basis` uses for `/api/v1/decide`.
 
-## Prerequisite: platform support is not yet on `main`
+## Platform support
 
-`caller_name` support (axonflow-enterprise#2953) is implemented but, as of
-this writing, still an open PR on the `feat/2912-caller-name-tool-type-deprecation`
-branch — not yet merged to `axonflow-enterprise` main. Against a stack built
-from `axonflow-enterprise` main, this test will FAIL (the polling loop in
-`fetchPolicyDetails` times out waiting for `policy_details.caller_name`,
-which the server doesn't write yet) — that's not a bug in this test, it
-means the platform side isn't deployed on whatever stack you're pointed at.
-Point your local `axonflow-enterprise` checkout at that branch (or a later
-commit that includes it) before running this test.
+`caller_name` support (axonflow-enterprise#2953) has merged to
+`axonflow-enterprise` main and shipped in v9.11.0 — any stack built from
+current `axonflow-enterprise` main (or later) has it. That same merge folded
+in #2903: when neither `callerName` nor the legacy `toolType` is supplied,
+`policy_details.caller_name` now defaults to `"unknown"` (previously
+`"claude_code"`). This test doesn't assert on that no-input default case, so
+it is unaffected either way — but if you add a fourth scenario for it, expect
+`"unknown"` against current `axonflow-enterprise` main.
 
 ## Run
 
