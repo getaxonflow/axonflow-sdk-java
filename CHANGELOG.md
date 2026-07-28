@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Jackson bumped from 2.17.0 to 2.22.1**, and `jackson-core` is now declared
+  explicitly instead of being inherited transitively from `jackson-databind`.
+  Consumers of the SDK previously picked up `jackson-core:2.17.0` and
+  `jackson-databind:2.17.0` on their compile classpath.
+
+  This clears seven advisories that matched the old pin: on `jackson-core`,
+  GHSA-r7wm-3cxj-wff9 (High) and GHSA-72hv-8253-57qq (Moderate), both
+  `maxNumberLength` bypasses in the **non-blocking (async) parser**; on
+  `jackson-databind`, CVE-2026-54512 and CVE-2026-54513 (both High,
+  `PolymorphicTypeValidator` allowlist bypasses) plus CVE-2026-54514,
+  CVE-2026-54515 and CVE-2026-59888 (Moderate).
+
+  **The SDK itself did not reach any of these code paths.** It never constructs
+  a `JsonFactory` or an async parser (all JSON goes through `ObjectMapper`
+  blocking reads), and it never enables polymorphic typing, which is the
+  precondition for the `PolymorphicTypeValidator` bypasses. The bump matters
+  because the vulnerable jars land on the *consumer's* classpath, where the
+  same Jackson may be used by application code that does reach them.
+
+  No behavioural change: `@JsonInclude(NON_NULL)` omission, `Instant`
+  ISO-8601 rendering and parsing (including nanosecond precision), untyped
+  `Map<String, Object>` number-type inference, unknown-property tolerance and
+  `StreamReadConstraints` defaults were all compared across the two versions
+  and are byte-for-byte identical. Jackson's Java 8 bytecode baseline is
+  unchanged, so the SDK's Java 11 target is unaffected.
+
+  One transitive dependency disappears from the compile classpath as a
+  side-effect: `jackson-databind` 2.17.0 depended on `net.bytebuddy:byte-buddy`
+  and 2.22.1 does not.
+
 ## [9.0.0] - 2026-07-18
 
 ### Changed (BREAKING)

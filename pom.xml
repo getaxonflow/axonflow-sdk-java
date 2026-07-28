@@ -51,7 +51,12 @@
 
         <!-- Dependency Versions -->
         <okhttp.version>4.12.0</okhttp.version>
-        <jackson.version>2.17.0</jackson.version>
+        <!-- Keep the whole Jackson family on one version. jackson-core is the
+             artifact that carries the async-parser advisories (GHSA-72hv-8253-57qq,
+             GHSA-r7wm-3cxj-wff9), and it reaches consumers transitively via
+             jackson-databind, so it is declared explicitly below rather than
+             being left to whatever databind happens to depend on. -->
+        <jackson.version>2.22.1</jackson.version>
         <slf4j.version>2.0.12</slf4j.version>
         <caffeine.version>3.1.8</caffeine.version>
 
@@ -94,6 +99,14 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <!-- Declared explicitly (rather than inherited transitively from
+             jackson-databind) so the published POM states a floor on the
+             artifact that actually carries the advisories. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
             <version>${jackson.version}</version>
         </dependency>
         <dependency>
