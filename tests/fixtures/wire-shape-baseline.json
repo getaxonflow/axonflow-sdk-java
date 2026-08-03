@@ -11,39 +11,19 @@
         "error"
       ]
     },
-    "BiasRecord": {
+    "CreateOverrideRequest": {
       "agent-api.yaml": [
-        "category",
-        "group_a",
-        "group_a_rate",
-        "group_b",
-        "group_b_rate",
-        "id",
-        "is_violation",
-        "model_id",
-        "org_id",
-        "sample_size",
-        "score",
-        "threshold",
-        "timestamp"
+        "action_override",
+        "enabled_override",
+        "expires_at",
+        "override_reason"
       ],
       "orchestrator-api.yaml": [
-        "category",
-        "group_a",
-        "group_a_rate",
-        "group_b",
-        "group_b_rate",
-        "id",
-        "is_violation",
-        "metadata",
-        "model_id",
-        "org_id",
-        "sample_size",
-        "score",
-        "threshold",
-        "timestamp",
-        "window_end",
-        "window_start"
+        "override_reason",
+        "policy_id",
+        "policy_type",
+        "tool_signature",
+        "ttl_seconds"
       ]
     },
     "CreatePolicyRequest": {
@@ -63,40 +43,80 @@
       ],
       "policy-api.yaml": [
         "actions",
+        "category",
         "conditions",
         "description",
         "enabled",
         "name",
         "priority",
+        "tags",
+        "tier",
         "type"
       ]
     },
-    "EUAIActExportRequest": {
+    "DecisionExplanation": {
       "agent-api.yaml": [
-        "format",
-        "from_date",
-        "include_accuracy_metrics",
-        "include_assessments",
-        "include_bias_records",
-        "include_decision_chains",
-        "include_hitl_records",
-        "org_id",
-        "to_date"
+        "decision",
+        "decision_id",
+        "historical_hit_count_session",
+        "matched_rules",
+        "override_available",
+        "override_existing_id",
+        "policy_matches",
+        "policy_source_link",
+        "reason",
+        "risk_level",
+        "timestamp",
+        "tool_signature"
       ],
       "orchestrator-api.yaml": [
-        "date_from",
-        "date_to",
-        "export_type",
-        "format",
-        "model_ids"
+        "context",
+        "context_truncated",
+        "decision",
+        "decision_id",
+        "historical_hit_count_session",
+        "latest_policy_version",
+        "matched_rules",
+        "override_available",
+        "override_existing_id",
+        "policy_matches",
+        "policy_source_link",
+        "policy_version_at_decision",
+        "reason",
+        "risk_level",
+        "timestamp",
+        "tool_signature"
+      ]
+    },
+    "Finding": {
+      "masfeat-api.yaml": [
+        "category",
+        "description",
+        "due_date",
+        "id",
+        "pillar",
+        "remediation",
+        "severity",
+        "status"
+      ],
+      "orchestrator-api.yaml": [
+        "article",
+        "category",
+        "description",
+        "id",
+        "remediation",
+        "severity",
+        "status"
       ]
     },
     "HealthResponse": {
       "agent-api.yaml": [
         "capabilities",
+        "plugin_compatibility",
         "sdk_compatibility",
         "service",
         "status",
+        "tier",
         "timestamp",
         "version"
       ],
@@ -104,6 +124,7 @@
         "capabilities",
         "components",
         "features",
+        "plugin_compatibility",
         "sdk_compatibility",
         "service",
         "status",
@@ -127,33 +148,6 @@
         "timestamp"
       ]
     },
-    "PolicyOverride": {
-      "agent-api.yaml": [
-        "action_override",
-        "created_at",
-        "created_by",
-        "enabled_override",
-        "expires_at",
-        "id",
-        "organization_id",
-        "override_reason",
-        "policy_id",
-        "policy_type",
-        "tenant_id",
-        "updated_at",
-        "updated_by"
-      ],
-      "policy-api.yaml": [
-        "action_override",
-        "created_at",
-        "created_by",
-        "enabled_override",
-        "expires_at",
-        "id",
-        "override_reason",
-        "policy_id"
-      ]
-    },
     "UpdatePolicyRequest": {
       "orchestrator-api.yaml": [
         "action",
@@ -168,60 +162,69 @@
       ],
       "policy-api.yaml": [
         "actions",
+        "category",
         "conditions",
         "description",
         "enabled",
         "name",
         "priority",
+        "tags",
         "type"
       ]
     }
   },
-  "intra_file_duplicates": {
-    "orchestrator-api.yaml": {
-      "PolicyMatch": 2
-    }
-  },
-  "openapi_specs_sha": "f910aa3d6caaa22d6968d98a541689fb158c54eb",
+  "intra_file_duplicates": {},
+  "openapi_specs_sha": "df027c788b60c18d044278c45aa4bce3a1ac8717",
   "per_type_drift": {
     "AuditLogEntry": {
       "sdk_only": [
-        "data_residency",
+        "blocked",
+        "latency_ms",
         "metadata",
-        "model",
         "policy_violations",
-        "transfer_basis"
+        "query_summary",
+        "risk_score",
+        "success"
       ],
-      "spec_only": []
+      "spec_only": [
+        "compliance_flags",
+        "correlation_id",
+        "cost",
+        "decision_id",
+        "error_message",
+        "org_id",
+        "plane",
+        "policy_decision",
+        "policy_details",
+        "query",
+        "query_hash",
+        "redacted_fields",
+        "response_sample",
+        "response_time_ms",
+        "security_metrics",
+        "session_id",
+        "user_id",
+        "user_role"
+      ]
     },
     "AuditSearchRequest": {
       "sdk_only": [
-        "decision_id",
-        "offset",
-        "override_id",
-        "policy_name"
+        "request_type"
       ],
-      "spec_only": []
-    },
-    "AuditToolCallRequest": {
-      "sdk_only": [
-        "caller_name"
-      ],
-      "spec_only": []
+      "spec_only": [
+        "action",
+        "session_id"
+      ]
     },
     "Budget": {
-      "sdk_only": [
-        "enabled"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "org_id",
         "tenant_id"
       ]
     },
     "CancelPlanResponse": {
-      "sdk_only": [
-        "message"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "success"
       ]
@@ -229,7 +232,6 @@
     "ClientRequest": {
       "sdk_only": [
         "llm_provider",
-        "media",
         "model"
       ],
       "spec_only": [
@@ -237,10 +239,7 @@
       ]
     },
     "ClientResponse": {
-      "sdk_only": [
-        "budget_info",
-        "media_analysis"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "metadata"
       ]
@@ -255,28 +254,27 @@
       ]
     },
     "CreateStaticPolicyRequest": {
-      "sdk_only": [
-        "organization_id"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "priority",
         "tags"
       ]
     },
     "CreateWorkflowResponse": {
-      "sdk_only": [
-        "created_at",
-        "source"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "started_at"
       ]
     },
+    "DecideResponse": {
+      "sdk_only": [
+        "error"
+      ],
+      "spec_only": []
+    },
     "DecisionExplanation": {
       "sdk_only": [
-        "context",
         "contextTruncated",
-        "context_truncated",
         "decisionId",
         "historicalHitCountSession",
         "matchedRules",
@@ -287,19 +285,16 @@
         "riskLevel",
         "toolSignature"
       ],
-      "spec_only": []
+      "spec_only": [
+        "latest_policy_version",
+        "policy_version_at_decision"
+      ]
     },
-    "DynamicPolicy": {
-      "sdk_only": [
-        "category",
-        "created_at",
-        "organization_id",
-        "priority",
-        "tier",
-        "type",
-        "updated_at"
-      ],
-      "spec_only": []
+    "DecisionTarget": {
+      "sdk_only": [],
+      "spec_only": [
+        "server"
+      ]
     },
     "DynamicPolicyMatch": {
       "sdk_only": [
@@ -320,21 +315,10 @@
       ]
     },
     "ExecutionSnapshot": {
-      "sdk_only": [
-        "approval_required",
-        "approved_at",
-        "approved_by"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "retry_count"
       ]
-    },
-    "ExecutionSummary": {
-      "sdk_only": [
-        "input_summary",
-        "output_summary"
-      ],
-      "spec_only": []
     },
     "ExfiltrationCheckInfo": {
       "sdk_only": [
@@ -364,6 +348,21 @@
       ],
       "spec_only": []
     },
+    "HITLApprovalRequest": {
+      "sdk_only": [],
+      "spec_only": [
+        "id",
+        "override_authorized_by",
+        "override_justification",
+        "reviewer_role"
+      ]
+    },
+    "ImpactReportInput": {
+      "sdk_only": [],
+      "spec_only": [
+        "user"
+      ]
+    },
     "ListWorkflowsResponse": {
       "sdk_only": [],
       "spec_only": [
@@ -372,10 +371,7 @@
       ]
     },
     "MCPCheckInputRequest": {
-      "sdk_only": [
-        "content_type",
-        "tool"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "client_id",
         "tenant_id",
@@ -384,18 +380,8 @@
         "user_token"
       ]
     },
-    "MCPCheckInputResponse": {
-      "sdk_only": [
-        "redacted",
-        "redacted_statement",
-        "redaction_evaluated"
-      ],
-      "spec_only": []
-    },
     "MCPCheckOutputRequest": {
-      "sdk_only": [
-        "tool"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "client_id",
         "tenant_id",
@@ -405,13 +391,8 @@
     },
     "MCPCheckOutputResponse": {
       "sdk_only": [
-        "redaction_evaluated"
-      ],
-      "spec_only": []
-    },
-    "MarkStepCompletedRequest": {
-      "sdk_only": [
-        "metadata"
+        "policy_matches",
+        "redacted_message"
       ],
       "spec_only": []
     },
@@ -447,11 +428,7 @@
     },
     "PlanResponse": {
       "sdk_only": [
-        "complexity",
-        "domain",
-        "estimated_duration",
-        "parallel",
-        "status"
+        "estimated_duration"
       ],
       "spec_only": [
         "error",
@@ -494,7 +471,12 @@
       ],
       "spec_only": [
         "enabled_override",
-        "id"
+        "id",
+        "organization_id",
+        "policy_type",
+        "tenant_id",
+        "updated_at",
+        "updated_by"
       ]
     },
     "PolicyVersion": {
@@ -511,16 +493,10 @@
       ]
     },
     "ResumePlanResponse": {
-      "sdk_only": [
-        "approved",
-        "message",
-        "next_step",
-        "next_step_name",
-        "total_steps",
-        "workflow_id"
-      ],
+      "sdk_only": [],
       "spec_only": [
-        "result"
+        "result",
+        "step_result"
       ]
     },
     "StaticPolicy": {
@@ -544,6 +520,29 @@
         "decision_id"
       ]
     },
+    "UnifiedStepStatus": {
+      "sdk_only": [
+        "approvalStatus",
+        "approvedAt",
+        "approvedBy",
+        "costUsd",
+        "decisionReason",
+        "endedAt",
+        "policiesMatched",
+        "resultSummary",
+        "startedAt",
+        "stepId",
+        "stepIndex",
+        "stepName",
+        "stepType"
+      ],
+      "spec_only": [
+        "rejected_at",
+        "rejected_by",
+        "tokens_in",
+        "tokens_out"
+      ]
+    },
     "UpdatePlanRequest": {
       "sdk_only": [],
       "spec_only": [
@@ -551,21 +550,11 @@
       ]
     },
     "UpdateStaticPolicyRequest": {
-      "sdk_only": [
-        "category"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "priority",
         "tags"
       ]
-    },
-    "UsageBreakdown": {
-      "sdk_only": [
-        "period",
-        "period_end",
-        "period_start"
-      ],
-      "spec_only": []
     },
     "UsageBreakdownItem": {
       "sdk_only": [],
@@ -574,9 +563,7 @@
       ]
     },
     "UsageRecord": {
-      "sdk_only": [
-        "timestamp"
-      ],
+      "sdk_only": [],
       "spec_only": [
         "created_at",
         "error_message",
@@ -588,30 +575,17 @@
         "workflow_id"
       ]
     },
-    "UsageSummary": {
-      "sdk_only": [
-        "period"
-      ],
-      "spec_only": []
-    },
     "WorkflowStatusResponse": {
       "sdk_only": [],
       "spec_only": [
         "metadata"
       ]
-    },
-    "WorkflowStepInfo": {
-      "sdk_only": [
-        "approved_by",
-        "completed_at",
-        "decision_reason"
-      ],
-      "spec_only": []
     }
   },
   "registered_types": [
     "AuditLogEntry",
     "AuditSearchRequest",
+    "AuditSearchResponse",
     "AuditToolCallRequest",
     "AuditToolCallResponse",
     "Budget",
@@ -629,7 +603,11 @@
     "CreateWebhookRequest",
     "CreateWorkflowRequest",
     "CreateWorkflowResponse",
+    "DecideRequest",
+    "DecideResponse",
+    "DecisionCallerIdentity",
     "DecisionExplanation",
+    "DecisionTarget",
     "DynamicPolicy",
     "DynamicPolicyInfo",
     "DynamicPolicyMatch",
@@ -639,6 +617,12 @@
     "ExfiltrationCheckInfo",
     "ExplainPolicy",
     "ExplainRule",
+    "HITLApprovalRequest",
+    "HITLReviewInput",
+    "ImpactReportInput",
+    "ImpactReportRequest",
+    "ImpactReportResponse",
+    "ImpactReportResult",
     "LLMProviderListResponse",
     "ListWorkflowsResponse",
     "MCPCheckInputRequest",
@@ -650,6 +634,7 @@
     "MediaGovernanceConfig",
     "MediaGovernanceStatus",
     "ModelPricing",
+    "ObligationFulfillment",
     "PaginationMeta",
     "PendingApproval",
     "PendingApprovalsResponse",
@@ -659,6 +644,9 @@
     "PlanVersionsResponse",
     "PlatformCapability",
     "PolicyAction",
+    "PolicyConflict",
+    "PolicyConflictRef",
+    "PolicyConflictResponse",
     "PolicyEvaluationResult",
     "PolicyInfo",
     "PolicyMatch",
@@ -671,12 +659,16 @@
     "ResumePlanResponse",
     "RetryContext",
     "RollbackPlanResponse",
+    "SimulatePoliciesRequest",
+    "SimulatePoliciesResponse",
+    "SimulationDailyUsage",
     "StaticPolicy",
     "StepGateRequest",
     "StepGateResponse",
     "TimelineEntry",
     "TokenUsage",
     "ToolContext",
+    "UnifiedStepStatus",
     "UpdatePlanRequest",
     "UpdatePlanResponse",
     "UpdateStaticPolicyRequest",
