@@ -621,12 +621,12 @@ public final class AxonFlow implements Closeable {
    *     AuditSearchRequest.builder()
    *         .userEmail("analyst@company.com")
    *         .startTime(Instant.now().minus(Duration.ofDays(7)))
-   *         .requestType("llm_chat")
+   *         .action("blocked")
    *         .limit(100)
    *         .build());
    *
    * for (AuditLogEntry entry : response.getEntries()) {
-   *     System.out.println(entry.getId() + ": " + entry.getQuerySummary());
+   *     System.out.println(entry.getId() + ": " + entry.getPolicyDecision());
    * }
    * }</pre>
    *

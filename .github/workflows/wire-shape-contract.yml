@@ -20,6 +20,7 @@ on:
     paths:
       - 'src/main/java/**/*.java'
       - 'tests/fixtures/wire-shape-baseline.json'
+      - 'tests/fixtures/audit-binding-allowlist.json'
       - 'scripts/wire_shape/**'
       - '.github/workflows/wire-shape-contract.yml'
   push:
@@ -27,6 +28,7 @@ on:
     paths:
       - 'src/main/java/**/*.java'
       - 'tests/fixtures/wire-shape-baseline.json'
+      - 'tests/fixtures/audit-binding-allowlist.json'
       - 'scripts/wire_shape/**'
       - '.github/workflows/wire-shape-contract.yml'
 

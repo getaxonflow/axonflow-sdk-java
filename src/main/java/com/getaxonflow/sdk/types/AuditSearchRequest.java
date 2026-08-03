@@ -55,6 +55,13 @@ public final class AuditSearchRequest {
   @JsonProperty("request_type")
   private final String requestType;
 
+  /**
+   * Filters by action/request type with verdict normalization on the server side. This is the
+   * filter the 9.x server actually reads; {@code request_type} is silently ignored (#3254).
+   */
+  @JsonProperty("action")
+  private final String action;
+
   /** Filter by decision ID (ADR-043). Gathers every audit record tied to one decision. */
   @JsonProperty("decision_id")
   private final String decisionId;
@@ -82,6 +89,7 @@ public final class AuditSearchRequest {
     this.startTime = builder.startTime != null ? builder.startTime.toString() : null;
     this.endTime = builder.endTime != null ? builder.endTime.toString() : null;
     this.requestType = builder.requestType;
+    this.action = builder.action;
     this.decisionId = builder.decisionId;
     this.policyName = builder.policyName;
     this.overrideId = builder.overrideId;
@@ -105,8 +113,21 @@ public final class AuditSearchRequest {
     return endTime;
   }
 
+  /**
+   * Returns the request-type filter.
+   *
+   * @deprecated the 9.x server does not read this filter; a search filtered only by it returns
+   *     unfiltered results. Use {@link #getAction()} / {@link Builder#action(String)}. The SDK
+   *     keeps sending it (harmless, ignored). Scheduled for removal in the next major (#3254).
+   */
+  @Deprecated
   public String getRequestType() {
     return requestType;
+  }
+
+  /** Returns the action filter (server-side verdict normalization applies). */
+  public String getAction() {
+    return action;
   }
 
   public String getDecisionId() {
@@ -178,6 +199,7 @@ public final class AuditSearchRequest {
     private Instant startTime;
     private Instant endTime;
     private String requestType;
+    private String action;
     private String decisionId;
     private String policyName;
     private String overrideId;
@@ -210,15 +232,33 @@ public final class AuditSearchRequest {
       return this;
     }
 
-    /** Filter by request type (e.g., "llm_chat", "policy_check"). */
+    /**
+     * Filter by request type (e.g., "llm_chat", "policy_check").
+     *
+     * @deprecated the 9.x server does not read this filter; a search filtered only by it returns
+     *     unfiltered results. Use {@link #action(String)}. The SDK keeps sending it (harmless,
+     *     ignored). Scheduled for removal in the next major (#3254).
+     */
+    @Deprecated
     public Builder requestType(String requestType) {
       this.requestType = requestType;
       return this;
     }
 
     /**
-     * Filter by decision ID (ADR-043). Use to gather every audit record tied to a single
-     * decision — the explain-flow cross-reference pivot.
+     * Filters by action/request type with verdict normalization on the server side. The value is
+     * normalized to its canonical verdict (e.g. {@code allowed}, {@code blocked}, {@code redacted},
+     * {@code error}) and expanded to every historical spelling of that verdict, so it matches both
+     * current and legacy rows.
+     */
+    public Builder action(String action) {
+      this.action = action;
+      return this;
+    }
+
+    /**
+     * Filter by decision ID (ADR-043). Use to gather every audit record tied to a single decision —
+     * the explain-flow cross-reference pivot.
      */
     public Builder decisionId(String decisionId) {
       this.decisionId = decisionId;
@@ -232,8 +272,8 @@ public final class AuditSearchRequest {
     }
 
     /**
-     * Filter by session override ID (ADR-042). Use to reconstruct an override's full
-     * lifecycle (override_created → override_used → override_expired | override_revoked).
+     * Filter by session override ID (ADR-042). Use to reconstruct an override's full lifecycle
+     * (override_created → override_used → override_expired | override_revoked).
      */
     public Builder overrideId(String overrideId) {
       this.overrideId = overrideId;

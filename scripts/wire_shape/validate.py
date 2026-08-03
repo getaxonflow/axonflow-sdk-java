@@ -5,11 +5,23 @@ Blocks PRs that introduce drift between Java classes (with
 @JsonProperty annotations) and the OpenAPI specs pinned via
 openapi_specs_sha in tests/fixtures/wire-shape-baseline.json.
 
-Four gates, same classes as the Python/Go/TS validators:
+Five gates:
 1. Cross-spec schema divergence (same name, different shapes)
 2. Intra-file schema duplicates (PolicyMatch-class bug)
 3. Per-type SDK-vs-spec drift (baseline-aware)
 4. Registered-type coverage (rename-escape guard)
+(1-4 are the same classes as the Python/Go/TS validators.)
+5. Audit-surface field binding (#3254): every @JsonProperty name on the
+   audit model classes MUST exist as a property of the same-named schema
+   in the pinned specs, unless it is explicitly allowlisted in
+   tests/fixtures/audit-binding-allowlist.json with a note naming a
+   tracking issue. Gate 3 is baseline-aware by design (drift recorded at
+   refresh time stays green), which is exactly how seven never-served
+   fields shipped on AuditLogEntry and stayed for months - the baseline
+   RECORDED the fiction instead of binding the model to the contract.
+   Gate 5 is the binding: it has no refresh path, only the curated
+   allowlist, and an unresolvable binding (class or schema missing)
+   FAILS instead of skipping.
 
 Specs dir is passed via AXONFLOW_OPENAPI_SPECS_DIR. Without it, the
 script exits 0 after a skip message so `mvn test` and local work
@@ -22,17 +34,71 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import (  # noqa: E402
+    REPO_ROOT,
     difference,
     discover_sdk_types,
     load_all_schemas,
     load_baseline,
 )
+
+# Gate 5 (audit-surface binding, #3254): the audit read/search surface is
+# bound STRICTLY to the pinned spec schemas - the per_type_drift baseline
+# does not apply here. Add a type to this tuple to put it under binding.
+AUDIT_BINDING_TYPES = (
+    "AuditLogEntry",
+    "AuditSearchRequest",
+    "AuditSearchResponse",
+)
+AUDIT_BINDING_ALLOWLIST_PATH = (
+    REPO_ROOT / "tests" / "fixtures" / "audit-binding-allowlist.json"
+)
+
+
+def load_audit_binding_allowlist() -> dict[str, dict[str, str]]:
+    """Load the curated allowlist for Gate 5.
+
+    Shape: {TypeName: {wire_field: "note naming the tracking issue"}}.
+    Keys starting with "_" are comments. An absent file means an empty
+    allowlist (strict binding). A malformed file or an entry without a
+    non-empty note string fails loudly - a silent parse problem must not
+    weaken the gate.
+    """
+    if not AUDIT_BINDING_ALLOWLIST_PATH.exists():
+        return {}
+    try:
+        with AUDIT_BINDING_ALLOWLIST_PATH.open() as f:
+            parsed = json.load(f)
+    except json.JSONDecodeError as e:
+        raise SystemExit(
+            f"❌ {AUDIT_BINDING_ALLOWLIST_PATH} is malformed "
+            f"({e.__class__.__name__}: {e}). Fix or delete it - a broken "
+            f"allowlist must not weaken the audit binding gate."
+        ) from None
+    result: dict[str, dict[str, str]] = {}
+    for type_name, fields in parsed.items():
+        if type_name.startswith("_"):
+            continue
+        if not isinstance(fields, dict):
+            raise SystemExit(
+                f"❌ {AUDIT_BINDING_ALLOWLIST_PATH}: entry {type_name!r} "
+                f"must map wire fields to note strings."
+            )
+        for field, note in fields.items():
+            if not isinstance(note, str) or not note.strip():
+                raise SystemExit(
+                    f"❌ {AUDIT_BINDING_ALLOWLIST_PATH}: "
+                    f"{type_name}.{field} has no justification note. Every "
+                    f"allowlisted field must name its tracking issue."
+                )
+        result[type_name] = dict(fields)
+    return result
 
 
 def main() -> int:
@@ -230,6 +296,72 @@ def main() -> int:
                 file=sys.stderr,
             )
             errors += len(missing_sdk) + len(missing_spec)
+
+    # Gate 5: audit-surface field binding (#3254). Strict, baseline-free.
+    allowlist = load_audit_binding_allowlist()
+    binding_problems: list[str] = []
+    for type_name in AUDIT_BINDING_TYPES:
+        sdk_fields = sdk.get(type_name)
+        spec_fields = merged.get(type_name)
+        if sdk_fields is None:
+            binding_problems.append(
+                f"  {type_name}: no Java class with @JsonProperty fields "
+                f"found under src/main/java - the binding is unresolvable. "
+                f"This gate fails instead of skipping; if the class was "
+                f"renamed, update AUDIT_BINDING_TYPES in the same PR."
+            )
+            continue
+        if spec_fields is None:
+            binding_problems.append(
+                f"  {type_name}: no OpenAPI schema of this name in the "
+                f"pinned specs - the binding is unresolvable. This gate "
+                f"fails instead of skipping; if the schema was renamed, "
+                f"update AUDIT_BINDING_TYPES in the same PR."
+            )
+            continue
+        allowed = allowlist.get(type_name, {})
+        unbound = [
+            f for f in difference(sdk_fields, spec_fields) if f not in allowed
+        ]
+        if unbound:
+            binding_problems.append(
+                f"  {type_name}: SDK @JsonProperty field(s) with NO backing "
+                f"property in the pinned {type_name} schema: {unbound}. A "
+                f"field the server never serves is fiction (#3254 class): "
+                f"either the spec is missing it (fix the contract first) or "
+                f"the field must not exist. If it must stay temporarily, "
+                f"allowlist it WITH a tracking-issue note in "
+                f"tests/fixtures/audit-binding-allowlist.json."
+            )
+        # Stale = allowlisted but no longer unbound: either the field left
+        # the SDK class, or the spec now carries it. Both mean the entry
+        # must go, so the allowlist only ever names live debt.
+        stale = sorted(
+            f for f in allowed if f not in difference(sdk_fields, spec_fields)
+        )
+        if stale:
+            binding_problems.append(
+                f"  {type_name}: allowlist entr{'ies' if len(stale) > 1 else 'y'} "
+                f"{stale} no longer unbound (field removed from the SDK or "
+                f"now present in the spec) - remove from "
+                f"tests/fixtures/audit-binding-allowlist.json so the "
+                f"allowlist only ever names live debt."
+            )
+        spec_missing = difference(spec_fields, sdk_fields)
+        if spec_missing:
+            # Informational only: fields the server serves that the SDK
+            # does not model yet are a coverage gap, not fiction.
+            print(
+                f"ℹ️  {type_name}: spec fields not yet modeled in the SDK "
+                f"(informational): {spec_missing}"
+            )
+    if binding_problems:
+        print(
+            "\nAudit-surface binding gate failed (#3254):\n", file=sys.stderr
+        )
+        for p in binding_problems:
+            print(p + "\n", file=sys.stderr)
+        errors += len(binding_problems)
 
     if errors > 0:
         print(f"❌ Found {errors} wire-shape issue(s).", file=sys.stderr)
