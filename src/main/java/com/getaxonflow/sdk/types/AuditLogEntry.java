@@ -378,7 +378,7 @@ public final class AuditLogEntry {
   /**
    * Returns the cross-border transfer basis under Indonesia UU PDP Pasal 56 ({@code adequacy},
    * {@code safeguards}, {@code pasal_56b_dpa}, or {@code consent}), or null if not set. Surfaced
-   * verbatim — see the {@code TRANSFER_BASIS_*} constants.
+   * verbatim - see the {@code TRANSFER_BASIS_*} constants.
    */
   public String getTransferBasis() {
     return transferBasis;

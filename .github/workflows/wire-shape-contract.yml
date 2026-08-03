@@ -134,6 +134,24 @@ jobs:
       - name: Install PyYAML
         run: pip install 'pyyaml>=6,<7'
 
+      # Gate 5 (audit-surface binding, #3254) introspects the COMPILED
+      # classes via Jackson (scripts/wire_shape/AuditWireKeysProbe.java)
+      # instead of trusting source-regex discovery, which is defeated by
+      # constant-valued @JsonProperty annotations and by Jackson getter
+      # auto-detection. The validator FAILS (never skips) if these
+      # artifacts are missing.
+      - name: Set up JDK 17 (Gate 5 wire-key introspection)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compile SDK classes + dependency classpath (Gate 5)
+        run: |
+          mvn -q -B compile dependency:build-classpath \
+            -Dmdep.outputFile=target/wire-shape-cp.txt
+
       - name: Run wire-shape contract validator
         env:
           AXONFLOW_OPENAPI_SPECS_DIR: ${{ github.workspace }}/axonflow-community/docs/api

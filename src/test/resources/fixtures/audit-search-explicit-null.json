@@ -13,34 +13,18 @@
       "request_type": "tool_call_audit",
       "query": "Tool: s3254_blocked_probe",
       "query_hash": "",
-      "policy_decision": "error",
-      "policy_details": {
-        "caller_name": "unknown",
-        "error_message": "blocked by policy sys_sqli_or_true",
-        "success": false,
-        "tool_name": "s3254_blocked_probe"
-      },
+      "policy_decision": null,
+      "policy_details": null,
       "provider": "",
       "model": "",
-      "response_time_ms": 0,
+      "response_time_ms": null,
       "tokens_used": 0,
       "cost": 0,
       "redacted_fields": null,
       "error_message": "blocked by policy sys_sqli_or_true",
       "response_sample": "",
       "compliance_flags": null,
-      "security_metrics": null,
-      "query_summary": "hand-injected summary",
-      "success": false,
-      "blocked": true,
-      "risk_score": 0.42,
-      "latency_ms": 77,
-      "policy_violations": [
-        "sys_sqli_or_true"
-      ],
-      "metadata": {
-        "hand_injected": true
-      }
+      "security_metrics": null
     },
     {
       "id": "audit_1785794693_wiccqrjt",
@@ -55,15 +39,11 @@
       "request_type": "tool_call_audit",
       "query": "Tool: s3254_capture_probe",
       "query_hash": "",
-      "policy_decision": "allowed",
-      "policy_details": {
-        "caller_name": "unknown",
-        "success": true,
-        "tool_name": "s3254_capture_probe"
-      },
+      "policy_decision": null,
+      "policy_details": null,
       "provider": "",
       "model": "",
-      "response_time_ms": 0,
+      "response_time_ms": null,
       "tokens_used": 0,
       "cost": 0,
       "redacted_fields": null,

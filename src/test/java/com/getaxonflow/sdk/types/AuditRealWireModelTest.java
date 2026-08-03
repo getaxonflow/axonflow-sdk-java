@@ -42,12 +42,18 @@ import org.junit.jupiter.api.Test;
  *   <li>{@code fixtures/audit-search-old-server.json} - HAND-MODIFIED copy of the live capture with
  *       the three real-wire fields removed, simulating a pre-9.x server.
  *   <li>{@code fixtures/audit-search-both-present.json} - HAND-MODIFIED copy of the live capture
- *       with the seven fiction fields injected alongside the real ones, proving both parse with no
- *       collision.
+ *       with the seven fiction fields injected alongside the real ones (with non-default values,
+ *       e.g. {@code success:false}, so every assertion can actually fail), proving both parse with
+ *       no collision.
+ *   <li>{@code fixtures/audit-search-explicit-null.json} - HAND-MODIFIED copy of the live capture
+ *       with the three real-wire fields present as explicit JSON {@code null}, pinning the
+ *       null-to-default normalization the canonical constructor performs.
  * </ul>
  *
- * <p>The mapper mirrors the production one in {@code AxonFlow} (JavaTimeModule registered; unknown
- * properties tolerated via the model's {@code @JsonIgnoreProperties}).
+ * <p>The mapper here is configured the same way {@code AxonFlow} configures its production mapper
+ * (plain {@code ObjectMapper} + {@code JavaTimeModule}; unknown properties tolerated via the
+ * model's {@code @JsonIgnoreProperties}). It is a separate instance, not the production object -
+ * if {@code AxonFlow}'s mapper construction gains configuration, mirror it here.
  */
 @DisplayName("Audit model - real wire fields (#3254)")
 class AuditRealWireModelTest {
@@ -132,14 +138,33 @@ class AuditRealWireModelTest {
     assertThat(e.getPolicyDecision()).isEqualTo("error");
     assertThat(e.getPolicyDetails()).containsEntry("tool_name", "s3254_blocked_probe");
     assertThat(e.getResponseTimeMs()).isEqualTo(0L);
-    // Fiction fields, hand-injected into the fixture:
+    // Fiction fields, hand-injected into the fixture. Every injected value
+    // differs from the constructor default (success:false vs default true,
+    // blocked:true vs default false, ...) so each assertion can fail.
     assertThat(e.getQuerySummary()).isEqualTo("hand-injected summary");
-    assertThat(e.isSuccess()).isTrue();
+    assertThat(e.isSuccess()).isFalse();
     assertThat(e.isBlocked()).isTrue();
     assertThat(e.getRiskScore()).isEqualTo(0.42);
     assertThat(e.getLatencyMs()).isEqualTo(77);
     assertThat(e.getPolicyViolations()).containsExactly("sys_sqli_or_true");
     assertThat(e.getMetadata()).containsEntry("hand_injected", true);
+  }
+
+  @Test
+  @DisplayName("explicit JSON null on the three new fields - normalized to defaults, no throw")
+  void explicitNullPayloadNormalized() throws Exception {
+    AuditSearchResponse response =
+        mapper.readValue(fixture("audit-search-explicit-null.json"), AuditSearchResponse.class);
+
+    assertThat(response.getEntries()).hasSize(2);
+    for (AuditLogEntry e : response.getEntries()) {
+      // Explicit null and absent must land identically: "" / empty map /
+      // null Long. Pins the constructor's null guards through the real
+      // mapper (Jackson passes explicit null to the creator).
+      assertThat(e.getPolicyDecision()).isEmpty();
+      assertThat(e.getPolicyDetails()).isEmpty();
+      assertThat(e.getResponseTimeMs()).isNull();
+    }
   }
 
   @Test

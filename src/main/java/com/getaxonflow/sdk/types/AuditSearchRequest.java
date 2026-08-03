@@ -257,7 +257,7 @@ public final class AuditSearchRequest {
     }
 
     /**
-     * Filter by decision ID (ADR-043). Use to gather every audit record tied to a single decision —
+     * Filter by decision ID (ADR-043). Use to gather every audit record tied to a single decision -
      * the explain-flow cross-reference pivot.
      */
     public Builder decisionId(String decisionId) {
