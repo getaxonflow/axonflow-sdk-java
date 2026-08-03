@@ -4248,8 +4248,12 @@ public final class AxonFlow implements Closeable {
         // Budget exceeded - treat similarly to 403 policy violation
         throw new PolicyViolationException(errorMessage);
       case 403:
-        // Check if this is a policy violation
-        if (body.contains("policy") || body.contains("blocked")) {
+        // A 403 is a policy violation only when the body actually signals a
+        // block. Every agent error envelope carries a literal "blocked" key
+        // (e.g. {"success":false,"error":"Tenant mismatch","blocked":false}),
+        // so the old substring heuristic misclassified 403 auth rejections
+        // as policy violations.
+        if (isPolicyBlockBody(body)) {
           throw new PolicyViolationException(errorMessage);
         }
         throw new AuthenticationException(errorMessage, 403);
@@ -4263,6 +4267,32 @@ public final class AxonFlow implements Closeable {
       default:
         throw new AxonFlowException(errorMessage, code, null);
     }
+  }
+
+  /**
+   * Decides whether a 403 error body signals a genuine policy block.
+   *
+   * <p>Parses the JSON envelope and reads the {@code blocked} boolean. When the field is present it
+   * is authoritative: {@code true} means a policy block ({@link PolicyViolationException}), {@code
+   * false} means the 403 is an authorization rejection (e.g. tenant mismatch) even though the raw
+   * body contains the literal substring {@code "blocked"}. Only when the body is not parseable
+   * JSON, or carries no {@code blocked} boolean, does this fall back to the legacy policy-phrase
+   * heuristic (for older agents whose error envelopes predate the field).
+   */
+  private boolean isPolicyBlockBody(String body) {
+    if (body == null || body.isEmpty()) {
+      return false;
+    }
+    try {
+      JsonNode node = objectMapper.readTree(body);
+      JsonNode blocked = node.get("blocked");
+      if (blocked != null && blocked.isBoolean()) {
+        return blocked.asBoolean();
+      }
+    } catch (JsonProcessingException e) {
+      // Not JSON — fall through to the phrase heuristic.
+    }
+    return body.contains("policy") || body.contains("block_reason");
   }
 
   private String extractErrorMessage(String body, String defaultMessage) {

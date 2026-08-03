@@ -1061,6 +1061,67 @@ class AxonFlowTest {
   }
 
   @Test
+  @DisplayName("403 with blocked:false is an auth rejection, not a policy block")
+  void shouldHandle403BlockedFalseAsAuthRejection() {
+    // Exact live agent envelope for a tenant-mismatch rejection. The body
+    // carries a literal "blocked":false key, which the old substring
+    // heuristic misread as a policy block.
+    stubFor(
+        get(urlEqualTo("/health"))
+            .willReturn(
+                aResponse()
+                    .withStatus(403)
+                    .withBody(
+                        "{\"success\":false,\"error\":\"Tenant mismatch\",\"blocked\":false}")));
+
+    assertThatThrownBy(() -> axonflow.healthCheck())
+        .isInstanceOf(AuthenticationException.class)
+        .isNotInstanceOf(PolicyViolationException.class)
+        .hasMessageContaining("Tenant mismatch");
+  }
+
+  @Test
+  @DisplayName("403 with blocked:true is a policy block")
+  void shouldHandle403BlockedTrueAsPolicyViolation() {
+    // Real policy-block envelope shape from the agent.
+    stubFor(
+        get(urlEqualTo("/health"))
+            .willReturn(
+                aResponse()
+                    .withStatus(403)
+                    .withBody(
+                        "{\"success\":false,\"blocked\":true,"
+                            + "\"block_reason\":\"Detects stacked DROP TABLE/DATABASE"
+                            + " statement\"}")));
+
+    assertThatThrownBy(() -> axonflow.healthCheck())
+        .isInstanceOf(PolicyViolationException.class)
+        .hasMessageContaining("Detects stacked DROP TABLE/DATABASE statement");
+  }
+
+  @Test
+  @DisplayName("403 with unparseable body falls back to the policy-phrase heuristic")
+  void shouldHandle403UnparseableBodyFallback() {
+    stubFor(
+        get(urlEqualTo("/health"))
+            .willReturn(aResponse().withStatus(403).withBody("policy violation upstream")));
+
+    assertThatThrownBy(() -> axonflow.healthCheck()).isInstanceOf(PolicyViolationException.class);
+  }
+
+  @Test
+  @DisplayName("403 with unparseable non-policy body is an auth rejection")
+  void shouldHandle403UnparseableNonPolicyBody() {
+    stubFor(
+        get(urlEqualTo("/health"))
+            .willReturn(aResponse().withStatus(403).withBody("forbidden by proxy")));
+
+    assertThatThrownBy(() -> axonflow.healthCheck())
+        .isInstanceOf(AuthenticationException.class)
+        .isNotInstanceOf(PolicyViolationException.class);
+  }
+
+  @Test
   @DisplayName("should handle 429 Rate Limit")
   void shouldHandle429() {
     stubFor(
