@@ -107,7 +107,7 @@ public class Basic {
             System.out.printf("  Success: %s%n", response.isSuccess());
             System.out.printf("  Blocked: %s%n", response.isBlocked());
         } catch (PolicyViolationException e) {
-            // SDK <= 8.5.1 misclassifies 403 auth rejections as policy
+            // SDK <= 9.0.0 misclassifies 403 auth rejections as policy
             // violations: every agent error body carries a literal
             // "blocked":false key, which trips handleErrorResponse's
             // body.contains("blocked") heuristic. Until the library fix
