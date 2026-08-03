@@ -22,6 +22,10 @@ on:
       - 'tests/fixtures/wire-shape-baseline.json'
       - 'tests/fixtures/audit-binding-allowlist.json'
       - 'scripts/wire_shape/**'
+      # pom.xml governs the Jackson version - exactly what changes the
+      # Gate 5 probe's view of the wire - so a dependency bump must
+      # re-run this job.
+      - 'pom.xml'
       - '.github/workflows/wire-shape-contract.yml'
   push:
     branches: [main]
@@ -30,6 +34,10 @@ on:
       - 'tests/fixtures/wire-shape-baseline.json'
       - 'tests/fixtures/audit-binding-allowlist.json'
       - 'scripts/wire_shape/**'
+      # pom.xml governs the Jackson version - exactly what changes the
+      # Gate 5 probe's view of the wire - so a dependency bump must
+      # re-run this job.
+      - 'pom.xml'
       - '.github/workflows/wire-shape-contract.yml'
 
 permissions:

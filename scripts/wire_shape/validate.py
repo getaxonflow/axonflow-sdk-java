@@ -31,7 +31,16 @@ Five gates:
    with no annotation anywhere) - both were demonstrated as bypasses
    in review. Gate 5 asks Jackson itself, via
    scripts/wire_shape/AuditWireKeysProbe.java run against
-   target/classes, so its view of the wire is the serializer's view.
+   target/classes with the production mapper configuration (reflected
+   from AxonFlow.createObjectMapper). Stated scope: the probe reports
+   declared bean properties (BeanDescription.findProperties) and
+   REFUSES to certify - exit 2, gate FAILS - any bound type using a
+   Jackson mechanism that alters the wire key set outside that view:
+   @JsonUnwrapped, @JsonAnyGetter, @JsonAnySetter, @JsonAlias,
+   @JsonValue, or class-level @JsonSerialize / @JsonDeserialize /
+   @JsonTypeInfo / @JsonAppend / @JsonNaming. Certification is
+   therefore: the declared properties are spec-bound AND no
+   shape-escaping mechanism is present.
    Prerequisites (CI compiles them in the workflow; locally run
    `mvn -q compile dependency:build-classpath
    -Dmdep.outputFile=target/wire-shape-cp.txt` first):
@@ -107,6 +116,33 @@ def probe_audit_wire_keys() -> dict[str, list[str]]:
             f"dependency:build-classpath "
             f"-Dmdep.outputFile=target/wire-shape-cp.txt` first."
         )
+    # Freshness guard: introspecting STALE bytecode against DIRTY source
+    # is a false green waiting to happen locally (in CI the compile step
+    # immediately precedes this validator, so this never fires there).
+    pkg_dir = AUDIT_BINDING_PACKAGE.replace(".", "/")
+    for type_name in AUDIT_BINDING_TYPES:
+        src = REPO_ROOT / "src" / "main" / "java" / pkg_dir / f"{type_name}.java"
+        cls = TARGET_CLASSES / pkg_dir / f"{type_name}.class"
+        if not src.is_file():
+            # A bound type without a same-named source file would be a
+            # rename; the probe's Class.forName fails on it anyway, but
+            # name it here for a better message.
+            problems.append(
+                f"source file missing for bound type {type_name}: {src}"
+            )
+            continue
+        if not cls.is_file():
+            problems.append(
+                f"compiled class missing for bound type {type_name}: {cls} "
+                f"- run `mvn -q compile` first."
+            )
+            continue
+        if src.stat().st_mtime > cls.stat().st_mtime:
+            problems.append(
+                f"{src.name} is NEWER than its compiled {cls.name} - the "
+                f"probe would certify stale bytecode. Recompile first: "
+                f"`mvn -q compile`."
+            )
     if problems:
         raise SystemExit(
             "❌ Audit-surface binding gate (#3254) prerequisites missing; "
