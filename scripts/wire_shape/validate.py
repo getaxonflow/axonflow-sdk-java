@@ -41,6 +41,19 @@ Five gates:
    @JsonTypeInfo / @JsonAppend / @JsonNaming. Certification is
    therefore: the declared properties are spec-bound AND no
    shape-escaping mechanism is present.
+
+   REGISTRATION IS MANUAL: a model class is under gate 5 ONLY if it is
+   listed in AUDIT_BINDING_TYPES. An unregistered model class is
+   invisible to this gate; gate 3 catches its drift only when the
+   class name happens to match a spec schema name (and only
+   baseline-aware). When adding a wire model, register it here.
+
+   Deprecation tie: every allowlisted (unbound) key must be backed by
+   an @Deprecated member in the model - named debt must be VISIBLE to
+   consumers, not silently tolerated. Exception: allowlist entries
+   whose note contains the word "alias" (case-insensitive) declare a
+   parser-populated compatibility alias carrying real data (e.g.
+   AISystemRegistry.businessOwner) and are exempt.
    Prerequisites (CI compiles them in the workflow; locally run
    `mvn -q compile dependency:build-classpath
    -Dmdep.outputFile=target/wire-shape-cp.txt` first):
@@ -117,13 +130,14 @@ TARGET_CLASSES = REPO_ROOT / "target" / "classes"
 DEP_CLASSPATH_FILE = REPO_ROOT / "target" / "wire-shape-cp.txt"
 
 
-def probe_audit_wire_keys() -> dict[str, list[str]]:
+def probe_audit_wire_keys() -> dict[str, dict[str, list[str]]]:
     """Ask Jackson (via AuditWireKeysProbe on the compiled classes) for the
     real wire-key set of every AUDIT_BINDING_TYPES class.
 
-    Returns {SimpleTypeName: sorted_wire_keys}. Any missing prerequisite or
-    probe failure raises SystemExit - an unresolvable binding must FAIL the
-    gate, never weaken it to a skip.
+    Returns {SimpleTypeName: {"keys": sorted_wire_keys, "deprecated":
+    sorted_subset_backed_by_an_@Deprecated_member}}. Any missing
+    prerequisite or probe failure raises SystemExit - an unresolvable
+    binding must FAIL the gate, never weaken it to a skip.
     """
     problems: list[str] = []
     if shutil.which("java") is None:
@@ -195,14 +209,21 @@ def probe_audit_wire_keys() -> dict[str, list[str]]:
             f"({e.__class__.__name__}: {e}):\n{proc.stdout[:2000]}"
         ) from None
     for type_name in AUDIT_BINDING_TYPES:
-        if not parsed.get(type_name):
+        entry = parsed.get(type_name) or {}
+        if not entry.get("keys"):
             raise SystemExit(
                 f"❌ AuditWireKeysProbe reported no wire keys for "
                 f"{type_name} - an audit model type with zero mapped "
                 f"properties means introspection broke; the binding is "
                 f"unresolvable, which FAILS (never skips)."
             )
-    return {k: sorted(v) for k, v in parsed.items()}
+    return {
+        k: {
+            "keys": sorted(v.get("keys", [])),
+            "deprecated": sorted(v.get("deprecated", [])),
+        }
+        for k, v in parsed.items()
+    }
 
 
 def load_audit_binding_allowlist() -> dict[str, dict[str, str]]:
@@ -452,7 +473,8 @@ def main() -> int:
     probed = probe_audit_wire_keys()
     binding_problems: list[str] = []
     for type_name in AUDIT_BINDING_TYPES:
-        sdk_fields = probed[type_name]
+        sdk_fields = probed[type_name]["keys"]
+        deprecated_keys = set(probed[type_name]["deprecated"])
         spec_fields = merged.get(type_name)
         if spec_fields is None:
             binding_problems.append(
@@ -491,6 +513,26 @@ def main() -> int:
                 f"now present in the spec) - remove from "
                 f"tests/fixtures/audit-binding-allowlist.json so the "
                 f"allowlist only ever names live debt."
+            )
+        # Deprecation tie: an allowlisted key that is genuinely unbound
+        # (live debt) must be backed by an @Deprecated member so the debt
+        # is visible to consumers - unless its note declares a
+        # parser-populated compatibility "alias" carrying real data.
+        untied = sorted(
+            f
+            for f in allowed
+            if f in difference(sdk_fields, spec_fields)
+            and f not in deprecated_keys
+            and "alias" not in allowed[f].lower()
+        )
+        if untied:
+            binding_problems.append(
+                f"  {type_name}: allowlisted fiction key(s) {untied} have "
+                f"no @Deprecated backing member in the model. Named debt "
+                f"must be visible: deprecate the accessor(s) with the "
+                f"canonical #3254 wording, or - ONLY if the field is a "
+                f"parser-populated compatibility alias carrying real "
+                f"data - say 'alias' in its allowlist note."
             )
         spec_missing = difference(spec_fields, sdk_fields)
         if spec_missing:
