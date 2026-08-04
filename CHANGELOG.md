@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- masfeat real wire mapping (#3254 pin-advance batch). `RegistrySummary`
+  gains the real `org_id` (`getOrgId()`), `assessments_due`
+  (`getAssessmentsDue()`) and `kill_switches_triggered`
+  (`getKillSwitchesTriggered()`) fields, and its parser now reads the real
+  `high_materiality`/`medium_materiality`/`low_materiality` keys first
+  (previously `medium`/`low` were read ONLY under the never-served `_count`
+  spelling and were always 0 against a real server; the legacy spelling is
+  kept as a fallback). `AISystemRegistry` gains `owner_email`
+  (`getOwnerEmail()`, the real wire key; `getBusinessOwner()` remains as a
+  populated compatibility alias) and its parser prefers the real
+  `materiality_classification` key. `KillSwitch`'s parser now prefers the
+  real `trigger_reason` key (the server has never sent `triggered_reason`).
+  All three models now carry `@JsonProperty` tags with the REAL wire names
+  so the Jackson surface tells the truth and the wire-shape binding gate
+  can bind them; the hand-written parsers remain the IO path.
+- Wire-shape Gate 5 extended to the masfeat models `RegistrySummary`,
+  `KillSwitch` and `AISystemRegistry` (nested-class binding support +
+  per-type source registration for the freshness guard).
+  `OJKAuditExportResponse` is not modeled by this SDK - nothing to bind.
+
 - Real wire fields `policy_decision` (`getPolicyDecision()`), `policy_details`
   (`getPolicyDetails()`), `response_time_ms` (`getResponseTimeMs()`) on the
   audit read model (`AuditLogEntry`), and `action` (`Builder.action(String)`)
@@ -29,6 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   schema, or introspection probe missing) fails instead of skipping.
 
 ### Deprecated
+
+- `RegistrySummary.getByUseCase()`/`getByStatus()` (and setters) and
+  `AISystemRegistry.getTechnicalOwner()`/`setTechnicalOwner()` - never
+  served on the 9.x line (#3254 pin-advance batch). Removal rides the next
+  major.
 
 - `query_summary`/`success`/`blocked`/`risk_score`/`latency_ms`/
   `policy_violations`/`metadata` (read model) and `request_type` (search

@@ -36,7 +36,11 @@ import java.util.TreeSet;
  * fully-qualified class name passed as an argument it asks Jackson - configured EXACTLY as
  * production configures it, by reflecting the private {@code AxonFlow.createObjectMapper()}
  * factory - for the wire property names, as the union of the serialization and deserialization
- * bean descriptions, and prints one JSON object mapping simple class name to sorted wire keys.
+ * bean descriptions, and prints one JSON object of the shape {@code {SimpleName: {"keys":
+ * [sorted wire keys], "deprecated": [subset whose backing member - field, getter, setter, or
+ * creator parameter - carries {@code @Deprecated}]}}}. The {@code deprecated} set lets the
+ * caller enforce the deprecation tie: an allowlisted fiction key must be visibly deprecated in
+ * the model, not silently tolerated.
  *
  * <p>Why introspection instead of source-regex discovery: a regex over the source cannot resolve a
  * constant-valued annotation ({@code @JsonProperty(SOME_CONSTANT)}) and cannot see Jackson's
@@ -90,21 +94,31 @@ public final class AuditWireKeysProbe {
     }
     try {
       ObjectMapper mapper = productionConfiguredMapper();
-      TreeMap<String, TreeSet<String>> result = new TreeMap<>();
+      TreeMap<String, TreeMap<String, TreeSet<String>>> result = new TreeMap<>();
       for (String fqcn : args) {
         Class<?> cls = Class.forName(fqcn);
         refuseUnintrospectableMechanisms(cls);
         JavaType type = mapper.constructType(cls);
         TreeSet<String> keys = new TreeSet<>();
+        TreeSet<String> deprecated = new TreeSet<>();
         BeanDescription ser = mapper.getSerializationConfig().introspect(type);
         for (BeanPropertyDefinition p : ser.findProperties()) {
           keys.add(p.getName());
+          if (isDeprecated(p)) {
+            deprecated.add(p.getName());
+          }
         }
         BeanDescription deser = mapper.getDeserializationConfig().introspect(type);
         for (BeanPropertyDefinition p : deser.findProperties()) {
           keys.add(p.getName());
+          if (isDeprecated(p)) {
+            deprecated.add(p.getName());
+          }
         }
-        result.put(cls.getSimpleName(), keys);
+        TreeMap<String, TreeSet<String>> entry = new TreeMap<>();
+        entry.put("keys", keys);
+        entry.put("deprecated", deprecated);
+        result.put(cls.getSimpleName(), entry);
       }
       System.out.println(mapper.writeValueAsString(result));
     } catch (Throwable t) {
@@ -126,6 +140,19 @@ public final class AuditWireKeysProbe {
     Method factory = axonflow.getDeclaredMethod("createObjectMapper");
     factory.setAccessible(true);
     return (ObjectMapper) factory.invoke(null);
+  }
+
+  /**
+   * A property is deprecated if ANY of its backing members (field, getter, setter, creator
+   * parameter) carries {@code @Deprecated}. {@code java.lang.Deprecated} has runtime retention,
+   * so the compiled classes carry it.
+   */
+  private static boolean isDeprecated(BeanPropertyDefinition p) {
+    return (p.getField() != null && p.getField().getAnnotation(Deprecated.class) != null)
+        || (p.getGetter() != null && p.getGetter().getAnnotation(Deprecated.class) != null)
+        || (p.getSetter() != null && p.getSetter().getAnnotation(Deprecated.class) != null)
+        || (p.getConstructorParameter() != null
+            && p.getConstructorParameter().getAnnotation(Deprecated.class) != null);
   }
 
   private static void refuseUnintrospectableMechanisms(Class<?> cls) {

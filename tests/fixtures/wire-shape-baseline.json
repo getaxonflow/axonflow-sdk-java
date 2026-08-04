@@ -176,6 +176,21 @@
   "intra_file_duplicates": {},
   "openapi_specs_sha": "df027c788b60c18d044278c45aa4bce3a1ac8717",
   "per_type_drift": {
+    "AISystemRegistry": {
+      "sdk_only": [
+        "businessOwner",
+        "technical_owner"
+      ],
+      "spec_only": [
+        "data_sources",
+        "deployment_date",
+        "last_assessment_date",
+        "model_type",
+        "next_assessment_due",
+        "updated_by",
+        "version"
+      ]
+    },
     "AuditLogEntry": {
       "sdk_only": [
         "blocked",
@@ -240,6 +255,21 @@
         "metadata"
       ]
     },
+    "ConfigureKillSwitchRequest": {
+      "sdk_only": [
+        "accuracyThreshold",
+        "autoTriggerEnabled",
+        "biasThreshold",
+        "errorRateThreshold"
+      ],
+      "spec_only": [
+        "accuracy_threshold",
+        "auto_trigger_enabled",
+        "bias_threshold",
+        "error_rate_threshold",
+        "trigger_conditions"
+      ]
+    },
     "ConnectorInfo": {
       "sdk_only": [
         "config_schema",
@@ -247,6 +277,16 @@
       ],
       "spec_only": [
         "healthy"
+      ]
+    },
+    "CreateAssessmentRequest": {
+      "sdk_only": [
+        "assessmentType",
+        "systemId"
+      ],
+      "spec_only": [
+        "assessment_type",
+        "system_id"
       ]
     },
     "CreateStaticPolicyRequest": {
@@ -344,6 +384,65 @@
       ],
       "spec_only": []
     },
+    "FEATAssessment": {
+      "sdk_only": [
+        "accountabilityDetails",
+        "accountabilityScore",
+        "approvedAt",
+        "approvedBy",
+        "assessmentDate",
+        "assessmentType",
+        "createdAt",
+        "createdBy",
+        "ethicsDetails",
+        "ethicsScore",
+        "fairnessDetails",
+        "fairnessScore",
+        "orgId",
+        "overallScore",
+        "systemId",
+        "transparencyDetails",
+        "transparencyScore",
+        "updatedAt",
+        "validUntil"
+      ],
+      "spec_only": [
+        "accountability_details",
+        "accountability_score",
+        "approved_at",
+        "approved_by",
+        "assessment_date",
+        "assessment_type",
+        "created_at",
+        "created_by",
+        "ethics_details",
+        "ethics_score",
+        "fairness_details",
+        "fairness_score",
+        "org_id",
+        "overall_score",
+        "rejected_at",
+        "rejected_by",
+        "rejection_reason",
+        "submitted_at",
+        "submitted_by",
+        "system_id",
+        "transparency_details",
+        "transparency_score",
+        "updated_at",
+        "valid_until",
+        "version"
+      ]
+    },
+    "Finding": {
+      "sdk_only": [
+        "dueDate",
+        "pillar"
+      ],
+      "spec_only": [
+        "article"
+      ]
+    },
     "HITLApprovalRequest": {
       "sdk_only": [],
       "spec_only": [
@@ -357,6 +456,13 @@
       "sdk_only": [],
       "spec_only": [
         "user"
+      ]
+    },
+    "KillSwitch": {
+      "sdk_only": [],
+      "spec_only": [
+        "restore_reason",
+        "trigger_conditions"
       ]
     },
     "ListWorkflowsResponse": {
@@ -488,6 +594,25 @@
         "snapshot"
       ]
     },
+    "RegistrySummary": {
+      "sdk_only": [
+        "by_status",
+        "by_use_case"
+      ],
+      "spec_only": []
+    },
+    "RejectAssessmentRequest": {
+      "sdk_only": [
+        "rejectedBy"
+      ],
+      "spec_only": []
+    },
+    "RestoreKillSwitchRequest": {
+      "sdk_only": [
+        "restoredBy"
+      ],
+      "spec_only": []
+    },
     "ResumePlanResponse": {
       "sdk_only": [],
       "spec_only": [
@@ -516,6 +641,12 @@
         "decision_id"
       ]
     },
+    "TriggerKillSwitchRequest": {
+      "sdk_only": [
+        "triggeredBy"
+      ],
+      "spec_only": []
+    },
     "UnifiedStepStatus": {
       "sdk_only": [
         "approvalStatus",
@@ -537,6 +668,28 @@
         "rejected_by",
         "tokens_in",
         "tokens_out"
+      ]
+    },
+    "UpdateAssessmentRequest": {
+      "sdk_only": [
+        "accountabilityDetails",
+        "accountabilityScore",
+        "ethicsDetails",
+        "ethicsScore",
+        "fairnessDetails",
+        "fairnessScore",
+        "transparencyDetails",
+        "transparencyScore"
+      ],
+      "spec_only": [
+        "accountability_details",
+        "accountability_score",
+        "ethics_details",
+        "ethics_score",
+        "fairness_details",
+        "fairness_score",
+        "transparency_details",
+        "transparency_score"
       ]
     },
     "UpdatePlanRequest": {
