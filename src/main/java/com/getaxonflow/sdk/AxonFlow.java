@@ -281,6 +281,12 @@ public final class AxonFlow implements Closeable {
     return client.newCall(request).execute();
   }
 
+  // MIRROR NOTE: wire-shape Gate 5's introspection probe
+  // (scripts/wire_shape/AuditWireKeysProbe.java) obtains its mapper by
+  // reflecting THIS factory, so its view of the wire always matches
+  // production configuration. Renaming or removing this method breaks the
+  // gate loudly (probe exit 2 -> gate FAIL), which is intentional - update
+  // the probe in the same change.
   private static ObjectMapper createObjectMapper() {
     ObjectMapper mapper = new ObjectMapper();
     mapper.registerModule(new JavaTimeModule());
@@ -621,12 +627,12 @@ public final class AxonFlow implements Closeable {
    *     AuditSearchRequest.builder()
    *         .userEmail("analyst@company.com")
    *         .startTime(Instant.now().minus(Duration.ofDays(7)))
-   *         .requestType("llm_chat")
+   *         .action("blocked")
    *         .limit(100)
    *         .build());
    *
    * for (AuditLogEntry entry : response.getEntries()) {
-   *     System.out.println(entry.getId() + ": " + entry.getQuerySummary());
+   *     System.out.println(entry.getId() + ": " + entry.getPolicyDecision());
    * }
    * }</pre>
    *

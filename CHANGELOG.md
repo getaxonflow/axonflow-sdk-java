@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Real wire fields `policy_decision` (`getPolicyDecision()`), `policy_details`
+  (`getPolicyDetails()`), `response_time_ms` (`getResponseTimeMs()`) on the
+  audit read model (`AuditLogEntry`), and `action` (`Builder.action(String)`)
+  on audit search (`AuditSearchRequest`). `policy_decision` is an OPEN string
+  set (`allowed`/`blocked`/`redacted` named in the server struct, `error`
+  observed live), not an enum. The pre-existing 19-argument `AuditLogEntry`
+  constructor is retained and delegates to the new canonical constructor, so
+  the change is source-compatible for direct constructor callers.
+- Wire-shape Gate 5: audit-surface binding. Every wire key the compiled
+  `AuditLogEntry`, `AuditSearchRequest` and `AuditSearchResponse` classes
+  actually map (introspected from the built classes via Jackson, so
+  constant-valued annotations and getter auto-detection are covered) must
+  exist in the pinned OpenAPI schema of the same name, with unbound fields
+  allowed only via the curated, note-carrying
+  `tests/fixtures/audit-binding-allowlist.json`. Unlike Gate 3, this gate has
+  no refresh path - a baseline that RECORDS drift is how seven never-served
+  fields shipped in the first place (#3254). An unresolvable binding (class,
+  schema, or introspection probe missing) fails instead of skipping.
+
+### Deprecated
+
+- `query_summary`/`success`/`blocked`/`risk_score`/`latency_ms`/
+  `policy_violations`/`metadata` (read model) and `request_type` (search
+  request) - never served/read on the 9.x line (#3254). Removal rides the
+  next major. The fields stay in place and keep parsing (they remain at their
+  defaults against real servers); deprecation is carried on the getters and
+  the `requestType` builder method because Java does not allow `@Deprecated`
+  on constructor parameters.
+
 ### Security
 
 - **Jackson bumped from 2.17.0 to 2.22.1**, and `jackson-core` is now declared

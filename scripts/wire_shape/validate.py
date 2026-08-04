@@ -5,11 +5,46 @@ Blocks PRs that introduce drift between Java classes (with
 @JsonProperty annotations) and the OpenAPI specs pinned via
 openapi_specs_sha in tests/fixtures/wire-shape-baseline.json.
 
-Four gates, same classes as the Python/Go/TS validators:
+Five gates:
 1. Cross-spec schema divergence (same name, different shapes)
 2. Intra-file schema duplicates (PolicyMatch-class bug)
 3. Per-type SDK-vs-spec drift (baseline-aware)
 4. Registered-type coverage (rename-escape guard)
+(1-4 are the same classes as the Python/Go/TS validators.)
+5. Audit-surface field binding (#3254): every wire key the COMPILED
+   audit model classes actually map MUST exist as a property of the
+   same-named schema in the pinned specs, unless it is explicitly
+   allowlisted in tests/fixtures/audit-binding-allowlist.json with a
+   note naming a tracking issue. Gate 3 is baseline-aware by design
+   (drift recorded at refresh time stays green), which is exactly how
+   seven never-served fields shipped on AuditLogEntry and stayed for
+   months - the baseline RECORDED the fiction instead of binding the
+   model to the contract. Gate 5 is the binding: it has no refresh
+   path, only the curated allowlist, and an unresolvable binding
+   (class, schema, or introspection probe missing) FAILS instead of
+   skipping.
+
+   Unlike gates 1-4, gate 5 does NOT use the source-regex discovery in
+   lib.py: a regex cannot resolve a constant-valued annotation
+   (@JsonProperty(SOME_CONSTANT)) and cannot see Jackson's getter
+   auto-detection (an unannotated public getFoo() serializes `foo`
+   with no annotation anywhere) - both were demonstrated as bypasses
+   in review. Gate 5 asks Jackson itself, via
+   scripts/wire_shape/AuditWireKeysProbe.java run against
+   target/classes with the production mapper configuration (reflected
+   from AxonFlow.createObjectMapper). Stated scope: the probe reports
+   declared bean properties (BeanDescription.findProperties) and
+   REFUSES to certify - exit 2, gate FAILS - any bound type using a
+   Jackson mechanism that alters the wire key set outside that view:
+   @JsonUnwrapped, @JsonAnyGetter, @JsonAnySetter, @JsonAlias,
+   @JsonValue, or class-level @JsonSerialize / @JsonDeserialize /
+   @JsonTypeInfo / @JsonAppend / @JsonNaming. Certification is
+   therefore: the declared properties are spec-bound AND no
+   shape-escaping mechanism is present.
+   Prerequisites (CI compiles them in the workflow; locally run
+   `mvn -q compile dependency:build-classpath
+   -Dmdep.outputFile=target/wire-shape-cp.txt` first):
+   target/classes and target/wire-shape-cp.txt.
 
 Specs dir is passed via AXONFLOW_OPENAPI_SPECS_DIR. Without it, the
 script exits 0 after a skip message so `mvn test` and local work
@@ -22,17 +57,171 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import (  # noqa: E402
+    REPO_ROOT,
     difference,
     discover_sdk_types,
     load_all_schemas,
     load_baseline,
 )
+
+# Gate 5 (audit-surface binding, #3254): the audit read/search surface is
+# bound STRICTLY to the pinned spec schemas - the per_type_drift baseline
+# does not apply here. Add a type to this tuple to put it under binding.
+AUDIT_BINDING_TYPES = (
+    "AuditLogEntry",
+    "AuditSearchRequest",
+    "AuditSearchResponse",
+)
+AUDIT_BINDING_PACKAGE = "com.getaxonflow.sdk.types"
+AUDIT_BINDING_ALLOWLIST_PATH = (
+    REPO_ROOT / "tests" / "fixtures" / "audit-binding-allowlist.json"
+)
+AUDIT_PROBE_SOURCE = Path(__file__).resolve().parent / "AuditWireKeysProbe.java"
+TARGET_CLASSES = REPO_ROOT / "target" / "classes"
+DEP_CLASSPATH_FILE = REPO_ROOT / "target" / "wire-shape-cp.txt"
+
+
+def probe_audit_wire_keys() -> dict[str, list[str]]:
+    """Ask Jackson (via AuditWireKeysProbe on the compiled classes) for the
+    real wire-key set of every AUDIT_BINDING_TYPES class.
+
+    Returns {SimpleTypeName: sorted_wire_keys}. Any missing prerequisite or
+    probe failure raises SystemExit - an unresolvable binding must FAIL the
+    gate, never weaken it to a skip.
+    """
+    problems: list[str] = []
+    if shutil.which("java") is None:
+        problems.append("`java` not on PATH.")
+    if not AUDIT_PROBE_SOURCE.is_file():
+        problems.append(f"probe source missing: {AUDIT_PROBE_SOURCE}")
+    if not (
+        TARGET_CLASSES / AUDIT_BINDING_PACKAGE.replace(".", "/")
+    ).is_dir():
+        problems.append(
+            f"compiled SDK classes missing under {TARGET_CLASSES} - run "
+            f"`mvn -q compile` first."
+        )
+    if not DEP_CLASSPATH_FILE.is_file():
+        problems.append(
+            f"{DEP_CLASSPATH_FILE} missing - run `mvn -q "
+            f"dependency:build-classpath "
+            f"-Dmdep.outputFile=target/wire-shape-cp.txt` first."
+        )
+    # Freshness guard: introspecting STALE bytecode against DIRTY source
+    # is a false green waiting to happen locally (in CI the compile step
+    # immediately precedes this validator, so this never fires there).
+    pkg_dir = AUDIT_BINDING_PACKAGE.replace(".", "/")
+    for type_name in AUDIT_BINDING_TYPES:
+        src = REPO_ROOT / "src" / "main" / "java" / pkg_dir / f"{type_name}.java"
+        cls = TARGET_CLASSES / pkg_dir / f"{type_name}.class"
+        if not src.is_file():
+            # A bound type without a same-named source file would be a
+            # rename; the probe's Class.forName fails on it anyway, but
+            # name it here for a better message.
+            problems.append(
+                f"source file missing for bound type {type_name}: {src}"
+            )
+            continue
+        if not cls.is_file():
+            problems.append(
+                f"compiled class missing for bound type {type_name}: {cls} "
+                f"- run `mvn -q compile` first."
+            )
+            continue
+        if src.stat().st_mtime > cls.stat().st_mtime:
+            problems.append(
+                f"{src.name} is NEWER than its compiled {cls.name} - the "
+                f"probe would certify stale bytecode. Recompile first: "
+                f"`mvn -q compile`."
+            )
+    if problems:
+        raise SystemExit(
+            "❌ Audit-surface binding gate (#3254) prerequisites missing; "
+            "the binding is unresolvable, which FAILS (never skips):\n  - "
+            + "\n  - ".join(problems)
+        )
+
+    classpath = os.pathsep.join(
+        [str(TARGET_CLASSES), DEP_CLASSPATH_FILE.read_text().strip()]
+    )
+    cmd = [
+        "java",
+        "-cp",
+        classpath,
+        str(AUDIT_PROBE_SOURCE),
+    ] + [f"{AUDIT_BINDING_PACKAGE}.{t}" for t in AUDIT_BINDING_TYPES]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise SystemExit(
+            f"❌ AuditWireKeysProbe failed (exit {proc.returncode}) - the "
+            f"audit binding is unresolvable, which FAILS (never skips).\n"
+            f"stderr:\n{proc.stderr.strip()}"
+        )
+    try:
+        parsed = json.loads(proc.stdout)
+    except json.JSONDecodeError as e:
+        raise SystemExit(
+            f"❌ AuditWireKeysProbe emitted unparseable output "
+            f"({e.__class__.__name__}: {e}):\n{proc.stdout[:2000]}"
+        ) from None
+    for type_name in AUDIT_BINDING_TYPES:
+        if not parsed.get(type_name):
+            raise SystemExit(
+                f"❌ AuditWireKeysProbe reported no wire keys for "
+                f"{type_name} - an audit model type with zero mapped "
+                f"properties means introspection broke; the binding is "
+                f"unresolvable, which FAILS (never skips)."
+            )
+    return {k: sorted(v) for k, v in parsed.items()}
+
+
+def load_audit_binding_allowlist() -> dict[str, dict[str, str]]:
+    """Load the curated allowlist for Gate 5.
+
+    Shape: {TypeName: {wire_field: "note naming the tracking issue"}}.
+    Keys starting with "_" are comments. An absent file means an empty
+    allowlist (strict binding). A malformed file or an entry without a
+    non-empty note string fails loudly - a silent parse problem must not
+    weaken the gate.
+    """
+    if not AUDIT_BINDING_ALLOWLIST_PATH.exists():
+        return {}
+    try:
+        with AUDIT_BINDING_ALLOWLIST_PATH.open() as f:
+            parsed = json.load(f)
+    except json.JSONDecodeError as e:
+        raise SystemExit(
+            f"❌ {AUDIT_BINDING_ALLOWLIST_PATH} is malformed "
+            f"({e.__class__.__name__}: {e}). Fix or delete it - a broken "
+            f"allowlist must not weaken the audit binding gate."
+        ) from None
+    result: dict[str, dict[str, str]] = {}
+    for type_name, fields in parsed.items():
+        if type_name.startswith("_"):
+            continue
+        if not isinstance(fields, dict):
+            raise SystemExit(
+                f"❌ {AUDIT_BINDING_ALLOWLIST_PATH}: entry {type_name!r} "
+                f"must map wire fields to note strings."
+            )
+        for field, note in fields.items():
+            if not isinstance(note, str) or not note.strip():
+                raise SystemExit(
+                    f"❌ {AUDIT_BINDING_ALLOWLIST_PATH}: "
+                    f"{type_name}.{field} has no justification note. Every "
+                    f"allowlisted field must name its tracking issue."
+                )
+        result[type_name] = dict(fields)
+    return result
 
 
 def main() -> int:
@@ -230,6 +419,73 @@ def main() -> int:
                 file=sys.stderr,
             )
             errors += len(missing_sdk) + len(missing_spec)
+
+    # Gate 5: audit-surface field binding (#3254). Strict, baseline-free.
+    # Wire keys come from Jackson introspection of the COMPILED classes
+    # (probe_audit_wire_keys), NOT from the source-regex discovery used by
+    # gates 1-4 - see the module docstring for the two demonstrated
+    # regex bypasses (constant-valued annotations, getter auto-detection).
+    # A class that cannot be loaded fails inside the probe (exit 2 ->
+    # SystemExit here), so "class missing" is a hard failure, not a skip.
+    allowlist = load_audit_binding_allowlist()
+    probed = probe_audit_wire_keys()
+    binding_problems: list[str] = []
+    for type_name in AUDIT_BINDING_TYPES:
+        sdk_fields = probed[type_name]
+        spec_fields = merged.get(type_name)
+        if spec_fields is None:
+            binding_problems.append(
+                f"  {type_name}: no OpenAPI schema of this name in the "
+                f"pinned specs - the binding is unresolvable. This gate "
+                f"fails instead of skipping; if the schema was renamed, "
+                f"update AUDIT_BINDING_TYPES in the same PR."
+            )
+            continue
+        allowed = allowlist.get(type_name, {})
+        unbound = [
+            f for f in difference(sdk_fields, spec_fields) if f not in allowed
+        ]
+        if unbound:
+            binding_problems.append(
+                f"  {type_name}: wire key(s) mapped by the compiled class "
+                f"(Jackson introspection: @JsonProperty, constant-valued "
+                f"annotations, and getter auto-detection alike) with NO "
+                f"backing property in the pinned {type_name} schema: "
+                f"{unbound}. A field the server never serves is fiction "
+                f"(#3254 class): either the spec is missing it (fix the "
+                f"contract first) or the field must not exist. If it must "
+                f"stay temporarily, allowlist it WITH a tracking-issue note "
+                f"in tests/fixtures/audit-binding-allowlist.json."
+            )
+        # Stale = allowlisted but no longer unbound: either the field left
+        # the SDK class, or the spec now carries it. Both mean the entry
+        # must go, so the allowlist only ever names live debt.
+        stale = sorted(
+            f for f in allowed if f not in difference(sdk_fields, spec_fields)
+        )
+        if stale:
+            binding_problems.append(
+                f"  {type_name}: allowlist entr{'ies' if len(stale) > 1 else 'y'} "
+                f"{stale} no longer unbound (field removed from the SDK or "
+                f"now present in the spec) - remove from "
+                f"tests/fixtures/audit-binding-allowlist.json so the "
+                f"allowlist only ever names live debt."
+            )
+        spec_missing = difference(spec_fields, sdk_fields)
+        if spec_missing:
+            # Informational only: fields the server serves that the SDK
+            # does not model yet are a coverage gap, not fiction.
+            print(
+                f"ℹ️  {type_name}: spec fields not yet modeled in the SDK "
+                f"(informational): {spec_missing}"
+            )
+    if binding_problems:
+        print(
+            "\nAudit-surface binding gate failed (#3254):\n", file=sys.stderr
+        )
+        for p in binding_problems:
+            print(p + "\n", file=sys.stderr)
+        errors += len(binding_problems)
 
     if errors > 0:
         print(f"❌ Found {errors} wire-shape issue(s).", file=sys.stderr)

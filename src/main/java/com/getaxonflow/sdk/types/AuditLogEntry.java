@@ -15,6 +15,7 @@
  */
 package com.getaxonflow.sdk.types;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
@@ -23,13 +24,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** A single audit log entry representing an audited request or event. */
+/**
+ * A single audit log entry representing an audited request or event.
+ *
+ * <p><b>Deprecation note (getaxonflow/axonflow-enterprise#3254):</b> seven fields of this class
+ * ({@code query_summary}, {@code success}, {@code blocked}, {@code risk_score}, {@code latency_ms},
+ * {@code policy_violations}, {@code metadata}) have never been populated by any 9.x server. They
+ * remain in place and keep parsing (staying at their defaults against real servers) so existing
+ * code compiles, but they are deprecated and scheduled for removal in the next major. Read {@link
+ * #getPolicyDecision()} for the verdict, {@link #getPolicyDetails()} for violation context, and
+ * {@link #getResponseTimeMs()} for latency. Java does not allow {@code @Deprecated} on constructor
+ * parameters, so the deprecation is carried on the getters; the corresponding constructor
+ * parameters are equally deprecated.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class AuditLogEntry {
 
   /**
-   * Cross-border transfer-basis values recognized under Indonesia UU PDP Pasal 56,
-   * for the {@link #getTransferBasis()} field:
+   * Cross-border transfer-basis values recognized under Indonesia UU PDP Pasal 56, for the {@link
+   * #getTransferBasis()} field:
    *
    * <ul>
    *   <li>{@code adequacy} — Pasal 56(a): destination with adequate protection
@@ -38,10 +51,9 @@ public final class AuditLogEntry {
    *   <li>{@code consent} — Pasal 56(c): explicit data-subject consent
    * </ul>
    *
-   * <p>{@code safeguards} and {@code pasal_56b_dpa} are semantic equivalents; the
-   * platform surfaces whichever was recorded at decision time, verbatim. The field
-   * itself stays a {@code String} so the SDK never rejects a value a newer platform
-   * may add. (platform #2513 / epic #2508)
+   * <p>{@code safeguards} and {@code pasal_56b_dpa} are semantic equivalents; the platform surfaces
+   * whichever was recorded at decision time, verbatim. The field itself stays a {@code String} so
+   * the SDK never rejects a value a newer platform may add. (platform #2513 / epic #2508)
    */
   public static final String TRANSFER_BASIS_ADEQUACY = "adequacy";
 
@@ -106,6 +118,66 @@ public final class AuditLogEntry {
   @JsonProperty("transfer_basis")
   private final String transferBasis;
 
+  @JsonProperty("policy_decision")
+  private final String policyDecision;
+
+  @JsonProperty("policy_details")
+  private final Map<String, Object> policyDetails;
+
+  @JsonProperty("response_time_ms")
+  private final Long responseTimeMs;
+
+  /**
+   * Legacy constructor, retained so pre-#3254 callers keep compiling. Delegates to the canonical
+   * constructor with the three real-wire fields ({@code policy_decision}, {@code policy_details},
+   * {@code response_time_ms}) absent.
+   */
+  public AuditLogEntry(
+      String id,
+      String requestId,
+      Instant timestamp,
+      String userEmail,
+      String clientId,
+      String tenantId,
+      String requestType,
+      String querySummary,
+      Boolean success,
+      Boolean blocked,
+      Double riskScore,
+      String provider,
+      String model,
+      Integer tokensUsed,
+      Integer latencyMs,
+      List<String> policyViolations,
+      Map<String, Object> metadata,
+      String dataResidency,
+      String transferBasis) {
+    this(
+        id,
+        requestId,
+        timestamp,
+        userEmail,
+        clientId,
+        tenantId,
+        requestType,
+        querySummary,
+        success,
+        blocked,
+        riskScore,
+        provider,
+        model,
+        tokensUsed,
+        latencyMs,
+        policyViolations,
+        metadata,
+        dataResidency,
+        transferBasis,
+        null,
+        null,
+        null);
+  }
+
+  @JsonCreator
   public AuditLogEntry(
       @JsonProperty("id") String id,
       @JsonProperty("request_id") String requestId,
@@ -125,7 +197,10 @@ public final class AuditLogEntry {
       @JsonProperty("policy_violations") List<String> policyViolations,
       @JsonProperty("metadata") Map<String, Object> metadata,
       @JsonProperty("data_residency") String dataResidency,
-      @JsonProperty("transfer_basis") String transferBasis) {
+      @JsonProperty("transfer_basis") String transferBasis,
+      @JsonProperty("policy_decision") String policyDecision,
+      @JsonProperty("policy_details") Map<String, Object> policyDetails,
+      @JsonProperty("response_time_ms") Long responseTimeMs) {
     this.id = id != null ? id : "";
     this.requestId = requestId != null ? requestId : "";
     this.timestamp = timestamp != null ? timestamp : Instant.now();
@@ -145,6 +220,9 @@ public final class AuditLogEntry {
     this.metadata = metadata != null ? metadata : Collections.emptyMap();
     this.dataResidency = dataResidency;
     this.transferBasis = transferBasis;
+    this.policyDecision = policyDecision != null ? policyDecision : "";
+    this.policyDetails = policyDetails != null ? policyDetails : Collections.emptyMap();
+    this.responseTimeMs = responseTimeMs;
   }
 
   /** Returns the unique audit log ID. */
@@ -182,22 +260,57 @@ public final class AuditLogEntry {
     return requestType;
   }
 
-  /** Returns a summary of the query/request. */
+  /**
+   * Returns a summary of the query/request.
+   *
+   * @deprecated never populated on the 9.x line - the server has never sent this field
+   *     (getaxonflow/axonflow-enterprise#3254); the wire carries {@code query}/{@code query_hash},
+   *     not modeled in this interim. Read {@link #getPolicyDecision()} for the verdict, {@link
+   *     #getPolicyDetails()} for violation context, and {@link #getResponseTimeMs()} for latency.
+   *     Scheduled for removal in the next major.
+   */
+  @Deprecated
   public String getQuerySummary() {
     return querySummary;
   }
 
-  /** Returns whether the request succeeded. */
+  /**
+   * Returns whether the request succeeded.
+   *
+   * @deprecated never populated on the 9.x line - the server has never sent this field
+   *     (getaxonflow/axonflow-enterprise#3254). Read {@link #getPolicyDecision()} for the verdict
+   *     ({@code "allowed"} replaces {@code success=true}), {@link #getPolicyDetails()} for
+   *     violation context, and {@link #getResponseTimeMs()} for latency. Scheduled for removal in
+   *     the next major.
+   */
+  @Deprecated
   public boolean isSuccess() {
     return success;
   }
 
-  /** Returns whether the request was blocked by policy. */
+  /**
+   * Returns whether the request was blocked by policy.
+   *
+   * @deprecated never populated on the 9.x line - the server has never sent this field
+   *     (getaxonflow/axonflow-enterprise#3254). Read {@link #getPolicyDecision()} for the verdict
+   *     ({@code "blocked"} replaces {@code blocked=true}), {@link #getPolicyDetails()} for
+   *     violation context, and {@link #getResponseTimeMs()} for latency. Scheduled for removal in
+   *     the next major.
+   */
+  @Deprecated
   public boolean isBlocked() {
     return blocked;
   }
 
-  /** Returns the calculated risk score (0.0-1.0). */
+  /**
+   * Returns the calculated risk score (0.0-1.0).
+   *
+   * @deprecated never populated on the 9.x line - the server has never sent this field
+   *     (getaxonflow/axonflow-enterprise#3254); it has no wire equivalent. Read {@link
+   *     #getPolicyDecision()} for the verdict, {@link #getPolicyDetails()} for violation context,
+   *     and {@link #getResponseTimeMs()} for latency. Scheduled for removal in the next major.
+   */
+  @Deprecated
   public double getRiskScore() {
     return riskScore;
   }
@@ -217,17 +330,42 @@ public final class AuditLogEntry {
     return tokensUsed;
   }
 
-  /** Returns the request latency in milliseconds. */
+  /**
+   * Returns the request latency in milliseconds.
+   *
+   * @deprecated never populated on the 9.x line - the server has never sent this field
+   *     (getaxonflow/axonflow-enterprise#3254). Read {@link #getPolicyDecision()} for the verdict,
+   *     {@link #getPolicyDetails()} for violation context, and {@link #getResponseTimeMs()} for
+   *     latency. Scheduled for removal in the next major.
+   */
+  @Deprecated
   public int getLatencyMs() {
     return latencyMs;
   }
 
-  /** Returns the list of violated policy IDs (if any). */
+  /**
+   * Returns the list of violated policy IDs (if any).
+   *
+   * @deprecated never populated on the 9.x line - the server has never sent this field
+   *     (getaxonflow/axonflow-enterprise#3254). Read {@link #getPolicyDecision()} for the verdict,
+   *     {@link #getPolicyDetails()} for violation context, and {@link #getResponseTimeMs()} for
+   *     latency. Scheduled for removal in the next major.
+   */
+  @Deprecated
   public List<String> getPolicyViolations() {
     return policyViolations;
   }
 
-  /** Returns additional metadata. */
+  /**
+   * Returns additional metadata.
+   *
+   * @deprecated never populated on the 9.x line - the server has never sent this field
+   *     (getaxonflow/axonflow-enterprise#3254); the wire carries {@code policy_details}/{@code
+   *     security_metrics} instead. Read {@link #getPolicyDecision()} for the verdict, {@link
+   *     #getPolicyDetails()} for violation context, and {@link #getResponseTimeMs()} for latency.
+   *     Scheduled for removal in the next major.
+   */
+  @Deprecated
   public Map<String, Object> getMetadata() {
     return metadata;
   }
@@ -238,13 +376,43 @@ public final class AuditLogEntry {
   }
 
   /**
-   * Returns the cross-border transfer basis under Indonesia UU PDP Pasal 56
-   * ({@code adequacy}, {@code safeguards}, {@code pasal_56b_dpa}, or
-   * {@code consent}), or null if not set. Surfaced verbatim — see the
-   * {@code TRANSFER_BASIS_*} constants.
+   * Returns the cross-border transfer basis under Indonesia UU PDP Pasal 56 ({@code adequacy},
+   * {@code safeguards}, {@code pasal_56b_dpa}, or {@code consent}), or null if not set. Surfaced
+   * verbatim - see the {@code TRANSFER_BASIS_*} constants.
    */
   public String getTransferBasis() {
     return transferBasis;
+  }
+
+  /**
+   * Returns the policy verdict for this entry, as served on the wire ({@code policy_decision}).
+   *
+   * <p>This is an OPEN set of strings, not an enum: {@code allowed}, {@code blocked} and {@code
+   * redacted} are named in the server struct and {@code error} has been observed live, but newer
+   * servers may send values this SDK version has never seen. Compare against known strings; never
+   * assume exhaustiveness. Empty when the server omitted the field (pre-9.x servers or planes that
+   * do not record a verdict).
+   */
+  public String getPolicyDecision() {
+    return policyDecision;
+  }
+
+  /**
+   * Returns the policy decision context for this entry ({@code policy_details}), an object with
+   * arbitrary keys (e.g. {@code policy_matches}, {@code decision_id}, {@code error_message}). Empty
+   * when the server omitted the field.
+   */
+  public Map<String, Object> getPolicyDetails() {
+    return policyDetails;
+  }
+
+  /**
+   * Returns the server-measured response time in milliseconds ({@code response_time_ms}), or {@code
+   * null} when the server did not send the field (pre-9.x servers or non-LLM planes). Null-check
+   * before unboxing.
+   */
+  public Long getResponseTimeMs() {
+    return responseTimeMs;
   }
 
   @Override
@@ -270,7 +438,10 @@ public final class AuditLogEntry {
         && Objects.equals(policyViolations, that.policyViolations)
         && Objects.equals(metadata, that.metadata)
         && Objects.equals(dataResidency, that.dataResidency)
-        && Objects.equals(transferBasis, that.transferBasis);
+        && Objects.equals(transferBasis, that.transferBasis)
+        && Objects.equals(policyDecision, that.policyDecision)
+        && Objects.equals(policyDetails, that.policyDetails)
+        && Objects.equals(responseTimeMs, that.responseTimeMs);
   }
 
   @Override
@@ -294,7 +465,10 @@ public final class AuditLogEntry {
         policyViolations,
         metadata,
         dataResidency,
-        transferBasis);
+        transferBasis,
+        policyDecision,
+        policyDetails,
+        responseTimeMs);
   }
 
   @Override
@@ -326,6 +500,11 @@ public final class AuditLogEntry {
         + ", transferBasis='"
         + transferBasis
         + '\''
+        + ", policyDecision='"
+        + policyDecision
+        + '\''
+        + ", responseTimeMs="
+        + responseTimeMs
         + '}';
   }
 }

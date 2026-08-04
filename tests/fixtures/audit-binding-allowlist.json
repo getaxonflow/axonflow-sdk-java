@@ -1,0 +1,15 @@
+{
+  "_comment": "Curated allowlist for wire-shape Gate 5 (audit-surface binding). Every entry is an SDK @JsonProperty field with NO backing property in the pinned OpenAPI schema - i.e. named, tracked debt. Entries here MUST carry a note naming the tracking issue. The gate fails on any unlisted unbound field and on any stale entry, so this file can only ever shrink toward empty. See scripts/wire_shape/validate.py.",
+  "AuditLogEntry": {
+    "query_summary": "Never served on the 9.x line; deprecated in-model, removal rides the next major (getaxonflow/axonflow-enterprise#3254). The wire carries query/query_hash instead.",
+    "success": "Never served on the 9.x line; deprecated in-model, removal rides the next major (getaxonflow/axonflow-enterprise#3254). policy_decision 'allowed' replaces success=true.",
+    "blocked": "Never served on the 9.x line; deprecated in-model, removal rides the next major (getaxonflow/axonflow-enterprise#3254). policy_decision 'blocked' replaces blocked=true.",
+    "risk_score": "Never served on the 9.x line; deprecated in-model, removal rides the next major (getaxonflow/axonflow-enterprise#3254). No wire equivalent.",
+    "latency_ms": "Never served on the 9.x line; deprecated in-model, removal rides the next major (getaxonflow/axonflow-enterprise#3254). response_time_ms is the real latency field.",
+    "policy_violations": "Never served on the 9.x line; deprecated in-model, removal rides the next major (getaxonflow/axonflow-enterprise#3254). policy_details carries violation context.",
+    "metadata": "Never served on the 9.x line; deprecated in-model, removal rides the next major (getaxonflow/axonflow-enterprise#3254). The wire carries policy_details/security_metrics instead."
+  },
+  "AuditSearchRequest": {
+    "request_type": "The 9.x server does not read this filter (silent no-op); deprecated in-model in favor of action, removal rides the next major (getaxonflow/axonflow-enterprise#3254). Still sent on the wire, harmless."
+  }
+}
