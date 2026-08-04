@@ -7319,6 +7319,7 @@ public final class AxonFlow implements Closeable {
     // Response Parsing Helpers
     // ========================================================================
 
+    @SuppressWarnings("deprecation") // populates deprecated fiction fields for tolerance (#3254)
     private AISystemRegistry parseSystemResponse(Response response) throws IOException {
       handleErrorResponse(response);
 
@@ -7338,6 +7339,10 @@ public final class AxonFlow implements Closeable {
       system.setDescription(getTextOrNull(node, "description"));
       system.setOwnerTeam(getTextOrNull(node, "owner_team"));
       system.setTechnicalOwner(getTextOrNull(node, "technical_owner"));
+      // #3254: owner_email is the real wire key. ownerEmail carries it under
+      // its true name; businessOwner keeps receiving it as the historic
+      // compatibility alias.
+      system.setOwnerEmail(getTextOrNull(node, "owner_email"));
       system.setBusinessOwner(getTextOrNull(node, "owner_email"));
       system.setCreatedBy(getTextOrNull(node, "created_by"));
 
@@ -7356,10 +7361,11 @@ public final class AxonFlow implements Closeable {
       system.setModelComplexity(getIntOrZero(node, "risk_rating_complexity"));
       system.setHumanReliance(getIntOrZero(node, "risk_rating_reliance"));
 
-      // Handle materiality (may be "materiality" or "materiality_classification")
-      String materiality = getTextOrNull(node, "materiality");
+      // #3254: materiality_classification is the real wire key; read it
+      // first, keep the legacy "materiality" spelling as a fallback.
+      String materiality = getTextOrNull(node, "materiality_classification");
       if (materiality == null) {
-        materiality = getTextOrNull(node, "materiality_classification");
+        materiality = getTextOrNull(node, "materiality");
       }
       if (materiality != null) {
         try {
@@ -7393,6 +7399,7 @@ public final class AxonFlow implements Closeable {
       return system;
     }
 
+    @SuppressWarnings("deprecation") // populates deprecated fiction fields for tolerance (#3254)
     private RegistrySummary parseSummaryResponse(Response response) throws IOException {
       handleErrorResponse(response);
 
@@ -7405,18 +7412,24 @@ public final class AxonFlow implements Closeable {
       JsonNode node = objectMapper.readTree(json);
 
       RegistrySummary summary = new RegistrySummary();
+      summary.setOrgId(getTextOrNull(node, "org_id"));
       summary.setTotalSystems(getIntOrZero(node, "total_systems"));
       summary.setActiveSystems(getIntOrZero(node, "active_systems"));
 
-      // Handle high_materiality_count (may be "high_materiality_count" or "high_materiality")
-      int highMateriality = getIntOrZero(node, "high_materiality_count");
-      if (highMateriality == 0) {
-        highMateriality = getIntOrZero(node, "high_materiality");
-      }
-      summary.setHighMaterialityCount(highMateriality);
-
-      summary.setMediumMaterialityCount(getIntOrZero(node, "medium_materiality_count"));
-      summary.setLowMaterialityCount(getIntOrZero(node, "low_materiality_count"));
+      // #3254: the server's RegistrySummary serves high_materiality /
+      // medium_materiality / low_materiality (no _count suffix). Read the
+      // real key first; fall back to the legacy _count spelling so a
+      // hypothetical old payload still parses. The pre-#3254 parser read
+      // medium/low ONLY under the _count fiction, so both were always 0
+      // against a real server.
+      summary.setHighMaterialityCount(
+          intWithFallback(node, "high_materiality", "high_materiality_count"));
+      summary.setMediumMaterialityCount(
+          intWithFallback(node, "medium_materiality", "medium_materiality_count"));
+      summary.setLowMaterialityCount(
+          intWithFallback(node, "low_materiality", "low_materiality_count"));
+      summary.setAssessmentsDue(getIntOrZero(node, "assessments_due"));
+      summary.setKillSwitchesTriggered(getIntOrZero(node, "kill_switches_triggered"));
 
       if (node.has("by_use_case") && !node.get("by_use_case").isNull()) {
         summary.setByUseCase(
@@ -7544,10 +7557,12 @@ public final class AxonFlow implements Closeable {
       ks.setTriggeredBy(getTextOrNull(node, "triggered_by"));
       ks.setRestoredBy(getTextOrNull(node, "restored_by"));
 
-      // Handle triggered_reason (may be "triggered_reason" or "trigger_reason")
-      String triggeredReason = getTextOrNull(node, "triggered_reason");
+      // #3254: the server serves trigger_reason; triggered_reason has never
+      // been sent. Read the real key first, keep the legacy spelling as a
+      // fallback for tolerance.
+      String triggeredReason = getTextOrNull(node, "trigger_reason");
       if (triggeredReason == null) {
-        triggeredReason = getTextOrNull(node, "trigger_reason");
+        triggeredReason = getTextOrNull(node, "triggered_reason");
       }
       ks.setTriggeredReason(triggeredReason);
 
@@ -7672,6 +7687,18 @@ public final class AxonFlow implements Closeable {
         return node.get(field).asInt();
       }
       return 0;
+    }
+
+    /**
+     * Reads {@code primary} if present (even when 0), otherwise {@code fallback}, otherwise 0.
+     * Used for #3254 real-key-first reads with legacy-spelling tolerance: a PRESENT primary key
+     * always wins so a genuine 0 is never overridden by a stale fallback value.
+     */
+    private int intWithFallback(JsonNode node, String primary, String fallback) {
+      if (node.has(primary) && !node.get(primary).isNull()) {
+        return node.get(primary).asInt();
+      }
+      return getIntOrZero(node, fallback);
     }
 
     private Integer getIntegerOrNull(JsonNode node, String field) {

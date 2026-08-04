@@ -11,5 +11,13 @@
   },
   "AuditSearchRequest": {
     "request_type": "The 9.x server does not read this filter (silent no-op); deprecated in-model in favor of action, removal rides the next major (getaxonflow/axonflow-enterprise#3254). Still sent on the wire, harmless."
+  },
+  "RegistrySummary": {
+    "by_use_case": "Never populated on the 9.x line - the server's RegistrySummary has never carried by_use_case (getaxonflow/axonflow-enterprise#3254). Deprecated in-model, removal rides the next major.",
+    "by_status": "Never populated on the 9.x line - the server's RegistrySummary has never carried by_status (getaxonflow/axonflow-enterprise#3254). Deprecated in-model, removal rides the next major."
+  },
+  "AISystemRegistry": {
+    "technical_owner": "Never populated on the 9.x line - the server's AISystemRegistry has never carried technical_owner; the wire serves owner_email + owner_team (getaxonflow/axonflow-enterprise#3254). Deprecated in-model, removal rides the next major.",
+    "businessOwner": "Not a wire key: compatibility alias field populated by the hand-written parser from the wire's owner_email (getaxonflow/axonflow-enterprise#3254). Prefer getOwnerEmail(); alias retained for source compatibility."
   }
 }

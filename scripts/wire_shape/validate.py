@@ -73,15 +73,42 @@ from lib import (  # noqa: E402
     load_baseline,
 )
 
-# Gate 5 (audit-surface binding, #3254): the audit read/search surface is
+# Gate 5 (audit-surface binding, #3254): the audit + masfeat surfaces are
 # bound STRICTLY to the pinned spec schemas - the per_type_drift baseline
-# does not apply here. Add a type to this tuple to put it under binding.
-AUDIT_BINDING_TYPES = (
-    "AuditLogEntry",
-    "AuditSearchRequest",
-    "AuditSearchResponse",
-)
-AUDIT_BINDING_PACKAGE = "com.getaxonflow.sdk.types"
+# does not apply here. Keys are the OpenAPI schema names; each entry maps
+# to the binary class name (nested classes use `$`) and the source file
+# for the freshness guard. Add an entry to put a type under binding.
+AUDIT_BINDING_TYPES = {
+    "AuditLogEntry": {
+        "fqcn": "com.getaxonflow.sdk.types.AuditLogEntry",
+        "source": "src/main/java/com/getaxonflow/sdk/types/AuditLogEntry.java",
+    },
+    "AuditSearchRequest": {
+        "fqcn": "com.getaxonflow.sdk.types.AuditSearchRequest",
+        "source": "src/main/java/com/getaxonflow/sdk/types/AuditSearchRequest.java",
+    },
+    "AuditSearchResponse": {
+        "fqcn": "com.getaxonflow.sdk.types.AuditSearchResponse",
+        "source": "src/main/java/com/getaxonflow/sdk/types/AuditSearchResponse.java",
+    },
+    # #3254 pin-advance batch: masfeat models. These are populated by
+    # hand-written parsers in AxonFlow.MASFEATNamespace, not by Jackson
+    # databind - the @JsonProperty tags exist so the Jackson surface tells
+    # the truth about the wire and THIS gate can bind it to the spec.
+    # (OJKAuditExportResponse is not modeled by this SDK - nothing to bind.)
+    "RegistrySummary": {
+        "fqcn": "com.getaxonflow.sdk.masfeat.MASFEATTypes$RegistrySummary",
+        "source": "src/main/java/com/getaxonflow/sdk/masfeat/MASFEATTypes.java",
+    },
+    "KillSwitch": {
+        "fqcn": "com.getaxonflow.sdk.masfeat.MASFEATTypes$KillSwitch",
+        "source": "src/main/java/com/getaxonflow/sdk/masfeat/MASFEATTypes.java",
+    },
+    "AISystemRegistry": {
+        "fqcn": "com.getaxonflow.sdk.masfeat.MASFEATTypes$AISystemRegistry",
+        "source": "src/main/java/com/getaxonflow/sdk/masfeat/MASFEATTypes.java",
+    },
+}
 AUDIT_BINDING_ALLOWLIST_PATH = (
     REPO_ROOT / "tests" / "fixtures" / "audit-binding-allowlist.json"
 )
@@ -103,13 +130,6 @@ def probe_audit_wire_keys() -> dict[str, list[str]]:
         problems.append("`java` not on PATH.")
     if not AUDIT_PROBE_SOURCE.is_file():
         problems.append(f"probe source missing: {AUDIT_PROBE_SOURCE}")
-    if not (
-        TARGET_CLASSES / AUDIT_BINDING_PACKAGE.replace(".", "/")
-    ).is_dir():
-        problems.append(
-            f"compiled SDK classes missing under {TARGET_CLASSES} - run "
-            f"`mvn -q compile` first."
-        )
     if not DEP_CLASSPATH_FILE.is_file():
         problems.append(
             f"{DEP_CLASSPATH_FILE} missing - run `mvn -q "
@@ -119,12 +139,13 @@ def probe_audit_wire_keys() -> dict[str, list[str]]:
     # Freshness guard: introspecting STALE bytecode against DIRTY source
     # is a false green waiting to happen locally (in CI the compile step
     # immediately precedes this validator, so this never fires there).
-    pkg_dir = AUDIT_BINDING_PACKAGE.replace(".", "/")
-    for type_name in AUDIT_BINDING_TYPES:
-        src = REPO_ROOT / "src" / "main" / "java" / pkg_dir / f"{type_name}.java"
-        cls = TARGET_CLASSES / pkg_dir / f"{type_name}.class"
+    # The class file path is derived from the binary name, so nested
+    # classes (Outer$Inner.class) are covered automatically.
+    for type_name, binding in AUDIT_BINDING_TYPES.items():
+        src = REPO_ROOT / binding["source"]
+        cls = TARGET_CLASSES / (binding["fqcn"].replace(".", "/") + ".class")
         if not src.is_file():
-            # A bound type without a same-named source file would be a
+            # A bound type without its registered source file would be a
             # rename; the probe's Class.forName fails on it anyway, but
             # name it here for a better message.
             problems.append(
@@ -158,7 +179,7 @@ def probe_audit_wire_keys() -> dict[str, list[str]]:
         "-cp",
         classpath,
         str(AUDIT_PROBE_SOURCE),
-    ] + [f"{AUDIT_BINDING_PACKAGE}.{t}" for t in AUDIT_BINDING_TYPES]
+    ] + [b["fqcn"] for b in AUDIT_BINDING_TYPES.values()]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         raise SystemExit(

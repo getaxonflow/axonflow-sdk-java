@@ -1,5 +1,6 @@
 package com.getaxonflow.sdk.masfeat;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -546,28 +547,73 @@ public final class MASFEATTypes {
     }
   }
 
-  /** AI system registry entry. */
+  /**
+   * AI system registry entry.
+   *
+   * <p>Wire mapping note (#3254): the {@code @JsonProperty} tags carry the REAL wire names served
+   * by the orchestrator's {@code masfeat.AISystemRegistry} struct. The SDK populates this type via
+   * a hand-written parser ({@code AxonFlow.MASFEATNamespace}); the tags exist so the Jackson
+   * surface is truthful and the wire-shape binding gate can bind this model to the spec. The
+   * {@code customerImpact}/{@code modelComplexity}/{@code humanReliance} JAVA names are historic;
+   * their wire names are {@code risk_rating_impact}/{@code risk_rating_complexity}/{@code
+   * risk_rating_reliance} and the data is real. {@code businessOwner} is a compatibility alias
+   * populated from the wire's {@code owner_email}; prefer {@link #getOwnerEmail()}.
+   */
   public static class AISystemRegistry {
+    @JsonProperty("id")
     private String id;
+
+    @JsonProperty("org_id")
     private String orgId;
+
+    @JsonProperty("system_id")
     private String systemId;
+
+    @JsonProperty("system_name")
     private String systemName;
+
+    @JsonProperty("use_case")
     private AISystemUseCase useCase;
+
+    @JsonProperty("owner_team")
     private String ownerTeam;
+
+    @JsonProperty("risk_rating_impact")
     private int customerImpact;
+
+    @JsonProperty("risk_rating_complexity")
     private int modelComplexity;
+
+    @JsonProperty("risk_rating_reliance")
     private int humanReliance;
 
-    @com.fasterxml.jackson.annotation.JsonProperty("materiality_classification")
+    @JsonProperty("materiality_classification")
     private MaterialityClassification materialityClassification;
 
+    @JsonProperty("status")
     private SystemStatus status;
+
+    @JsonProperty("created_at")
     private Instant createdAt;
+
+    @JsonProperty("updated_at")
     private Instant updatedAt;
+
+    @JsonProperty("description")
     private String description;
+
+    @JsonProperty("technical_owner")
     private String technicalOwner;
+
     private String businessOwner;
+
+    @JsonProperty("owner_email")
+    private String ownerEmail;
+
+    @JsonProperty("metadata")
     private Map<String, Object> metadata;
+
+    @JsonProperty("created_by")
     private String createdBy;
 
     public String getId() {
@@ -682,20 +728,46 @@ public final class MASFEATTypes {
       this.description = description;
     }
 
+    /**
+     * Returns the technical owner.
+     *
+     * @deprecated never populated on the 9.x line - the server has never sent {@code
+     *     technical_owner} (getaxonflow/axonflow-enterprise#3254); the wire carries {@code
+     *     owner_email} and {@code owner_team}. Read {@link #getOwnerEmail()} and {@link
+     *     #getOwnerTeam()}. Scheduled for removal in the next major.
+     */
+    @Deprecated
     public String getTechnicalOwner() {
       return technicalOwner;
     }
 
+    /**
+     * @deprecated see {@link #getTechnicalOwner()} - never populated on the 9.x line (#3254).
+     */
+    @Deprecated
     public void setTechnicalOwner(String technicalOwner) {
       this.technicalOwner = technicalOwner;
     }
 
+    /**
+     * Returns the business owner - a compatibility alias populated from the wire's {@code
+     * owner_email} (there is no {@code business_owner} wire key). Prefer {@link #getOwnerEmail()}.
+     */
     public String getBusinessOwner() {
       return businessOwner;
     }
 
     public void setBusinessOwner(String businessOwner) {
       this.businessOwner = businessOwner;
+    }
+
+    /** Returns the owner email, as served on the wire ({@code owner_email}). */
+    public String getOwnerEmail() {
+      return ownerEmail;
+    }
+
+    public void setOwnerEmail(String ownerEmail) {
+      this.ownerEmail = ownerEmail;
     }
 
     public Map<String, Object> getMetadata() {
@@ -715,15 +787,73 @@ public final class MASFEATTypes {
     }
   }
 
-  /** Registry summary statistics. */
+  /**
+   * Registry summary statistics.
+   *
+   * <p>Wire mapping note (#3254): the server's {@code masfeat.RegistrySummary} serves {@code
+   * org_id}, {@code total_systems}, {@code active_systems}, {@code high_materiality}, {@code
+   * medium_materiality}, {@code low_materiality}, {@code assessments_due} and {@code
+   * kill_switches_triggered}. The {@code *MaterialityCount} JAVA names are historic; their wire
+   * names have no {@code _count} suffix and the data is real. {@code byUseCase}/{@code byStatus}
+   * are deprecated fiction - see their getters.
+   */
   public static class RegistrySummary {
+    @JsonProperty("org_id")
+    private String orgId;
+
+    @JsonProperty("total_systems")
     private int totalSystems;
+
+    @JsonProperty("active_systems")
     private int activeSystems;
+
+    @JsonProperty("high_materiality")
     private int highMaterialityCount;
+
+    @JsonProperty("medium_materiality")
     private int mediumMaterialityCount;
+
+    @JsonProperty("low_materiality")
     private int lowMaterialityCount;
+
+    @JsonProperty("assessments_due")
+    private int assessmentsDue;
+
+    @JsonProperty("kill_switches_triggered")
+    private int killSwitchesTriggered;
+
+    @JsonProperty("by_use_case")
     private Map<String, Integer> byUseCase;
+
+    @JsonProperty("by_status")
     private Map<String, Integer> byStatus;
+
+    /** Returns the organization ID, as served on the wire ({@code org_id}). */
+    public String getOrgId() {
+      return orgId;
+    }
+
+    public void setOrgId(String orgId) {
+      this.orgId = orgId;
+    }
+
+    /** Returns the number of assessments due ({@code assessments_due}). */
+    public int getAssessmentsDue() {
+      return assessmentsDue;
+    }
+
+    public void setAssessmentsDue(int assessmentsDue) {
+      this.assessmentsDue = assessmentsDue;
+    }
+
+    /** Returns the number of triggered kill switches ({@code kill_switches_triggered}). */
+    public int getKillSwitchesTriggered() {
+      return killSwitchesTriggered;
+    }
+
+    public void setKillSwitchesTriggered(int killSwitchesTriggered) {
+      this.killSwitchesTriggered = killSwitchesTriggered;
+    }
 
     public int getTotalSystems() {
       return totalSystems;
@@ -765,18 +895,45 @@ public final class MASFEATTypes {
       this.lowMaterialityCount = lowMaterialityCount;
     }
 
+    /**
+     * Returns systems grouped by use case.
+     *
+     * @deprecated never populated on the 9.x line - the server's {@code RegistrySummary} has
+     *     never carried {@code by_use_case} (getaxonflow/axonflow-enterprise#3254). Read the
+     *     materiality counters ({@link #getHighMaterialityCount()} etc.), {@link
+     *     #getAssessmentsDue()} and {@link #getKillSwitchesTriggered()}. Scheduled for removal in
+     *     the next major.
+     */
+    @Deprecated
     public Map<String, Integer> getByUseCase() {
       return byUseCase;
     }
 
+    /**
+     * @deprecated see {@link #getByUseCase()} - never populated on the 9.x line (#3254).
+     */
+    @Deprecated
     public void setByUseCase(Map<String, Integer> byUseCase) {
       this.byUseCase = byUseCase;
     }
 
+    /**
+     * Returns systems grouped by status.
+     *
+     * @deprecated never populated on the 9.x line - the server's {@code RegistrySummary} has
+     *     never carried {@code by_status} (getaxonflow/axonflow-enterprise#3254). Read {@link
+     *     #getActiveSystems()} and {@link #getTotalSystems()}. Scheduled for removal in the next
+     *     major.
+     */
+    @Deprecated
     public Map<String, Integer> getByStatus() {
       return byStatus;
     }
 
+    /**
+     * @deprecated see {@link #getByStatus()} - never populated on the 9.x line (#3254).
+     */
+    @Deprecated
     public void setByStatus(Map<String, Integer> byStatus) {
       this.byStatus = byStatus;
     }
@@ -1300,20 +1457,54 @@ public final class MASFEATTypes {
 
   /** Kill switch configuration. */
   public static class KillSwitch {
+    @JsonProperty("id")
     private String id;
+
+    @JsonProperty("org_id")
     private String orgId;
+
+    @JsonProperty("system_id")
     private String systemId;
+
+    @JsonProperty("status")
     private KillSwitchStatus status;
+
+    @JsonProperty("auto_trigger_enabled")
     private boolean autoTriggerEnabled;
+
+    @JsonProperty("accuracy_threshold")
     private Double accuracyThreshold;
+
+    @JsonProperty("bias_threshold")
     private Double biasThreshold;
+
+    @JsonProperty("error_rate_threshold")
     private Double errorRateThreshold;
+
+    @JsonProperty("triggered_at")
     private Instant triggeredAt;
+
+    @JsonProperty("triggered_by")
     private String triggeredBy;
+
+    /**
+     * Wire mapping note (#3254): the wire key is {@code trigger_reason} (the server has never
+     * sent {@code triggered_reason}). The JAVA name is historic; the data is real - the parser
+     * reads {@code trigger_reason} first and falls back to the legacy spelling.
+     */
+    @JsonProperty("trigger_reason")
     private String triggeredReason;
+
+    @JsonProperty("restored_at")
     private Instant restoredAt;
+
+    @JsonProperty("restored_by")
     private String restoredBy;
+
+    @JsonProperty("created_at")
     private Instant createdAt;
+
+    @JsonProperty("updated_at")
     private Instant updatedAt;
 
     public String getId() {
