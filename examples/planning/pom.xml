@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.getaxonflow.examples</groupId>
+    <artifactId>planning</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>AxonFlow Java SDK — Planning Example</name>
+    <description>
+        Minimal example exercising generatePlan() + executePlan() against
+        a running AxonFlow agent.
+    </description>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.getaxonflow</groupId>
+            <artifactId>axonflow-sdk</artifactId>
+            <version>9.0.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>com.getaxonflow.examples.Planning</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
