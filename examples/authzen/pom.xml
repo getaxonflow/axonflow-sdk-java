@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.getaxonflow.examples</groupId>
+    <artifactId>authzen</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>AxonFlow Java SDK — AuthZEN Example</name>
+    <description>
+        The AuthZEN-native authorization surface (ADR-065) against a running
+        AxonFlow agent: nine steps, four of them refusals or unresolved.
+
+        NOTE ON THE VERSION BELOW. It matches the SDK's current pom version, and
+        that coordinate is already on Maven Central WITHOUT the authzen package -
+        this work sits under [Unreleased]. So `mvn -DskipTests install` on the SDK
+        first is not a convenience, it is required, and it OVERWRITES the cached
+        Central artifact for that coordinate in your local ~/.m2. That is the
+        pattern every example in this repository already follows; correcting it
+        means giving the examples a snapshot coordinate, which is a change to the
+        release process rather than to this example.
+    </description>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.getaxonflow</groupId>
+            <artifactId>axonflow-sdk</artifactId>
+            <version>9.1.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>com.getaxonflow.examples.AuthZENExample</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

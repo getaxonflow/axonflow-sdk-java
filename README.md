@@ -310,6 +310,62 @@ List<Policy> policies = client.listPolicies();
 Policy policy = client.getPolicy("sql-injection-prevention");
 ```
 
+## AuthZEN-native authorization (ADR-065)
+
+`POST /api/v1/access/evaluation` is the AuthZEN-shaped authorization surface. It is the surface to write **new** integrations against: at v11 the engine behind it becomes the ADR-065 Policy Decision Point with no wire change, so an integration written against it migrates once rather than twice. Nothing here is deprecated — the existing decision surface stays wire-stable through all of v11. See `docs/AUTHZEN_MIGRATION_DRAFT.md`.
+
+```java
+import com.getaxonflow.sdk.authzen.*;
+
+AuthZENDecision decision =
+    client.evaluate(
+        AuthZENEvaluation.of(
+                new AuthZENSubject("gateway", "llm-gateway-01"),
+                new AuthZENAction("llm.completion"),
+                new AuthZENResource("llm", "llm"))
+            .query(Attribute.known(userPrompt))
+            .correlation("x-session-id", Attribute.known(sessionId))
+            .build());
+
+if (!decision.isAllowed()) {
+    throw new IllegalStateException("blocked: " + decision.getState() + " (" + decision.getCategory() + ")");
+}
+for (AuthZENObligation obligation : decision.getMandatoryObligations()) {
+    // An allow with an undischarged mandatory obligation is NOT an allow.
+    discharge(obligation);
+}
+```
+
+`evaluateAll` takes several preconditions of **one** operation and returns **one** decision: the entries combine to the least permissive outcome, so one denied entry denies the operation. An API returning a list would invite a caller to act on the entry it liked.
+
+### Known gotchas
+
+**A resolved attribute has three states, and `Optional` carries two.** Every attribute bag — `subject.properties`, `action.properties`, `resource.properties`, and `context` — holds `Attribute<T>` values, not nullable ones:
+
+| | meaning | wire | outcome |
+|---|---|---|---|
+| `Attribute.known(v)` | the source answered with `v` | the member, with its value | evaluated |
+| `Attribute.absent()` | the source answered: there is no value | the MEMBER is omitted from the bag; the bag itself is still sent, so `properties` arrives as `{}` | evaluated; a fact with no value changes nothing |
+| `Attribute.unknown(why)` | the source **could not answer** | never reaches the wire | `AuthZENUnresolvedException`, before the round trip, NOT retryable |
+
+Absent and unknown are not the same event. Dropping an unknown attribute from the request would obtain a decision that weighed every attribute except the one nobody could read — and report it as complete. That is the exact failure the server refuses on its side of the wire ("accepting it would report that it was considered when it was not"); `Attribute` is the same refusal on yours. Read a value with `Attribute.fold`, which does not compile until you have said what all three states mean; `asKnown()` collapses two of them and is for logging.
+
+**A later write never overwrites an unresolved attribute.** `query(...)` and `correlation(...)` decline a write over an `Attribute.unknown`, at both the bag and the leaf, so a caller that recorded "nobody could read the request body" and then wrote a recovered partial query does not end up sending a complete-looking envelope. The declined write is not silent: the surviving unknown refuses the envelope at its own pointer, carrying the reason. `AttributeMap.put` is the ordinary map write and DOES replace - use `record` if you want the rule. Replacing the whole bag with `setContext(...)` replaces its contents, as any assignment does.
+
+**Only one refusal code is worth retrying.** `AuthZENEvaluationException.isRetryable()` is the whole set in one place: a refusal only when its code is `evaluation_unavailable`; a transport failure with a `5xx`, a `429`, or no response at all; never an unreadable profile (retrying cannot make an older SDK able to read a newer one), never an unusable response, and never a `4xx` naming the caller's credentials. Every other refusal code names something about the request, which will not change on a retry.
+
+This surface does **not** go through the client's `RetryConfig`. That executor is wired to the proxy path's request type, and retrying an authorization decision on your behalf is a policy decision this SDK does not make for you - a retried allow is a second evaluation the audit trail did not ask for. Retry is yours, guided by `isRetryable()`.
+
+**A refusal is not a denial.** `decision: false` says the request was evaluated and denied. A refusal says it was never evaluated. They arrive as different things — a returned `AuthZENDecision` versus a thrown `AuthZENRefusedException` — so no caller branch can conflate an auth failure, a malformed envelope or an outage with a policy denial.
+
+**A local refusal names the same MEMBER the server would.** The SDK validates before sending, and a local refusal carries the JSON Pointer the server would have sent for the same bytes - verified against a live server by `runtime-e2e/authzen_evaluation`. The CODE may be narrower on the server side, and that is not a defect in either: this client knows only that a required member is missing and says `incomplete_evaluation`, while the server additionally knows which values it can evaluate and narrows the same condition to `unsupported_subject` with a `supported` list. Branch on `getPointer()` for "which member"; read the code as the server's more specific reading when there is one.
+
+**`isAllowed()` requires the state, not just the boolean.** It is true only when the collapsed boolean *and* the four-valued operational state both say `ALLOW`. A body where they disagree, one carrying no profile payload at all, or one written in a profile this build cannot read never becomes a decision — it becomes an exception. There is no path that returns an allow the SDK could not fully read.
+
+**The WIRE TYPES are generated, never hand-written.** Every file in `com.getaxonflow.sdk.authzen` carrying the `Code generated by` header - the 13 wire types, the 6 enum classes and `AuthZENContract` - is emitted from `testdata/authzen-surface.json`, the platform's canonical contract artifact. Regenerate with `./scripts/gen-authzen-types.sh`; `mvn test` fails if a committed one is not what the artifact generates, and fails again if one is left behind after the contract stops describing it.
+
+The rest of the package is hand-written and is meant to be edited: `Attribute`, `AttributeValue`, `AttributeMap`, `AuthZENDecision`, `AuthZENEvaluation`, `AuthZENRefusals`, and the six exception types (`AuthZENEvaluationException` and its five subclasses).
+
 ## Error Handling
 
 The SDK provides typed exceptions for different error scenarios:
@@ -529,6 +585,14 @@ See our [Spring Boot Integration Guide](https://docs.getaxonflow.com/docs/sdk/ja
 ## Examples
 
 Complete working examples for all features are available in the [examples folder](https://github.com/getaxonflow/axonflow/tree/main/examples).
+
+Runnable in this repository, against a live agent:
+
+```bash
+mvn -q -DskipTests install                     # put the SDK on the local classpath
+AXONFLOW_AGENT_URL=http://localhost:8080 \
+  mvn -q -f examples/authzen/pom.xml compile exec:java  # AuthZEN: 9 steps, 4 of them refusals
+```
 
 ### Community Features
 

@@ -10,9 +10,11 @@
 # fails the build if any are found. It runs in CI as part of the
 # definition-of-done.yml gate.
 #
-# To bypass for a specific file (rare, must justify in PR):
-#   add a line `# allow-mocks-here: <reason>` near the offending line and
-#   the lint will skip that file. Reviewers should challenge any usage.
+# To bypass for a specific LINE (rare, must justify in PR):
+#   put `allow-mocks-here: <reason>` in a comment ON that line. The bypass is
+#   line-scoped on purpose: it used to be file-scoped while the error text below
+#   told reviewers it was per-line, so one marker anywhere in a file - a README
+#   sentence included - disarmed all of the patterns for the whole file.
 
 set -uo pipefail
 
@@ -36,6 +38,11 @@ PATTERNS=(
   'wiremock'                     # java/jvm wiremock
   'WireMockServer'               # wiremock builder
   'stubFor'                      # wiremock stub
+  'Mockito\.'                    # the mock library this repo actually declares
+  '@Mock\b'                      # mockito field/parameter injection
+  '@Spy\b'                       # mockito partial double
+  'MockWebServer'                 # okhttp's stub server, named in definition-of-done.yml
+  'mockwebserver'                 # its package
   'httptest\.NewServer'          # go httptest stub server
   'capture-stub\.py'             # local capture harness
   'fixture-server'               # generic fixture server
@@ -51,17 +58,42 @@ REGEX=$(IFS='|'; echo "${PATTERNS[*]}")
 
 # Use plain grep -r so we catch untracked files too (CI sees tracked PR
 # content, but local dev/pre-commit may run against new files not yet added).
-matches=$(grep -rnE "$REGEX" "$SCAN_DIR" 2>/dev/null || true)
+# Prose is EXCLUDED; everything else is still scanned.
+#
+# A README that DESCRIBES what is forbidden - this directory's own does, in the
+# sentence "WireMock/MockWebServer fixtures is not a runtime test" - is not a
+# mock, and matching it makes the guard's marker phrase collide with the
+# documentation beside it.
+#
+# The first attempt at this used an --include ALLOWLIST of source extensions,
+# and that silently narrowed the guard far past prose: a `docker-compose.yml`
+# pulling `wiremock/wiremock`, a `package.json` declaring `nock`, a Kotlin file
+# and an extensionless harness script were all caught by the previous version
+# and missed by the allowlist. A runtime-e2e harness that boots a mock server
+# from its compose file is exactly what this gate exists to stop, so the
+# exclusion is of MARKDOWN, not an allowlist of what to look at.
+#
+# `*.rst` and `*.txt` used to be excluded here too, which overshot the comment
+# directly above by two extensions and reopened the hole the allowlist had
+# already been rejected for: a `requirements.txt` under runtime-e2e/ pinning
+# `wiremock` is a harness declaring a mock server, not prose describing one, and
+# it was invisible. Only the two MARKDOWN extensions are excluded. An .rst or
+# .txt that genuinely names one of these in prose uses the `allow-mocks-here:`
+# marker, same as any other file.
+matches=$(grep -rnE "$REGEX" "$SCAN_DIR" \
+  --exclude='*.md' --exclude='*.markdown' \
+  2>/dev/null || true)
 
 if [ -z "$matches" ]; then
   echo "lint-no-mocks: $SCAN_DIR is clean (no forbidden mock patterns found)."
   exit 0
 fi
 
-# Filter out lines explicitly allowed via the inline marker.
+# Filter out lines explicitly allowed via the inline marker, on THAT line.
 while IFS= read -r line; do
-  file=$(echo "$line" | cut -d: -f1)
-  if [ -n "$file" ] && grep -q "allow-mocks-here:" "$file" 2>/dev/null; then
+  # grep -n output is `path:lineno:content`; the marker must be in the content.
+  content=$(echo "$line" | cut -d: -f3-)
+  if printf '%s' "$content" | grep -q "allow-mocks-here:"; then
     continue
   fi
   echo "  $line"

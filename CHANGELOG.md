@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AuthZEN-native authorization surface (ADR-065, enterprise #3603 / #3616).
+  `AxonFlow.evaluate` and `AxonFlow.evaluateAll` talk to
+  `POST /api/v1/access/evaluation`, with the wire types GENERATED from the
+  platform's canonical contract artifact (`testdata/authzen-surface.json`)
+  rather than transcribed. Nothing is deprecated: the existing decision surface
+  stays wire-stable through all of v11. This is the surface to write NEW
+  integrations against, because at v11 the engine behind it changes with no
+  wire change.
+- `Attribute<T>`, a genuinely three-valued attribute type. A resolved attribute
+  is `known`, `absent` (the source answered: there is no value) or `unknown`
+  (the source could not answer), and `Optional` carries two of those three. An
+  unknown attribute never reaches the wire: sending the request without it
+  would obtain a decision that weighed every attribute except the one nobody
+  could read, and report it as complete.
+- Typed refusals. `AuthZENRefusedException` carries the server's own code and
+  JSON Pointer; a LOCAL refusal names the same MEMBER for the same bytes, though
+  the CODE may be narrower on the server, which knows the supported set.
+  `AuthZENUnresolvedException` is a separate, NOT retryable outcome for a
+  request carrying an attribute nobody could resolve - the refusal is frozen
+  inside the request, so resending it reproduces the identical error; re-resolve
+  and build a new one. `isRetryable()` is the whole retryable set in one place:
+  a SERVER `evaluation_unavailable` and a transient transport failure, and
+  nothing else.
+- Every generated list getter returns `Collections.unmodifiableList`, so a
+  decision's obligations cannot be added to or removed from through the
+  response context after an enforcement point has been handed the decision.
+  `AuthZENDecision.getObligations()` already wrapped; the generated getters
+  underneath it did not, which left the same state writable one getter deeper.
+  `null` still comes back as `null`, because an absent member and an empty one
+  are different bytes on the wire.
+
+### Changed
+
+- `examples/` now compiles in CI. The root pom declares no `<modules>`, so no
+  job built any example; the new `Examples Compile` job in `ci.yml` installs the
+  SDK, pins every `examples/*/pom.xml` to the root pom's version and compiles
+  each one, on pull requests as well as pushes. Four of the five examples were
+  pinned a release behind and would have kept resolving an old SDK from Maven
+  Central.
+
 ## [9.1.0] - 2026-08-04
 
 ### Added

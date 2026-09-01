@@ -110,31 +110,18 @@ jobs:
       # not whatever version is published to Central. Without this, when
       # the parent pom bumps from 6.1.0 → 6.2.0 the example silently
       # keeps testing the OLD 6.1.0 from Central.
+      #
+      # The rewrite used to be inlined here. It now lives in
+      # .github/scripts/sync-example-sdk-versions.py, shared with ci.yml's
+      # `Examples Compile` job: two copies of one regex over a pom is the shape
+      # where a later fix lands on one path and the other silently keeps
+      # resolving from Central. The pom is named explicitly because this job only
+      # RUNS the basic example; ci.yml passes no argument and covers all of them.
       - name: Sync example SDK version with parent
         run: |
           PARENT_VERSION=$(mvn -B -q -DforceStdout help:evaluate -Dexpression=project.version)
           echo "Parent SDK version: ${PARENT_VERSION}"
-          # Replace the axonflow-sdk dependency version in examples/basic/pom.xml.
-          # Anchored on the artifactId on the previous line to avoid touching
-          # other deps. Asserts the regex matched (count >= 1) so a layout
-          # drift fails CI loud; a no-op rewrite (versions already match)
-          # is fine.
-          python3 - <<PY
-          import re, pathlib
-          p = pathlib.Path("examples/basic/pom.xml")
-          s = p.read_text()
-          new, count = re.subn(
-              r"(<artifactId>axonflow-sdk</artifactId>\s*<version>)[^<]+(</version>)",
-              rf"\g<1>${PARENT_VERSION}\g<2>",
-              s,
-          )
-          assert count >= 1, "Regex did not match — examples/basic/pom.xml layout drifted"
-          if new != s:
-              p.write_text(new)
-              print(f"Rewrote example pom version to ${PARENT_VERSION}")
-          else:
-              print(f"Example pom already at parent version ${PARENT_VERSION} (no-op)")
-          PY
+          python3 .github/scripts/sync-example-sdk-versions.py "${PARENT_VERSION}" examples/basic/pom.xml
           grep -A 1 "axonflow-sdk" examples/basic/pom.xml | head -4
 
       - name: Clone community stack
