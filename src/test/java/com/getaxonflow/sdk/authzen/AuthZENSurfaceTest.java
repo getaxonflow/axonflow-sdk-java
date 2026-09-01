@@ -610,6 +610,98 @@ class AuthZENSurfaceTest {
   }
 
   @Test
+  @DisplayName("a later write must not erase an unresolved LEAF")
+  void aLaterWriteMustNotEraseAnUnresolvedLeaf() {
+    // The half the first version of this guard missed, and the shape a caller
+    // would actually write: no manual putUnknown, just the builder twice. The
+    // parent guard alone let this through one level down.
+    answering(200, allowBody());
+    AuthZENRequest request =
+        AuthZENEvaluation.of(
+                new AuthZENSubject("gateway", "g1"),
+                new AuthZENAction("llm.completion"),
+                new AuthZENResource("llm", "llm"))
+            .query(Attribute.unknown("the request body could not be decoded"))
+            .query(Attribute.known("a recovered partial prompt"))
+            .build();
+
+    AuthZENUnresolvedException unresolved =
+        assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(request));
+    assertThat(unresolved.getPointer()).isEqualTo("/evaluation/context/args/query");
+    assertThat(unresolved.getReason()).contains("could not be decoded");
+    assertThat(requestCount())
+        .as("the request was sent with the unresolved leaf overwritten")
+        .isZero();
+  }
+
+  @Test
+  @DisplayName("a later correlation write must not erase an unresolved leaf")
+  void aLaterCorrelationWriteMustNotEraseAnUnresolvedLeaf() {
+    answering(200, allowBody());
+    AuthZENRequest request =
+        AuthZENEvaluation.of(
+                new AuthZENSubject("gateway", "g1"),
+                new AuthZENAction("llm.completion"),
+                new AuthZENResource("llm", "llm"))
+            .query(Attribute.known("hello"))
+            .correlation("x-session-id", Attribute.unknown("the trace header was unreadable"))
+            .correlation("x-session-id", Attribute.known("sess-1"))
+            .build();
+
+    AuthZENUnresolvedException unresolved =
+        assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(request));
+    assertThat(unresolved.getPointer())
+        .isEqualTo("/evaluation/context/correlation/x-session-id");
+    assertThat(requestCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("a 5xx carrying an unknown code stays a retryable transport failure")
+  void a5xxWithAnUnknownCodeIsNotAPermanentRefusal() {
+    // The regression the leniency fix nearly introduced. An ingress or sidecar
+    // answering 503 with its OWN JSON error body decodes cleanly now that the
+    // refusal is read leniently - and its code round-trips as an unknown, which
+    // is non-retryable. Reading it as a refusal turns a transient outage into a
+    // permanent one that `while (isRetryable())` never retries.
+    answering(
+        503,
+        "{\"code\":\"upstream_unavailable\",\"message\":\"backend down\",\"trace_id\":\"t-1\"}");
+    AuthZENTransportException e =
+        assertThrows(AuthZENTransportException.class, () -> client.evaluate(aRequest()));
+    assertThat(e.isRetryable()).isTrue();
+  }
+
+  @Test
+  @DisplayName("a 5xx carrying a known code is still a typed refusal")
+  void a5xxWithAKnownCodeIsStillTyped() {
+    answering(
+        502,
+        "{\"code\":\"evaluation_unavailable\",\"pointer\":\"/evaluation\","
+            + "\"message\":\"no answer\"}");
+    AuthZENRefusedException refused =
+        assertThrows(AuthZENRefusedException.class, () -> client.evaluate(aRequest()));
+    assertThat(refused.getCode()).isEqualTo(AuthZENErrorCode.EVALUATION_UNAVAILABLE);
+    assertThat(refused.isRetryable()).isTrue();
+  }
+
+  @Test
+  @DisplayName("a 4xx carrying an unknown code is still a typed refusal")
+  void a4xxWithAnUnknownCodeIsStillTyped() {
+    // "Fix the request" is right whatever the code, and the POINTER is worth
+    // more than the code - so a newer server's refusal still reaches the caller
+    // as something it can act on.
+    answering(
+        422,
+        "{\"code\":\"unevaluable_realm\",\"pointer\":\"/evaluation/subject/realm\","
+            + "\"message\":\"no\"}");
+    AuthZENRefusedException refused =
+        assertThrows(AuthZENRefusedException.class, () -> client.evaluate(aRequest()));
+    assertThat(refused.getCode().isKnown()).isFalse();
+    assertThat(refused.getPointer()).isEqualTo("/evaluation/subject/realm");
+    assertThat(refused.isRetryable()).isFalse();
+  }
+
+  @Test
   @DisplayName("an attribute bag survives a setter round trip, so validate has no null path")
   void anAttributeBagIsNeverNull() {
     // `validate` guarded `if (bag != null)`, so a null bag meant the unknown
@@ -679,9 +771,11 @@ class AuthZENSurfaceTest {
   @Test
   @DisplayName("a refusal survives Java serialization with everything a caller branches on")
   void aRefusalSurvivesSerialization() throws Exception {
-    AuthZENRefusedException before =
-        AuthZENRefusedException.of(
-            AuthZENErrorCode.EVALUATION_UNAVAILABLE, "/evaluation/context/args", "nope");
+    AuthZENError document =
+        new AuthZENError(AuthZENErrorCode.EVALUATION_UNAVAILABLE, "nope")
+            .setPointer("/evaluation/context/args")
+            .setSupported(java.util.Arrays.asList("args", "correlation"));
+    AuthZENRefusedException before = new AuthZENRefusedException(document);
     java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
     try (java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(bytes)) {
       out.writeObject(before);
@@ -695,7 +789,9 @@ class AuthZENSurfaceTest {
     // because the generated wire types are not Serializable.
     assertThat(after.getCode()).isEqualTo(AuthZENErrorCode.EVALUATION_UNAVAILABLE);
     assertThat(after.getPointer()).isEqualTo("/evaluation/context/args");
-    assertThat(after.getSupported()).isEmpty();
+    // A non-empty list on purpose: asserting isEmpty() on a refusal built
+    // WITHOUT one is satisfied whether or not the field round-trips at all.
+    assertThat(after.getSupported()).containsExactly("args", "correlation");
     assertThat(after.isRetryable()).isTrue();
   }
 

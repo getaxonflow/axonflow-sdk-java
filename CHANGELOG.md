@@ -24,9 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   would obtain a decision that weighed every attribute except the one nobody
   could read, and report it as complete.
 - Typed refusals. `AuthZENRefusedException` carries the server's own code and
-  JSON Pointer, and a LOCAL refusal carries the same ones for the same bytes.
-  `isRetryable()` is the whole retryable set in one place; only
-  `evaluation_unavailable` and a transient transport failure are in it.
+  JSON Pointer; a LOCAL refusal names the same MEMBER for the same bytes, though
+  the CODE may be narrower on the server, which knows the supported set.
+  `AuthZENUnresolvedException` is a separate, NOT retryable outcome for a
+  request carrying an attribute nobody could resolve - the refusal is frozen
+  inside the request, so resending it reproduces the identical error; re-resolve
+  and build a new one. `isRetryable()` is the whole retryable set in one place:
+  a SERVER `evaluation_unavailable` and a transient transport failure, and
+  nothing else.
 
 ## [9.1.0] - 2026-08-04
 

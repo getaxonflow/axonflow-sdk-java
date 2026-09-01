@@ -4112,11 +4112,21 @@ public final class AxonFlow implements Closeable {
       } catch (IOException ignored) {
         refusal = null;
       }
-      if (refusal != null
-          && refusal.getCode() != null
-          && !refusal.getCode().value().isEmpty()
-          && refusal.getMessage() != null
-          && !refusal.getMessage().isEmpty()) {
+      // A 5xx is only READ as a refusal when the code is one this build KNOWS.
+      // An unrecognised code round-trips as an unknown carrier, which is
+      // deliberately non-retryable - so an ingress or sidecar answering 503 with
+      // its own JSON error body would otherwise turn a transient outage into a
+      // permanent refusal that a `while (isRetryable())` loop will not retry. A
+      // 4xx is still read as a refusal whatever the code, because "fix the
+      // request" is right either way and the pointer is worth more than the
+      // code.
+      boolean usable =
+          refusal != null
+              && refusal.getCode() != null
+              && !refusal.getCode().value().isEmpty()
+              && refusal.getMessage() != null
+              && !refusal.getMessage().isEmpty();
+      if (usable && (status < 500 || refusal.getCode().isKnown())) {
         throw new AuthZENRefusedException(refusal);
       }
       throw new AuthZENTransportException(

@@ -58,13 +58,23 @@ REGEX=$(IFS='|'; echo "${PATTERNS[*]}")
 
 # Use plain grep -r so we catch untracked files too (CI sees tracked PR
 # content, but local dev/pre-commit may run against new files not yet added).
-# Prose is excluded. A README that DESCRIBES what is forbidden - this
-# directory's own does, in the sentence "WireMock/MockWebServer fixtures is not
-# a runtime test" - is not a mock, and matching it would make the guard's
-# marker phrase collide with the documentation beside it. Only code is scanned.
-matches=$(grep -rnE "$REGEX" "$SCAN_DIR" --include='*.java' --include='*.rs' \
-  --include='*.go' --include='*.ts' --include='*.js' --include='*.py' \
-  --include='*.sh' --include='*.toml' 2>/dev/null || true)
+# Prose is EXCLUDED; everything else is still scanned.
+#
+# A README that DESCRIBES what is forbidden - this directory's own does, in the
+# sentence "WireMock/MockWebServer fixtures is not a runtime test" - is not a
+# mock, and matching it makes the guard's marker phrase collide with the
+# documentation beside it.
+#
+# The first attempt at this used an --include ALLOWLIST of source extensions,
+# and that silently narrowed the guard far past prose: a `docker-compose.yml`
+# pulling `wiremock/wiremock`, a `package.json` declaring `nock`, a Kotlin file
+# and an extensionless harness script were all caught by the previous version
+# and missed by the allowlist. A runtime-e2e harness that boots a mock server
+# from its compose file is exactly what this gate exists to stop, so the
+# exclusion is of MARKDOWN, not an allowlist of what to look at.
+matches=$(grep -rnE "$REGEX" "$SCAN_DIR" \
+  --exclude='*.md' --exclude='*.markdown' --exclude='*.rst' --exclude='*.txt' \
+  2>/dev/null || true)
 
 if [ -z "$matches" ]; then
   echo "lint-no-mocks: $SCAN_DIR is clean (no forbidden mock patterns found)."

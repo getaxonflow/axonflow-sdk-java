@@ -77,7 +77,11 @@ public final class AttributeMap {
   }
 
   /**
-   * Records one attribute.
+   * Records one attribute, REPLACING whatever was there.
+   *
+   * <p>This is the map operation, and it behaves like one: a caller writing here is making a
+   * deliberate replacement. If what it replaces was an unresolved attribute, that fact is gone -
+   * which is why the request builders do not use it. See {@link #record}.
    *
    * @param key the member name
    * @param value the attribute, in whichever of the three states it resolved to
@@ -145,6 +149,52 @@ public final class AttributeMap {
   }
 
   /**
+   * Records one attribute, DECLINING to overwrite an unresolved one.
+   *
+   * <p>This is the write the request builders use, at every level, and the rule is uniform: an
+   * unknown at {@code key} survives and the new value is not written.
+   *
+   * <p>The rule has to be uniform because the alternative was measured. An earlier version guarded
+   * only the PARENT key - so {@code writeQuery} refused to replace an unresolved {@code
+   * context.args}, and then wrote {@code query} into it unguarded. A caller that recorded "nobody
+   * could read the request body" and then wrote a recovered partial query produced a
+   * complete-looking envelope one level down, which is verbatim the scenario the guard was added to
+   * prevent.
+   *
+   * <p>A declined write is not silent: the unknown that survived refuses the envelope at its own
+   * pointer, carrying the reason the caller gave, so the request is never sent.
+   *
+   * @param key the member name
+   * @param value the attribute
+   * @return true when the value was written, false when an unresolved attribute was preserved
+   */
+  public boolean record(String key, Attribute<AttributeValue> value) {
+    Objects.requireNonNull(key, "a member name is not null");
+    Objects.requireNonNull(value, "use Attribute.absent() rather than null");
+    if (holdsUnresolved(key)) {
+      return false;
+    }
+    members.put(key, value);
+    return true;
+  }
+
+  /**
+   * Whether {@code key} holds an attribute nobody could resolve.
+   *
+   * <p>ONE place, used by both writes. The rule was duplicated across {@link #record} and {@link
+   * #nestedForWrite} and the duplication was not academic: a mutation pass could not tell the two
+   * apart, so a mutant aimed at one silently hit the other and a guard nothing was holding in place
+   * looked covered.
+   *
+   * @param key the member name
+   * @return true when the member is in the unknown state
+   */
+  private boolean holdsUnresolved(String key) {
+    Attribute<AttributeValue> existing = members.get(key);
+    return existing != null && existing.isUnknown();
+  }
+
+  /**
    * Reads one attribute.
    *
    * @param key the member name
@@ -175,8 +225,7 @@ public final class AttributeMap {
    *     unresolved attribute the write must not overwrite
    */
   Optional<AttributeMap> nestedForWrite(String key) {
-    Attribute<AttributeValue> existing = members.get(key);
-    if (existing != null && existing.isUnknown()) {
+    if (holdsUnresolved(key)) {
       // The one state a later write must not overwrite. The caller has already
       // said nobody could resolve this member; quietly replacing it with a fresh
       // bag would produce a complete-looking request whose missing fact nothing
@@ -184,6 +233,7 @@ public final class AttributeMap {
       // refuses the envelope at that member and the request is never sent.
       return Optional.empty();
     }
+    Attribute<AttributeValue> existing = members.get(key);
     if (existing != null && existing.isKnown()) {
       Optional<AttributeMap> bag = existing.asKnown().flatMap(AttributeValue::asNested);
       if (bag.isPresent()) {

@@ -37,7 +37,7 @@ public final class AuthZENRefusals {
    * <p>A code this build does not know is NOT retryable. Guessing the other way would turn every
    * future code into a retry loop against a server that has already given its final answer.
    *
-   * @param code the refusal code, possibly null
+   * @param code the refusal code; a null or unrecognised code is not retryable
    * @return true only for {@code evaluation_unavailable}
    */
   public static boolean isRetryable(AuthZENErrorCode code) {

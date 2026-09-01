@@ -57,17 +57,21 @@ import java.util.function.Supplier;
  *   <tr><td>known</td><td>the member, with its value</td><td>evaluated</td></tr>
  *   <tr><td>absent</td><td>the member is OMITTED</td><td>evaluated, without a fact that has no
  *       value</td></tr>
- *   <tr><td>unknown</td><td>never reaches the wire</td><td>refused before the round trip</td></tr>
+ *   <tr><td>unknown</td><td>never reaches the wire</td><td>refused before the round trip, NOT
+ *       retryable</td></tr>
  * </table>
  *
  * <p>Absent and "never mentioned" are the same bytes, and that is correct: both say "there is no
  * such fact". JSON has no way to say "I could not find out", which is precisely why the type has to
  * carry it — the wire cannot.
  *
- * <p>The refusal an unknown attribute produces is {@code evaluation_unavailable}, the one code
- * {@link AuthZENRefusals#isRetryable} reports as worth retrying. That is not a coincidence: a
- * source that could not answer this second may answer the next one, which is exactly the situation
- * a retry is for.
+ * <p>The refusal an unknown attribute produces is NOT retryable, and that is the opposite of what
+ * it first looks like. A source that could not answer this second may answer the next one - but
+ * that is a statement about a DIFFERENT request. This one carries the unresolved attribute inside
+ * it, so resending the identical bytes reproduces the identical refusal forever, and a {@code
+ * while (e.isRetryable())} loop would burn its whole budget on it. Re-resolve the attribute and
+ * build a new request; the SDK reports that with {@link AuthZENUnresolvedException} rather than
+ * through the server's retryable {@code evaluation_unavailable}.
  *
  * <h2>Why this is a final class with private constructors</h2>
  *

@@ -473,7 +473,23 @@ public final class Emitter {
     b.append(Layout.call("  ", "public " + name + "(", params, ") {"));
     for (FieldDecl f : required) {
       String field = fieldName(f.name);
-      b.append("    this.").append(field).append(" = ").append(field).append(";\n");
+      if ("object".equals(f.type.kind)) {
+        // Same coercion as the setter, for the same reason: an attribute bag is
+        // never null, and `validate` reads it unguarded. Today no member of the
+        // contract is a required object, so this is a trap being disarmed
+        // rather than a bug being fixed - but the null guard in `validate` was
+        // removed deliberately, and leaving a path that can still produce a
+        // null would put it back as an NPE instead of a refusal.
+        b.append("    this.")
+            .append(field)
+            .append(" = ")
+            .append(field)
+            .append(" == null ? new AttributeMap() : ")
+            .append(field)
+            .append(";\n");
+      } else {
+        b.append("    this.").append(field).append(" = ").append(field).append(";\n");
+      }
     }
     b.append("  }\n\n");
   }

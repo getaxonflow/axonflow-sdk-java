@@ -92,8 +92,9 @@ public final class AuthZENEvaluation {
   /**
    * Writes {@code context.args.query}, creating the nested bag when it is not there.
    *
-   * <p>If {@code context.args} already holds an UNRESOLVED attribute, the write is DECLINED and the
-   * unknown stays. Overwriting it would be the fail-open this whole surface exists to prevent,
+   * <p>If {@code context.args} OR {@code context.args.query} already holds an UNRESOLVED attribute,
+   * the write is DECLINED and the unknown stays. The rule applies at BOTH levels: guarding only the
+   * parent left the defect reachable one level down, which is where a caller would actually hit it. Overwriting it would be the fail-open this whole surface exists to prevent,
    * arriving through its own builder: a caller that had recorded "nobody could read the request
    * body" and then wrote a recovered partial query over it would have produced a complete-looking
    * envelope, passed validation, and been handed a verdict that named every attribute it weighed.
@@ -102,7 +103,7 @@ public final class AuthZENEvaluation {
   private static void writeQuery(AttributeMap context, Attribute<String> query) {
     context
         .nestedForWrite(CONTEXT_ARGS)
-        .ifPresent(args -> args.put(ARGS_QUERY, query.map(AttributeValue::of)));
+        .ifPresent(args -> args.record(ARGS_QUERY, query.map(AttributeValue::of)));
   }
 
   /**
@@ -114,7 +115,7 @@ public final class AuthZENEvaluation {
   private static void writeCorrelation(AttributeMap context, String key, Attribute<String> value) {
     context
         .nestedForWrite(CONTEXT_CORRELATION)
-        .ifPresent(correlation -> correlation.put(key, value.map(AttributeValue::of)));
+        .ifPresent(correlation -> correlation.record(key, value.map(AttributeValue::of)));
   }
 
   /** Builds the singular envelope member. */
