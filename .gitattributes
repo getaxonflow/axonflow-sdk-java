@@ -1,0 +1,12 @@
+# The AuthZEN wire types are GENERATED with LF line endings, and their currency
+# is checked by a BYTE comparison against what the generator emits
+# (AuthZENGeneratedTypesAreCurrentTest). On a platform where git rewrites line
+# endings at checkout, that comparison fails for a reason nobody changed - which
+# is exactly what happened on the Windows CI runner: identical text, CRLF on
+# disk, LF from the emitter.
+#
+# Scoped rather than a repo-wide `* text=auto eol=lf`, because changing the
+# checkout behaviour of every other file in the repository is a bigger decision
+# than this lane, and one nobody asked for.
+src/main/java/com/getaxonflow/sdk/authzen/*.java text eol=lf
+testdata/authzen-surface.json                    text eol=lf
