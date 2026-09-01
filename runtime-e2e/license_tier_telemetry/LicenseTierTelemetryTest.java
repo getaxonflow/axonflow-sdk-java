@@ -151,8 +151,13 @@ public class LicenseTierTelemetryTest {
       conn.setConnectTimeout(5000);
       conn.setReadTimeout(5000);
       // getInputStream() throws IOException for ANY non-2xx, so a live platform
-      // answering 503 would otherwise be reported as "unreachable". Read the
-      // status first and say which case this actually is.
+      // answering 503 was reported as "unreachable". This does NOT change the
+      // classification — non-2xx already reached the DOWN branch, which is the
+      // right contract for it — it changes the DIAGNOSIS, so the operator is
+      // told the platform answered 503 rather than that it could not be
+      // reached. It does fix one real case: a 3xx (HttpURLConnection does not
+      // auto-follow) previously yielded an empty body and an NPE-shaped read
+      // downstream; it now reaches the DOWN branch cleanly.
       int status = conn.getResponseCode();
       if (status < 200 || status >= 300) {
         throw new IOException("platform answered HTTP " + status);
