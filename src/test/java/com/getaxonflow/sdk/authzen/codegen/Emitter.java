@@ -504,7 +504,22 @@ public final class Emitter {
               "public " + name + " set" + upper + "(",
               Collections.singletonList(type + " " + field),
               ") {"));
-      b.append("    this.").append(field).append(" = ").append(field).append(";\n");
+      if ("object".equals(f.type.kind)) {
+        // A NULL attribute bag is not an empty one, and accepting null here was
+        // a way to delete an unresolved attribute through a public setter:
+        // `validate` guards `if (bag != null)`, so a request whose bag held an
+        // `unknown` went out complete once somebody nulled the member. The
+        // field's own invariant is "never null"; the setter now holds it.
+        b.append("    this.")
+            .append(field)
+            .append(" = ")
+            .append(field)
+            .append(" == null ? new AttributeMap() : ")
+            .append(field)
+            .append(";\n");
+      } else {
+        b.append("    this.").append(field).append(" = ").append(field).append(";\n");
+      }
       b.append("    return this;\n  }\n\n");
     }
   }
@@ -557,7 +572,14 @@ public final class Emitter {
           emptiness = field + " == null || " + field + ".isEmpty()";
         } else if ("enum".equals(f.type.kind)) {
           emptiness = field + " == null || " + field + ".value().isEmpty()";
-        } else if ("ref".equals(f.type.kind) || "array".equals(f.type.kind)) {
+        } else if ("ref".equals(f.type.kind)
+            || "array".equals(f.type.kind)
+            || "bool".equals(f.type.kind)
+            || "int".equals(f.type.kind)) {
+          // `bool` and `int` are here for the reason javaType explains: a
+          // missing required primitive is invisible to both the decoder and any
+          // check written against a primitive, and one of them is
+          // `obligation.mandatory`.
           emptiness = field + " == null";
         }
         if (emptiness != null) {
@@ -653,7 +675,12 @@ public final class Emitter {
 
       // Nested validation. Without it a parent reports OK while a child carries
       // a violation the server refuses.
-      if ("ref".equals(f.type.kind) || "object".equals(f.type.kind)) {
+      if ("object".equals(f.type.kind)) {
+        // No null guard: the field is initialised to an empty bag and its setter
+        // refuses null, so a guard here would only be a place for a future null
+        // to hide - and what it would hide is an unresolved attribute.
+        b.append("    ").append(field).append(".validate(").append(pointer).append(");\n");
+      } else if ("ref".equals(f.type.kind)) {
         b.append("    if (").append(field).append(" != null) {\n      ");
         b.append(field).append(".validate(").append(pointer).append(");\n    }\n");
       } else if ("array".equals(f.type.kind)
@@ -714,12 +741,22 @@ public final class Emitter {
       case "string":
         return "String";
       case "bool":
-        // A boxed Boolean for an optional member so ABSENT and `false` stay
-        // distinguishable; a primitive for a required one, where absent is not
-        // a state the contract allows.
-        return required ? "boolean" : "Boolean";
       case "int":
-        return required ? "int" : "Integer";
+        // ALWAYS boxed, required or not.
+        //
+        // A primitive for a required member reads as "absent is not a state the
+        // contract allows", and that is true of the CONTRACT and false of the
+        // decoder. Jackson leaves a missing primitive at its default, so an
+        // omitted `obligation.mandatory` decoded to `false`, passed validation
+        // (a primitive cannot be null, so there is nothing to check), and
+        // `AuthZENDecision.getMandatoryObligations()` returned empty - turning
+        // off the one instruction the caller must not ignore, silently. The
+        // strict reader cannot help: it catches EXTRA members, never missing
+        // ones.
+        //
+        // Boxed, the missing member is null and the generated validator refuses
+        // it by name.
+        return "bool".equals(tr.kind) ? "Boolean" : "Integer";
       case "object":
         return "AttributeMap";
       case "enum":

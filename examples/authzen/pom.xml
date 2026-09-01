@@ -10,8 +10,16 @@
     <name>AxonFlow Java SDK — AuthZEN Example</name>
     <description>
         The AuthZEN-native authorization surface (ADR-065) against a running
-        AxonFlow agent: eight steps, five of them refusals. Run with mvn install
-        on the SDK first to put the local artifact on the classpath.
+        AxonFlow agent: nine steps, four of them refusals.
+
+        NOTE ON THE VERSION BELOW. It matches the SDK's current pom version, and
+        that coordinate is already on Maven Central WITHOUT the authzen package -
+        this work sits under [Unreleased]. So `mvn -DskipTests install` on the SDK
+        first is not a convenience, it is required, and it OVERWRITES the cached
+        Central artifact for that coordinate in your local ~/.m2. That is the
+        pattern every example in this repository already follows; correcting it
+        means giving the examples a snapshot coordinate, which is a change to the
+        release process rather than to this example.
     </description>
 
     <properties>

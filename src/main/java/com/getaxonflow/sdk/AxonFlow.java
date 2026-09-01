@@ -40,6 +40,7 @@ import java.io.Closeable;
 import com.getaxonflow.sdk.authzen.AuthZENBulk;
 import com.getaxonflow.sdk.authzen.AuthZENContract;
 import com.getaxonflow.sdk.authzen.AuthZENDecision;
+import com.getaxonflow.sdk.authzen.AuthZENErrorCode;
 import com.getaxonflow.sdk.authzen.AuthZENEnvelope;
 import com.getaxonflow.sdk.authzen.AuthZENError;
 import com.getaxonflow.sdk.authzen.AuthZENEvaluationException;
@@ -47,6 +48,7 @@ import com.getaxonflow.sdk.authzen.AuthZENRefusedException;
 import com.getaxonflow.sdk.authzen.AuthZENRequest;
 import com.getaxonflow.sdk.authzen.AuthZENResponse;
 import com.getaxonflow.sdk.authzen.AuthZENTransportException;
+import com.getaxonflow.sdk.authzen.AuthZENUnresolvedException;
 import com.getaxonflow.sdk.authzen.AuthZENUnreadableProfileException;
 import com.getaxonflow.sdk.authzen.AuthZENUnusableResponseException;
 import java.io.IOException;
@@ -3993,6 +3995,7 @@ public final class AxonFlow implements Closeable {
    * @param request the evaluation
    * @return the decision
    * @throws AuthZENRefusedException if the request was refused rather than evaluated
+   * @throws AuthZENUnresolvedException if the request carries an attribute nobody could resolve
    * @throws AuthZENUnreadableProfileException if the server answered in an unknown profile
    * @throws AuthZENUnusableResponseException if the decision cannot be trusted
    * @throws AuthZENTransportException if the request never got an answer
@@ -4016,6 +4019,7 @@ public final class AxonFlow implements Closeable {
    * @param bulk the preconditions
    * @return the single decision they combine to
    * @throws AuthZENRefusedException if the request was refused rather than evaluated
+   * @throws AuthZENUnresolvedException if the request carries an attribute nobody could resolve
    * @throws AuthZENUnreadableProfileException if the server answered in an unknown profile
    * @throws AuthZENUnusableResponseException if the decision cannot be trusted
    * @throws AuthZENTransportException if the request never got an answer
@@ -4024,7 +4028,16 @@ public final class AxonFlow implements Closeable {
     return evaluateEnvelope(new AuthZENEnvelope().setEvaluations(bulk));
   }
 
-  /** The one transport path both entry points share. */
+  /**
+   * The one transport path both entry points share.
+   *
+   * <p>It does NOT go through {@code retryExecutor}. That executor is wired to the proxy path's
+   * request type, and retrying an authorization decision on the caller's behalf is a policy
+   * decision this SDK does not make for them: a retried allow is a second evaluation the audit
+   * trail did not ask for. Retry is the caller's, guided by {@link
+   * com.getaxonflow.sdk.authzen.AuthZENEvaluationException#isRetryable()} - which is a different
+   * question from {@code RetryExecutor}'s own, because a local refusal carries no HTTP status.
+   */
   private AuthZENDecision evaluateEnvelope(AuthZENEnvelope envelope) {
     // Validated before the round trip. The server enforces the same rules and
     // answers with a typed refusal, so for most of these this is a convenience
@@ -4034,7 +4047,20 @@ public final class AxonFlow implements Closeable {
     // For ONE class it is not a convenience but the whole point: an attribute
     // the caller could not resolve has no wire representation, so the server can
     // never refuse it. Only this check can.
-    envelope.validate("");
+    try {
+      envelope.validate("");
+    } catch (AuthZENRefusedException refusal) {
+      // The one code that has to be re-read on THIS side. From the server,
+      // `evaluation_unavailable` means "the evaluator could not be reached; send
+      // these bytes again". Produced locally it means "an attribute in this
+      // request was never resolved", and resending the identical request
+      // reproduces the identical refusal forever. Same code, opposite action, so
+      // they must not arrive as the same thing.
+      if (AuthZENErrorCode.EVALUATION_UNAVAILABLE.equals(refusal.getCode())) {
+        throw new AuthZENUnresolvedException(refusal.getPointer(), refusal.getRefusal().getMessage());
+      }
+      throw refusal;
+    }
 
     byte[] body;
     try {
@@ -4073,9 +4099,16 @@ public final class AxonFlow implements Closeable {
       // A refusal is a typed document, so the caller can branch on the code and
       // be pointed at the member to fix. A body that is not one still surfaces
       // as an error -- never as a decision.
+      // Decoded with the LENIENT mapper, deliberately. Strictness belongs on
+      // the DECISION, where an unknown member means a profile this build cannot
+      // read. A refusal is a DIAGNOSTIC: refusing to decode it because the
+      // server added a `retry_after` collapses a typed error carrying a code and
+      // a JSON Pointer into an opaque transport failure carrying neither, which
+      // is the one thing a refusal exists to avoid. The Go reference makes the
+      // same split; an earlier version of this method did not.
       AuthZENError refusal;
       try {
-        refusal = authzenReader.readValue(raw, AuthZENError.class);
+        refusal = objectMapper.readValue(raw, AuthZENError.class);
       } catch (IOException ignored) {
         refusal = null;
       }

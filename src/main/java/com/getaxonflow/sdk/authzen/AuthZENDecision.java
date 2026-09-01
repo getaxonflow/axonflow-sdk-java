@@ -184,7 +184,12 @@ public final class AuthZENDecision {
   public List<AuthZENObligation> getMandatoryObligations() {
     List<AuthZENObligation> out = new ArrayList<>();
     for (AuthZENObligation obligation : getObligations()) {
-      if (obligation.getMandatory()) {
+      // Boolean.TRUE.equals rather than an unbox: validation guarantees the
+      // member is present before a decision exists, and an NPE here on the day
+      // that stops being true would be a worse failure than reading a missing
+      // flag as "not mandatory" - which is what the validator is there to stop
+      // reaching this line at all.
+      if (Boolean.TRUE.equals(obligation.getMandatory())) {
         out.add(obligation);
       }
     }
@@ -192,9 +197,20 @@ public final class AuthZENDecision {
   }
 
   /**
-   * The approval challenge, when the state is {@code CHALLENGE}.
+   * The approval challenge the contract declares for a {@code CHALLENGE} state.
    *
-   * @return the approval requirement, or empty
+   * <p><b>NO DEPLOYED SERVER POPULATES THIS TODAY.</b> The v10 route is an adapter over the legacy
+   * evaluation, and its handler builds the response context without an {@code approval} member - so
+   * a CHALLENGE arrives with this empty, and a caller that writes {@code
+   * decision.getApproval().get()} throws on its first real challenge.
+   *
+   * <p>It is surfaced because the contract declares it and the ADR-065 Policy Decision Point fills
+   * it at v11. Until then, treat an empty approval on a CHALLENGE as the normal case and read
+   * {@link #getState()} and {@link #getCategory()} instead. A CHALLENGE with no approval is
+   * deliberately NOT refused: the shipped server produces exactly that, and refusing it would break
+   * every real challenge in the name of a member no server sends.
+   *
+   * @return the approval requirement, or empty - which is the usual case today
    */
   public Optional<AuthZENApprovalRequirement> getApproval() {
     return Optional.ofNullable(context.getApproval());

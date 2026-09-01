@@ -95,7 +95,7 @@ public final class AuthZENResource {
    * @return this, for chaining
    */
   public AuthZENResource setProperties(AttributeMap properties) {
-    this.properties = properties;
+    this.properties = properties == null ? new AttributeMap() : properties;
     return this;
   }
 
@@ -117,8 +117,6 @@ public final class AuthZENResource {
       throw AuthZENRefusedException.of(
           AuthZENErrorCode.INCOMPLETE_EVALUATION, at + "/id", "id is required");
     }
-    if (properties != null) {
-      properties.validate(at + "/properties");
-    }
+    properties.validate(at + "/properties");
   }
 }

@@ -23,10 +23,13 @@ import com.getaxonflow.sdk.authzen.AuthZENDecision;
 import com.getaxonflow.sdk.authzen.AuthZENErrorCode;
 import com.getaxonflow.sdk.authzen.AuthZENEvaluation;
 import com.getaxonflow.sdk.authzen.AuthZENEvaluationException;
+import com.getaxonflow.sdk.authzen.AuthZENObligation;
 import com.getaxonflow.sdk.authzen.AuthZENRefusedException;
 import com.getaxonflow.sdk.authzen.AuthZENRequest;
 import com.getaxonflow.sdk.authzen.AuthZENResource;
 import com.getaxonflow.sdk.authzen.AuthZENSubject;
+import com.getaxonflow.sdk.authzen.AuthZENUnresolvedException;
+import java.util.List;
 
 /**
  * The AuthZEN-native authorization surface, against a live agent.
@@ -45,11 +48,21 @@ import com.getaxonflow.sdk.authzen.AuthZENSubject;
  * teaches a reader to write {@code if (decision.isAllowed())} and nothing else, and the first
  * refusal they meet in production is a string in a log.
  *
- * <p>Steps 4 to 8 are refusals. Each one is an outcome a real gateway hits.
+ * <p>Steps 5 to 8 are refusals - four of the nine. Each one is an outcome a real gateway hits.
+ * Step 9 is the check a Policy Enforcement Point owes on the ALLOW path, which is the one people
+ * forget.
+ *
+ * <p>The three non-refusal failure types ({@link
+ * com.getaxonflow.sdk.authzen.AuthZENUnusableResponseException}, {@link
+ * com.getaxonflow.sdk.authzen.AuthZENUnreadableProfileException} and {@link
+ * com.getaxonflow.sdk.authzen.AuthZENTransportException}) are not demonstrated here because no
+ * live server produces them on request - a stubbed transport can, and
+ * {@code AuthZENSurfaceTest} does. They all extend {@link
+ * com.getaxonflow.sdk.authzen.AuthZENEvaluationException}, so one catch covers the surface.
  */
 public final class AuthZENExample {
 
-  private static final int STEPS = 8;
+  private static final int STEPS = 9;
 
   private AuthZENExample() {}
 
@@ -143,19 +156,20 @@ public final class AuthZENExample {
     // The same member, one state over. The directory timed out, so nobody knows
     // whether there is a department. Sending the request without it would
     // obtain a decision that weighed every attribute except that one — and
-    // report it as complete. The SDK refuses before the round trip, and the
-    // refusal is the one code worth retrying.
+    // report it as complete. The SDK refuses before the round trip.
+    //
+    // It is NOT reported as retryable, and the difference matters: the refusal
+    // is frozen inside this request, so resending it reproduces the identical
+    // error. Re-resolve the attribute and build a NEW request.
     AuthZENSubject unknown = gateway();
     unknown.getProperties().putUnknown("department", "the directory timed out after 2s");
-    expectRefusal(
+    expectUnresolved(
         client,
         AuthZENEvaluation.of(unknown, llmCompletion(), llmResource())
             .query(Attribute.known("summarise the incident report"))
             .build(),
         "5. an unresolvable attribute",
-        AuthZENErrorCode.EVALUATION_UNAVAILABLE,
-        "/evaluation/subject/properties/department",
-        true);
+        "/evaluation/subject/properties/department");
     done++;
 
     // --- 6. An attribute the SERVER cannot evaluate -----------------------
@@ -211,8 +225,34 @@ public final class AuthZENExample {
         false);
     done++;
 
-    // A run whose steps stopped executing prints no failure and exits 0, which
-    // is indistinguishable from success.
+    // --- 9. What a PEP still owes on an ALLOW ----------------------------
+    //
+    // isAllowed() is necessary and not sufficient. A mandatory obligation the
+    // enforcement point cannot discharge means the operation must NOT proceed,
+    // and the number of integrations that stop at `if (isAllowed())` is the
+    // reason this step is here rather than in a doc comment.
+    decision =
+        client.evaluate(
+            AuthZENEvaluation.of(gateway(), llmCompletion(), llmResource())
+                .query(Attribute.known("what is our refund policy?"))
+                .build());
+    List<AuthZENObligation> mandatory = decision.getMandatoryObligations();
+    if (decision.isAllowed() && !mandatory.isEmpty()) {
+      // The branch a real PEP writes: discharge every one, or block.
+      System.out.println("9. allow with " + mandatory.size() + " mandatory obligation(s)");
+    } else {
+      System.out.println(
+          "9. allow with no mandatory obligations (state="
+              + decision.getState()
+              + ", obligations="
+              + decision.getObligations().size()
+              + ")");
+    }
+    done++;
+
+    // Catches a step that returned early with a value rather than an exception.
+    // It does NOT catch a step deleted from this method - nothing can, short of
+    // naming them - so it is a floor, not a census.
     if (done != STEPS) {
       throw new IllegalStateException("only " + done + " of " + STEPS + " steps ran");
     }
@@ -263,6 +303,22 @@ public final class AuthZENExample {
               + decision.getState());
     }
     System.out.println(step + ": allowed=" + decision.isAllowed());
+  }
+
+  private static void expectUnresolved(
+      AxonFlow client, AuthZENRequest request, String step, String pointer) {
+    try {
+      AuthZENDecision decision = client.evaluate(request);
+      throw new IllegalStateException(
+          step + ": expected a refusal, got a decision (allowed=" + decision.isAllowed() + ")");
+    } catch (AuthZENUnresolvedException unresolved) {
+      if (!pointer.equals(unresolved.getPointer())) {
+        throw new IllegalStateException(
+            step + ": expected pointer " + pointer + ", got " + unresolved.getPointer());
+      }
+      System.out.println(
+          step + ": unresolved at " + unresolved.getPointer() + " (retryable=false)");
+    }
   }
 
   private static AuthZENRefusedException expectRefusal(

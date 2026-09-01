@@ -32,7 +32,7 @@ public final class AuthZENApprovalRequirement {
   private List<AuthZENApprovalClause> allOf;
 
   @JsonProperty("separation_of_duties")
-  private boolean separationOfDuties;
+  private Boolean separationOfDuties;
 
   @JsonProperty("expires_at")
   private String expiresAt;
@@ -51,7 +51,7 @@ public final class AuthZENApprovalRequirement {
    * @param expiresAt the expires_at
    */
   public AuthZENApprovalRequirement(
-      List<AuthZENApprovalClause> allOf, boolean separationOfDuties, String expiresAt) {
+      List<AuthZENApprovalClause> allOf, Boolean separationOfDuties, String expiresAt) {
     this.allOf = allOf;
     this.separationOfDuties = separationOfDuties;
     this.expiresAt = expiresAt;
@@ -76,7 +76,7 @@ public final class AuthZENApprovalRequirement {
   /**
    * @return the {@code separation_of_duties} member
    */
-  public boolean getSeparationOfDuties() {
+  public Boolean getSeparationOfDuties() {
     return separationOfDuties;
   }
 
@@ -84,7 +84,7 @@ public final class AuthZENApprovalRequirement {
    * @param separationOfDuties the {@code separation_of_duties} member
    * @return this, for chaining
    */
-  public AuthZENApprovalRequirement setSeparationOfDuties(boolean separationOfDuties) {
+  public AuthZENApprovalRequirement setSeparationOfDuties(Boolean separationOfDuties) {
     this.separationOfDuties = separationOfDuties;
     return this;
   }
@@ -127,6 +127,12 @@ public final class AuthZENApprovalRequirement {
       for (int i = 0; i < allOf.size(); i++) {
         allOf.get(i).validate(at + "/all_of" + "/" + i);
       }
+    }
+    if (separationOfDuties == null) {
+      throw AuthZENRefusedException.of(
+          AuthZENErrorCode.INCOMPLETE_EVALUATION,
+          at + "/separation_of_duties",
+          "separation_of_duties is required");
     }
     if (expiresAt == null || expiresAt.isEmpty()) {
       throw AuthZENRefusedException.of(

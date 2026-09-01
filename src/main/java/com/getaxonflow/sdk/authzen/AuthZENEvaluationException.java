@@ -20,12 +20,15 @@ import com.getaxonflow.sdk.exceptions.AxonFlowException;
 /**
  * Everything that can come back from an evaluation instead of a decision.
  *
- * <p>The four subclasses are separated by what a caller should DO, not by where the failure
+ * <p>The five subclasses are separated by what a caller should DO, not by where the failure
  * happened:
  *
  * <ul>
  *   <li>{@link AuthZENRefusedException} — the request was refused rather than evaluated. Fix the
  *       request; the refusal names the member.
+ *   <li>{@link AuthZENUnresolvedException} — the request cannot be SENT as built, because it carries
+ *       an attribute nobody could resolve. Re-resolve it and build a NEW request; resending this one
+ *       cannot succeed, which is why it is not folded into the refusal above.
  *   <li>{@link AuthZENUnreadableProfileException} — the server answered in a profile this build
  *       cannot interpret. Upgrade the SDK.
  *   <li>{@link AuthZENUnusableResponseException} — a {@code 200} this build will not act on. A
@@ -61,6 +64,7 @@ public abstract class AuthZENEvaluationException extends AxonFlowException {
    *
    * <ul>
    *   <li>a refusal — only when its code is {@code evaluation_unavailable};
+   *   <li>an unresolved attribute — NEVER, because the refusal is frozen inside the request;
    *   <li>a transport failure — timeout, connect, {@code 5xx}, {@code 429};
    *   <li>an unreadable profile — never;
    *   <li>an unusable response — never.

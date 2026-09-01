@@ -228,7 +228,17 @@ public final class Attribute<T> {
     if (state != State.KNOWN) {
       return new Attribute<>(state, null, reason);
     }
-    return Attribute.known(f.apply(value));
+    U mapped = f.apply(value);
+    if (mapped == null) {
+      // A mapping that returns null is saying "there is no value" in the one
+      // vocabulary this type refuses to accept it in. Reading it as ABSENT
+      // would silently convert a resolved value into a resolved absence; the
+      // caller has to say which they meant.
+      throw new NullPointerException(
+          "Attribute.map returned null; return Attribute.absent() or Attribute.unknown(why) "
+              + "explicitly rather than mapping a known value to nothing");
+    }
+    return Attribute.known(mapped);
   }
 
   @Override

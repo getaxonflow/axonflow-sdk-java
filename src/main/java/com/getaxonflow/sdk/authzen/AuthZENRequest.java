@@ -107,7 +107,7 @@ public final class AuthZENRequest {
    * @return this, for chaining
    */
   public AuthZENRequest setContext(AttributeMap context) {
-    this.context = context;
+    this.context = context == null ? new AttributeMap() : context;
     return this;
   }
 
@@ -130,8 +130,6 @@ public final class AuthZENRequest {
     if (resource != null) {
       resource.validate(at + "/resource");
     }
-    if (context != null) {
-      context.validate(at + "/context");
-    }
+    context.validate(at + "/context");
   }
 }

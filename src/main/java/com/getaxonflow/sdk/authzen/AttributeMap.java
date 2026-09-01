@@ -164,25 +164,37 @@ public final class AttributeMap {
   }
 
   /**
-   * Returns the nested bag at {@code key}, creating it when there is not one.
+   * The nested bag at {@code key}, ready to be written into - unless writing there would ERASE an
+   * unresolved attribute.
    *
    * <p>Used by the request builders to write {@code context.args.query} and {@code
    * context.correlation.<key>} without a caller having to assemble the nesting.
    *
    * @param key the member name
-   * @return the nested bag, which is live: mutating it mutates this one
+   * @return the nested bag, live (mutating it mutates this one), or empty when the key holds an
+   *     unresolved attribute the write must not overwrite
    */
-  AttributeMap nested(String key) {
+  Optional<AttributeMap> nestedForWrite(String key) {
     Attribute<AttributeValue> existing = members.get(key);
+    if (existing != null && existing.isUnknown()) {
+      // The one state a later write must not overwrite. The caller has already
+      // said nobody could resolve this member; quietly replacing it with a fresh
+      // bag would produce a complete-looking request whose missing fact nothing
+      // records. Declining the write leaves the UNKNOWN in place, so validate()
+      // refuses the envelope at that member and the request is never sent.
+      return Optional.empty();
+    }
     if (existing != null && existing.isKnown()) {
       Optional<AttributeMap> bag = existing.asKnown().flatMap(AttributeValue::asNested);
       if (bag.isPresent()) {
-        return bag.get();
+        return bag;
       }
     }
+    // ABSENT, or a leaf: both are resolved statements carrying no
+    // unresolvability to lose, so last-write-wins is what a caller expects.
     AttributeMap fresh = new AttributeMap();
     putKnown(key, fresh);
-    return fresh;
+    return Optional.of(fresh);
   }
 
   /**

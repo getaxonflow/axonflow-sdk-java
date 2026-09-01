@@ -15,15 +15,23 @@
  */
 package com.getaxonflow.sdk.authzen;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The request was refused rather than evaluated — by the server, or by this client before the round
  * trip.
  *
- * <p>Both sides speak the same code and pointer vocabulary, so a caller branches on one thing
- * rather than two, and a local refusal names the same member the server would have named for the
- * same bytes.
+ * <p>Both name the same MEMBER: a local refusal carries the JSON Pointer the server would have sent
+ * for the same bytes, verified against a live server by {@code runtime-e2e/authzen_evaluation}.
+ *
+ * <p>The CODE may be narrower on the server side, and that is not a defect in either. This client
+ * knows only that a required member is missing, and says {@code incomplete_evaluation}; the server
+ * additionally knows which values it can evaluate, and narrows the same condition to {@code
+ * unsupported_subject} with a {@code supported} list. Branch on the pointer for "which member", and
+ * read the code as the server's more specific reading when there is one.
  *
  * <p>A refusal is NOT a denial. A response carrying {@code decision: false} says the request was
  * evaluated and denied; a refusal says it was never evaluated. Returning one for the other would
@@ -35,14 +43,29 @@ public final class AuthZENRefusedException extends AuthZENEvaluationException {
 
   private final transient AuthZENError refusal;
 
+  // The three members a caller branches on, held as plain fields so they SURVIVE
+  // Java serialization. `refusal` is transient because the generated wire types
+  // are not Serializable; without these, a deserialized refusal NPE'd on
+  // getCode(), getPointer(), getSupported() and isRetryable() - every accessor a
+  // caller has.
+  private final String code;
+  private final String pointer;
+  private final List<String> supported;
+
   /**
    * Wraps a refusal document.
    *
    * @param refusal the structured refusal, from the server or from local validation
    */
   public AuthZENRefusedException(AuthZENError refusal) {
-    super(render(refusal));
+    super(render(Objects.requireNonNull(refusal, "a refusal is not null")));
     this.refusal = refusal;
+    this.code = refusal.getCode() == null ? "" : refusal.getCode().value();
+    this.pointer = refusal.getPointer();
+    this.supported =
+        refusal.getSupported() == null
+            ? Collections.emptyList()
+            : Collections.unmodifiableList(new ArrayList<>(refusal.getSupported()));
   }
 
   /**
@@ -75,7 +98,11 @@ public final class AuthZENRefusedException extends AuthZENEvaluationException {
   /**
    * The structured refusal.
    *
-   * @return the refusal document, never null
+   * <p>Null after Java serialization - the generated wire types are not {@code Serializable}. The
+   * members a caller branches on ({@link #getCode()}, {@link #getPointer()}, {@link
+   * #getSupported()}, {@link #isRetryable()}) survive it; this accessor is for the full document.
+   *
+   * @return the refusal document, or null on a deserialized exception
    */
   public AuthZENError getRefusal() {
     return refusal;
@@ -87,7 +114,7 @@ public final class AuthZENRefusedException extends AuthZENEvaluationException {
    * @return the code
    */
   public AuthZENErrorCode getCode() {
-    return refusal.getCode();
+    return AuthZENErrorCode.of(code);
   }
 
   /**
@@ -99,7 +126,7 @@ public final class AuthZENRefusedException extends AuthZENEvaluationException {
    * @return the pointer, or null when the refusal is about the request as a whole
    */
   public String getPointer() {
-    return refusal.getPointer();
+    return pointer;
   }
 
   /**
@@ -108,11 +135,11 @@ public final class AuthZENRefusedException extends AuthZENEvaluationException {
    * @return the supported values, possibly empty
    */
   public List<String> getSupported() {
-    return refusal.getSupported();
+    return supported;
   }
 
   @Override
   public boolean isRetryable() {
-    return AuthZENRefusals.isRetryable(refusal.getCode());
+    return AuthZENRefusals.isRetryable(getCode());
   }
 }

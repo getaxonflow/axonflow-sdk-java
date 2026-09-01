@@ -10,9 +10,11 @@
 # fails the build if any are found. It runs in CI as part of the
 # definition-of-done.yml gate.
 #
-# To bypass for a specific file (rare, must justify in PR):
-#   add a line `# allow-mocks-here: <reason>` near the offending line and
-#   the lint will skip that file. Reviewers should challenge any usage.
+# To bypass for a specific LINE (rare, must justify in PR):
+#   put `allow-mocks-here: <reason>` in a comment ON that line. The bypass is
+#   line-scoped on purpose: it used to be file-scoped while the error text below
+#   told reviewers it was per-line, so one marker anywhere in a file - a README
+#   sentence included - disarmed all of the patterns for the whole file.
 
 set -uo pipefail
 
@@ -36,6 +38,11 @@ PATTERNS=(
   'wiremock'                     # java/jvm wiremock
   'WireMockServer'               # wiremock builder
   'stubFor'                      # wiremock stub
+  'Mockito\.'                    # the mock library this repo actually declares
+  '@Mock\b'                      # mockito field/parameter injection
+  '@Spy\b'                       # mockito partial double
+  'MockWebServer'                 # okhttp's stub server, named in definition-of-done.yml
+  'mockwebserver'                 # its package
   'httptest\.NewServer'          # go httptest stub server
   'capture-stub\.py'             # local capture harness
   'fixture-server'               # generic fixture server
@@ -51,17 +58,24 @@ REGEX=$(IFS='|'; echo "${PATTERNS[*]}")
 
 # Use plain grep -r so we catch untracked files too (CI sees tracked PR
 # content, but local dev/pre-commit may run against new files not yet added).
-matches=$(grep -rnE "$REGEX" "$SCAN_DIR" 2>/dev/null || true)
+# Prose is excluded. A README that DESCRIBES what is forbidden - this
+# directory's own does, in the sentence "WireMock/MockWebServer fixtures is not
+# a runtime test" - is not a mock, and matching it would make the guard's
+# marker phrase collide with the documentation beside it. Only code is scanned.
+matches=$(grep -rnE "$REGEX" "$SCAN_DIR" --include='*.java' --include='*.rs' \
+  --include='*.go' --include='*.ts' --include='*.js' --include='*.py' \
+  --include='*.sh' --include='*.toml' 2>/dev/null || true)
 
 if [ -z "$matches" ]; then
   echo "lint-no-mocks: $SCAN_DIR is clean (no forbidden mock patterns found)."
   exit 0
 fi
 
-# Filter out lines explicitly allowed via the inline marker.
+# Filter out lines explicitly allowed via the inline marker, on THAT line.
 while IFS= read -r line; do
-  file=$(echo "$line" | cut -d: -f1)
-  if [ -n "$file" ] && grep -q "allow-mocks-here:" "$file" 2>/dev/null; then
+  # grep -n output is `path:lineno:content`; the marker must be in the content.
+  content=$(echo "$line" | cut -d: -f3-)
+  if printf '%s' "$content" | grep -q "allow-mocks-here:"; then
     continue
   fi
   echo "  $line"

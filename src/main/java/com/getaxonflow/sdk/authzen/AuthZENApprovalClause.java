@@ -31,7 +31,7 @@ import java.util.List;
 public final class AuthZENApprovalClause {
 
   @JsonProperty("quorum")
-  private int quorum;
+  private Integer quorum;
 
   @JsonProperty("eligible")
   private List<AuthZENIdentifier> eligible;
@@ -48,7 +48,7 @@ public final class AuthZENApprovalClause {
    * @param quorum the quorum
    * @param eligible the eligible
    */
-  public AuthZENApprovalClause(int quorum, List<AuthZENIdentifier> eligible) {
+  public AuthZENApprovalClause(Integer quorum, List<AuthZENIdentifier> eligible) {
     this.quorum = quorum;
     this.eligible = eligible;
   }
@@ -56,7 +56,7 @@ public final class AuthZENApprovalClause {
   /**
    * @return the {@code quorum} member
    */
-  public int getQuorum() {
+  public Integer getQuorum() {
     return quorum;
   }
 
@@ -64,7 +64,7 @@ public final class AuthZENApprovalClause {
    * @param quorum the {@code quorum} member
    * @return this, for chaining
    */
-  public AuthZENApprovalClause setQuorum(int quorum) {
+  public AuthZENApprovalClause setQuorum(Integer quorum) {
     this.quorum = quorum;
     return this;
   }
@@ -95,6 +95,10 @@ public final class AuthZENApprovalClause {
    * @throws AuthZENRefusedException if a contract rule is not satisfied
    */
   public void validate(String at) {
+    if (quorum == null) {
+      throw AuthZENRefusedException.of(
+          AuthZENErrorCode.INCOMPLETE_EVALUATION, at + "/quorum", "quorum is required");
+    }
     if (eligible == null) {
       throw AuthZENRefusedException.of(
           AuthZENErrorCode.INCOMPLETE_EVALUATION, at + "/eligible", "eligible is required");

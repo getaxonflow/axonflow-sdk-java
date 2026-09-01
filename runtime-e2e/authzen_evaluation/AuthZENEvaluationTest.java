@@ -53,6 +53,7 @@ import com.getaxonflow.sdk.authzen.AuthZENRequest;
 import com.getaxonflow.sdk.authzen.AuthZENResource;
 import com.getaxonflow.sdk.authzen.AuthZENSubject;
 import com.getaxonflow.sdk.authzen.AuthZENTransportException;
+import com.getaxonflow.sdk.authzen.AuthZENUnresolvedException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import okhttp3.MediaType;
@@ -63,7 +64,7 @@ import okhttp3.Response;
 
 public class AuthZENEvaluationTest {
 
-  static final int EXPECTED_ASSERTIONS = 12;
+  static final int EXPECTED_ASSERTIONS = 13;
 
   /** A query the default community policy set permits. */
   static final String ALLOWED_QUERY = "what is our refund policy?";
@@ -75,9 +76,12 @@ public class AuthZENEvaluationTest {
   static final ObjectMapper MAPPER = new ObjectMapper();
   static final OkHttpClient RAW = new OkHttpClient();
 
-  static int passed = 0;
+  /** How many assertions actually EXECUTED, compared against `expected` at the end. */
+  static int ran = 0;
+  /** How many of those FAILED, counted separately so a full floor cannot hide a red run. */
+  static int failedCount = 0;
+
   static int expected = EXPECTED_ASSERTIONS;
-  static boolean failed = false;
 
   static String agent;
   static String clientId;
@@ -202,11 +206,16 @@ public class AuthZENEvaluationTest {
                       .build());
           AuthZENSubject subject = gateway();
           subject.getProperties().putUnknown("department", "the directory timed out after 2s");
-          expectRefusal(
-              () -> offline.evaluate(requestWith(subject, ALLOWED_QUERY)),
-              AuthZENErrorCode.EVALUATION_UNAVAILABLE,
-              "/evaluation/subject/properties/department",
-              true);
+          try {
+            AuthZENDecision d = offline.evaluate(requestWith(subject, ALLOWED_QUERY));
+            throw new AssertionError(
+                "expected a refusal, got a decision (allowed=" + d.isAllowed() + ")");
+          } catch (AuthZENUnresolvedException unresolved) {
+            require(
+                "/evaluation/subject/properties/department".equals(unresolved.getPointer()),
+                "pointer was " + unresolved.getPointer());
+            require(!unresolved.isRetryable(), "a frozen refusal must not be reported retryable");
+          }
         });
 
     // --- 9: the SDK and the server name the SAME member -------------------
@@ -221,17 +230,42 @@ public class AuthZENEvaluationTest {
           } catch (AuthZENRefusedException refused) {
             local = refused.getPointer();
           }
-          String remote =
-              rawRefusalPointer(
+          JsonNode remote =
+              rawRefusal(
                   "{\"evaluation\":{\"subject\":{\"id\":\"llm-gateway-01\"},"
                       + "\"action\":{\"name\":\"llm.completion\"},"
                       + "\"resource\":{\"type\":\"llm\",\"id\":\"llm\"},"
                       + "\"context\":{\"args\":{\"query\":\""
                       + ALLOWED_QUERY
                       + "\"}}}}");
+          String remotePointer = remote.path("pointer").asText(null);
           require(
-              "/evaluation/subject/type".equals(local) && local.equals(remote),
-              "local pointer " + local + " vs server pointer " + remote);
+              "/evaluation/subject/type".equals(local) && local.equals(remotePointer),
+              "local pointer " + local + " vs server pointer " + remotePointer);
+        });
+
+    // The code is READ, not equated. It is reported either way so a divergence
+    // that matters - a code this build cannot name - is visible in the log
+    // rather than hidden behind a pointer-only assertion. The two are NOT equal
+    // and that is not a defect: this client knows only that a required member is
+    // missing; the server additionally knows the supported set and narrows it.
+    check(
+        "the server's refusal code is one this build knows",
+        () -> {
+          JsonNode remote =
+              rawRefusal(
+                  "{\"evaluation\":{\"subject\":{\"id\":\"llm-gateway-01\"},"
+                      + "\"action\":{\"name\":\"llm.completion\"},"
+                      + "\"resource\":{\"type\":\"llm\",\"id\":\"llm\"},"
+                      + "\"context\":{\"args\":{\"query\":\""
+                      + ALLOWED_QUERY
+                      + "\"}}}}");
+          String remoteCode = remote.path("code").asText("");
+          System.out.println(
+              "       local code=incomplete_evaluation  server code=" + remoteCode);
+          require(
+              AuthZENErrorCode.of(remoteCode).isKnown(),
+              "the server sent " + remoteCode + ", which is not in this build's enumeration");
         });
 
     // --- 10: the bare boolean an un-negotiated caller receives ------------
@@ -280,17 +314,17 @@ public class AuthZENEvaluationTest {
         });
 
     System.out.println();
-    if (passed != expected) {
+    if (ran != expected) {
       System.out.println(
-          "FAIL: " + passed + " assertion(s) ran but " + expected + " were expected"
+          "FAIL: " + ran + " assertion(s) ran but " + expected + " were expected"
               + " — checks stopped executing");
       System.exit(1);
     }
-    if (failed) {
-      System.out.println("FAIL: at least one assertion failed");
+    if (failedCount > 0) {
+      System.out.println("FAIL: " + failedCount + " of " + ran + " assertions failed");
       System.exit(1);
     }
-    System.out.println("ALL PASS: " + passed + "/" + expected + " assertions");
+    System.out.println("ALL PASS: " + ran + "/" + expected + " assertions");
   }
 
   // -------------------------------------------------------------------------
@@ -302,12 +336,12 @@ public class AuthZENEvaluationTest {
   }
 
   static void check(String what, Assertion assertion) {
-    passed++;
+    ran++;
     try {
       assertion.run();
       System.out.println("  PASS: " + what);
     } catch (Throwable t) {
-      failed = true;
+      failedCount++;
       System.out.println("  FAIL: " + what + " — " + t);
     }
   }
@@ -402,8 +436,8 @@ public class AuthZENEvaluationTest {
     }
   }
 
-  /** The pointer the SERVER names for an envelope the SDK would refuse locally. */
-  static String rawRefusalPointer(String envelope) throws Exception {
+  /** The refusal document the SERVER returns for an envelope the SDK refuses locally. */
+  static JsonNode rawRefusal(String envelope) throws Exception {
     Request request =
         new Request.Builder()
             .url(agent + AxonFlow.AUTHZEN_PATH)
@@ -417,8 +451,7 @@ public class AuthZENEvaluationTest {
       require(
           !response.isSuccessful(),
           "the server ACCEPTED an envelope the SDK refuses; the two have diverged");
-      JsonNode node = MAPPER.readTree(text);
-      return node.hasNonNull("pointer") ? node.get("pointer").asText() : null;
+      return MAPPER.readTree(text);
     }
   }
 

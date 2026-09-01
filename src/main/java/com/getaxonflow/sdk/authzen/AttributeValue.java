@@ -66,7 +66,11 @@ public final class AttributeValue {
    * @return the value
    */
   public static AttributeValue of(String value) {
-    return new AttributeValue(TextNode.valueOf(value), null);
+    // TextNode.valueOf(null) returns null, which would build a KNOWN attribute
+    // holding nothing - the collapse this type exists to prevent, one level
+    // down. A caller with no string has Attribute.absent().
+    return new AttributeValue(
+        TextNode.valueOf(Objects.requireNonNull(value, "a known string is not null")), null);
   }
 
   /**

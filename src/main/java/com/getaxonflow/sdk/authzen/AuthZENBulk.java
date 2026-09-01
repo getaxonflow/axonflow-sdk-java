@@ -120,7 +120,7 @@ public final class AuthZENBulk {
    * @return this, for chaining
    */
   public AuthZENBulk setContext(AttributeMap context) {
-    this.context = context;
+    this.context = context == null ? new AttributeMap() : context;
     return this;
   }
 
@@ -159,9 +159,7 @@ public final class AuthZENBulk {
     if (resource != null) {
       resource.validate(at + "/resource");
     }
-    if (context != null) {
-      context.validate(at + "/context");
-    }
+    context.validate(at + "/context");
     if (evaluations == null) {
       throw AuthZENRefusedException.of(
           AuthZENErrorCode.INCOMPLETE_EVALUATION, at + "/evaluations", "evaluations is required");

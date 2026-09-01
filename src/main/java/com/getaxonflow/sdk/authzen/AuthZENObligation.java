@@ -36,13 +36,13 @@ public final class AuthZENObligation {
   private Map<String, String> params;
 
   @JsonProperty("mandatory")
-  private boolean mandatory;
+  private Boolean mandatory;
 
   @JsonProperty("source_policy")
   private String sourcePolicy;
 
   @JsonProperty("schema_version")
-  private int schemaVersion;
+  private Integer schemaVersion;
 
   /** Jackson, and a caller that prefers to set members one at a time. */
   public AuthZENObligation() {}
@@ -59,7 +59,7 @@ public final class AuthZENObligation {
    * @param schemaVersion the schema_version
    */
   public AuthZENObligation(
-      AuthZENObligationType type, boolean mandatory, String sourcePolicy, int schemaVersion) {
+      AuthZENObligationType type, Boolean mandatory, String sourcePolicy, Integer schemaVersion) {
     this.type = type;
     this.mandatory = mandatory;
     this.sourcePolicy = sourcePolicy;
@@ -117,7 +117,7 @@ public final class AuthZENObligation {
   /**
    * @return the {@code mandatory} member
    */
-  public boolean getMandatory() {
+  public Boolean getMandatory() {
     return mandatory;
   }
 
@@ -125,7 +125,7 @@ public final class AuthZENObligation {
    * @param mandatory the {@code mandatory} member
    * @return this, for chaining
    */
-  public AuthZENObligation setMandatory(boolean mandatory) {
+  public AuthZENObligation setMandatory(Boolean mandatory) {
     this.mandatory = mandatory;
     return this;
   }
@@ -149,7 +149,7 @@ public final class AuthZENObligation {
   /**
    * @return the {@code schema_version} member
    */
-  public int getSchemaVersion() {
+  public Integer getSchemaVersion() {
     return schemaVersion;
   }
 
@@ -157,7 +157,7 @@ public final class AuthZENObligation {
    * @param schemaVersion the {@code schema_version} member
    * @return this, for chaining
    */
-  public AuthZENObligation setSchemaVersion(int schemaVersion) {
+  public AuthZENObligation setSchemaVersion(Integer schemaVersion) {
     this.schemaVersion = schemaVersion;
     return this;
   }
@@ -182,11 +182,21 @@ public final class AuthZENObligation {
           at + "/target",
           "target needs at least 1 character");
     }
+    if (mandatory == null) {
+      throw AuthZENRefusedException.of(
+          AuthZENErrorCode.INCOMPLETE_EVALUATION, at + "/mandatory", "mandatory is required");
+    }
     if (sourcePolicy == null || sourcePolicy.isEmpty()) {
       throw AuthZENRefusedException.of(
           AuthZENErrorCode.INCOMPLETE_EVALUATION,
           at + "/source_policy",
           "source_policy is required");
+    }
+    if (schemaVersion == null) {
+      throw AuthZENRefusedException.of(
+          AuthZENErrorCode.INCOMPLETE_EVALUATION,
+          at + "/schema_version",
+          "schema_version is required");
     }
   }
 }

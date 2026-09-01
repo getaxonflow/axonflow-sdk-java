@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public final class AuthZENResponse {
 
   @JsonProperty("decision")
-  private boolean decision;
+  private Boolean decision;
 
   @JsonProperty("context")
   private AuthZENResponseContext context;
@@ -44,14 +44,14 @@ public final class AuthZENResponse {
    *
    * @param decision the decision
    */
-  public AuthZENResponse(boolean decision) {
+  public AuthZENResponse(Boolean decision) {
     this.decision = decision;
   }
 
   /**
    * @return the {@code decision} member
    */
-  public boolean getDecision() {
+  public Boolean getDecision() {
     return decision;
   }
 
@@ -59,7 +59,7 @@ public final class AuthZENResponse {
    * @param decision the {@code decision} member
    * @return this, for chaining
    */
-  public AuthZENResponse setDecision(boolean decision) {
+  public AuthZENResponse setDecision(Boolean decision) {
     this.decision = decision;
     return this;
   }
@@ -90,6 +90,10 @@ public final class AuthZENResponse {
    * @throws AuthZENRefusedException if a contract rule is not satisfied
    */
   public void validate(String at) {
+    if (decision == null) {
+      throw AuthZENRefusedException.of(
+          AuthZENErrorCode.INCOMPLETE_EVALUATION, at + "/decision", "decision is required");
+    }
     if (context != null) {
       context.validate(at + "/context");
     }

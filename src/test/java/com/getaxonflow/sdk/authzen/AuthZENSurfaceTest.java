@@ -168,17 +168,20 @@ class AuthZENSurfaceTest {
     AuthZENSubject subject = new AuthZENSubject("gateway", "llm-gateway-01");
     subject.getProperties().putUnknown("department", "the directory timed out");
 
-    AuthZENRefusedException refused =
-        assertThrows(AuthZENRefusedException.class, () -> client.evaluate(requestWith(subject)));
+    AuthZENUnresolvedException unresolved =
+        assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(requestWith(subject)));
 
-    assertThat(refused.getCode()).isEqualTo(AuthZENErrorCode.EVALUATION_UNAVAILABLE);
-    assertThat(refused.getPointer()).isEqualTo("/evaluation/subject/properties/department");
-    assertThat(refused.getMessage())
+    assertThat(unresolved.getPointer()).isEqualTo("/evaluation/subject/properties/department");
+    assertThat(unresolved.getReason())
         .as("the reason the source gave must reach the operator")
         .contains("the directory timed out");
-    assertThat(refused.isRetryable())
-        .as("a source that could not answer may answer next time")
-        .isTrue();
+    // NOT retryable, and the distinction is the point. isRetryable() answers
+    // "could sending THIS request again produce a different answer", and the
+    // refusal is frozen inside the request: every resend reproduces it. The
+    // operation may succeed once the attribute resolves, which is a different
+    // request. An earlier version reported it retryable, which sends a
+    // `while (isRetryable())` loop through its whole budget.
+    assertThat(unresolved.isRetryable()).isFalse();
     assertThat(requestCount())
         .as("the request reached the server despite carrying an unresolvable attribute")
         .isZero();
@@ -206,11 +209,10 @@ class AuthZENSurfaceTest {
 
     AuthZENSubject unknown = new AuthZENSubject("gateway", "g1");
     unknown.getProperties().putUnknown("department", "idp down");
-    AuthZENRefusedException refused =
-        assertThrows(AuthZENRefusedException.class, () -> client.evaluate(requestWith(unknown)));
-    assertThat(refused.getCode()).isEqualTo(AuthZENErrorCode.EVALUATION_UNAVAILABLE);
-    assertThat(refused.getPointer()).isEqualTo("/evaluation/subject/properties/department");
-    assertThat(refused.isRetryable()).isTrue();
+    AuthZENUnresolvedException unresolved =
+        assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(requestWith(unknown)));
+    assertThat(unresolved.getPointer()).isEqualTo("/evaluation/subject/properties/department");
+    assertThat(unresolved.isRetryable()).isFalse();
   }
 
   @Test
@@ -244,9 +246,9 @@ class AuthZENSurfaceTest {
             .correlation("x-session-id", Attribute.unknown("the trace header was unreadable"))
             .build();
 
-    AuthZENRefusedException refused =
-        assertThrows(AuthZENRefusedException.class, () -> client.evaluate(request));
-    assertThat(refused.getPointer()).isEqualTo("/evaluation/context/correlation/x-session-id");
+    AuthZENUnresolvedException unresolved =
+        assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(request));
+    assertThat(unresolved.getPointer()).isEqualTo("/evaluation/context/correlation/x-session-id");
   }
 
   @Test
@@ -422,6 +424,13 @@ class AuthZENSurfaceTest {
         assertThrows(AuthZENRefusedException.class, () -> envelope.validate(""));
     assertThat(refused.getPointer()).isEqualTo("/evaluation/subject/type");
     assertThat(refused.isRetryable()).isFalse();
+    // The CODE is pinned too, and it is NOT the server's for these bytes: the
+    // live server answers `unsupported_subject` here, because it additionally
+    // knows the supported set and narrows the same condition. This client knows
+    // only that a required member is missing. Both name the same MEMBER, which
+    // is the property a caller branches on; asserting the code here is what
+    // stops the local one drifting silently.
+    assertThat(refused.getCode()).isEqualTo(AuthZENErrorCode.INCOMPLETE_EVALUATION);
   }
 
   @Test
@@ -575,6 +584,119 @@ class AuthZENSurfaceTest {
     assertThat(refused.getPointer()).isEqualTo("/evaluation/context/department");
     assertThat(refused.getSupported()).containsExactly("args", "correlation");
     assertThat(refused.isRetryable()).isFalse();
+  }
+
+  @Test
+  @DisplayName("a later write must not erase an unresolved parent")
+  void aLaterWriteMustNotEraseAnUnresolvedParent() {
+    // The fail-open this surface exists to prevent, arriving through its own
+    // builder. A gateway whose body decode failed records that `args` is
+    // unresolvable; a recovered partial prompt written over it would have
+    // produced a complete-looking envelope that passed validation and went on
+    // the wire.
+    answering(200, allowBody());
+    AuthZENEvaluation.SingleBuilder builder =
+        AuthZENEvaluation.of(
+            new AuthZENSubject("gateway", "g1"),
+            new AuthZENAction("llm.completion"),
+            new AuthZENResource("llm", "llm"));
+    builder.build().getContext().putUnknown("args", "the request body failed to decode");
+    AuthZENRequest request = builder.query(Attribute.known("a partial prompt")).build();
+
+    AuthZENUnresolvedException unresolved =
+        assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(request));
+    assertThat(unresolved.getPointer()).isEqualTo("/evaluation/context/args");
+    assertThat(requestCount()).as("the request was sent with the unknown erased").isZero();
+  }
+
+  @Test
+  @DisplayName("an attribute bag survives a setter round trip, so validate has no null path")
+  void anAttributeBagIsNeverNull() {
+    // `validate` guarded `if (bag != null)`, so a null bag meant the unknown
+    // check did not run at all - and a public setter could produce one. The
+    // field's invariant is "never null"; the setter now holds it, and the
+    // guard is gone, so there is no null path left for a future unknown to
+    // hide behind.
+    answering(200, allowBody());
+    AuthZENRequest request =
+        AuthZENEvaluation.of(
+                new AuthZENSubject("gateway", "g1"),
+                new AuthZENAction("llm.completion"),
+                new AuthZENResource("llm", "llm"))
+            .query(Attribute.unknown("idp down"))
+            .build();
+    AttributeMap bag = request.getContext();
+
+    request.setContext(null);
+    assertThat(request.getContext()).as("the setter must not leave the field null").isNotNull();
+
+    // The bag itself still carries the unknown, and putting it back refuses.
+    request.setContext(bag);
+    AuthZENUnresolvedException unresolved =
+        assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(request));
+    assertThat(unresolved.getPointer()).isEqualTo("/evaluation/context/args/query");
+    assertThat(requestCount()).isZero();
+  }
+
+  @Test
+  @DisplayName("an obligation with no mandatory flag is refused, not read as advisory")
+  void anObligationMissingItsMandatoryFlagIsRefused() {
+    // Jackson leaves a missing primitive at its default, so `mandatory` omitted
+    // decoded to `false`, passed validation (a primitive cannot be null) and
+    // getMandatoryObligations() returned empty - turning off the one
+    // instruction a caller must not ignore, silently. The strict reader cannot
+    // help: it catches EXTRA members, never missing ones.
+    String body =
+        allowBody()
+            .replace(
+                "\"schema_version\":\"2026-08-29\"",
+                "\"schema_version\":\"2026-08-29\",\"obligations\":["
+                    + "{\"type\":\"field_redact\",\"target\":\"args.query\","
+                    + "\"source_policy\":\"legacy:redact_pii\",\"schema_version\":1}]");
+    answering(200, body);
+    AuthZENUnusableResponseException e =
+        assertThrows(AuthZENUnusableResponseException.class, () -> client.evaluate(aRequest()));
+    assertThat(e.getMessage()).contains("mandatory");
+  }
+
+  @Test
+  @DisplayName("a refusal carrying a member this build does not know is still a refusal")
+  void aRefusalWithAnExtraMemberIsStillTyped() {
+    // Strictness belongs on the DECISION, not on the diagnostic. Refusing to
+    // decode a refusal because the server added a member collapses a typed
+    // error carrying a code and a pointer into an opaque transport failure
+    // carrying neither - the one thing a refusal exists to avoid.
+    answering(
+        422,
+        "{\"code\":\"unsupported_action\",\"pointer\":\"/evaluation/action/name\","
+            + "\"message\":\"not an evaluable action\",\"retry_after\":5}");
+    AuthZENRefusedException refused =
+        assertThrows(AuthZENRefusedException.class, () -> client.evaluate(aRequest()));
+    assertThat(refused.getCode()).isEqualTo(AuthZENErrorCode.UNSUPPORTED_ACTION);
+    assertThat(refused.getPointer()).isEqualTo("/evaluation/action/name");
+  }
+
+  @Test
+  @DisplayName("a refusal survives Java serialization with everything a caller branches on")
+  void aRefusalSurvivesSerialization() throws Exception {
+    AuthZENRefusedException before =
+        AuthZENRefusedException.of(
+            AuthZENErrorCode.EVALUATION_UNAVAILABLE, "/evaluation/context/args", "nope");
+    java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+    try (java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(bytes)) {
+      out.writeObject(before);
+    }
+    AuthZENRefusedException after;
+    try (java.io.ObjectInputStream in =
+        new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+      after = (AuthZENRefusedException) in.readObject();
+    }
+    // Every accessor used to NPE here: the refusal document is transient
+    // because the generated wire types are not Serializable.
+    assertThat(after.getCode()).isEqualTo(AuthZENErrorCode.EVALUATION_UNAVAILABLE);
+    assertThat(after.getPointer()).isEqualTo("/evaluation/context/args");
+    assertThat(after.getSupported()).isEmpty();
+    assertThat(after.isRetryable()).isTrue();
   }
 
   @Test

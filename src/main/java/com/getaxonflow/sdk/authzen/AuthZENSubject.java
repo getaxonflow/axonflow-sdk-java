@@ -98,7 +98,7 @@ public final class AuthZENSubject {
    * @return this, for chaining
    */
   public AuthZENSubject setProperties(AttributeMap properties) {
-    this.properties = properties;
+    this.properties = properties == null ? new AttributeMap() : properties;
     return this;
   }
 
@@ -120,8 +120,6 @@ public final class AuthZENSubject {
       throw AuthZENRefusedException.of(
           AuthZENErrorCode.INCOMPLETE_EVALUATION, at + "/id", "id is required");
     }
-    if (properties != null) {
-      properties.validate(at + "/properties");
-    }
+    properties.validate(at + "/properties");
   }
 }
