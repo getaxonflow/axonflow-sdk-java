@@ -45,8 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation.** `README.md` gains an "AuthZEN-native authorization"
   section covering the call shape, the refusal contract, bulk semantics and
   obligations. `docs/AUTHZEN_MIGRATION_DRAFT.md` carries the field-by-field
-  mapping table; it is a DRAFT held out of the README on purpose, because
-  nothing is deprecated today.
+  mapping table and the v10.3.0 / v11.0.0 / v12.0.0 timeline; it is a DRAFT
+  held out of the README on purpose, because nothing is deprecated today. The
+  legacy surface is deprecated at v11.0.0 and removed only at v12.0.0.
 - **Runnable proofs**: `examples/authzen/` and
   `runtime-e2e/authzen_evaluation/` (the latter runs against a live agent).
 
@@ -87,8 +88,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `resource.id` for an `llm` target must be exactly `"llm"`; a provider or
   model name is refused, because nothing reads it and accepting it would
   report that it was considered when it was not.
-- The full table, and the list of what has deliberately NOT been decided, live
-  in `docs/AUTHZEN_MIGRATION_DRAFT.md`.
+- **The legacy surface is deprecated at v11.0.0 and removed only at v12.0.0.**
+  Deprecation is a signal to plan, not a breakage: it stays wire-stable through
+  all of v11, so a 9.2.0 integration keeps working on a v11 platform without
+  edits. The full table and that timeline live in
+  `docs/AUTHZEN_MIGRATION_DRAFT.md`.
 
 ### Known issues
 
