@@ -131,12 +131,19 @@ public class TelemetryReporter {
           Math.min(
               TimeUnit.SECONDS.toMillis(1),
               Math.max(0L, deadlineMs - System.nanoTime() / 1_000_000L));
-      String platformVersion =
+      // One /health fetch supplies both platform_version and license_tier.
+      // Re-read on every heartbeat rather than cached for the process
+      // lifetime: a licence can be applied to, or expire on, a running
+      // platform, and a cached tier would keep reporting the pre-change
+      // tier for as long as the client lives.
+      PlatformHealthProbe probe =
           (sdkEndpoint != null && !sdkEndpoint.isEmpty() && healthBudgetMs > MIN_BUDGET_MS)
-              ? detectPlatformVersion(sdkEndpoint, healthBudgetMs)
-              : null;
+              ? probePlatformHealth(sdkEndpoint, healthBudgetMs)
+              : EMPTY_HEALTH_PROBE;
 
-      String payload = buildPayload(mode, platformVersion, endpointType, deploymentMode);
+      String payload =
+          buildPayload(
+              mode, probe.platformVersion, endpointType, deploymentMode, probe.licenseTier);
 
       long postBudgetMs = Math.max(0L, deadlineMs - System.nanoTime() / 1_000_000L);
       if (postBudgetMs < MIN_BUDGET_MS) {
@@ -193,6 +200,18 @@ public class TelemetryReporter {
     return !(axonflowTelemetry != null && "off".equalsIgnoreCase(axonflowTelemetry.trim()));
   }
 
+  /**
+   * The single definition of "the platform told us this".
+   *
+   * <p>A value counts as learned only when it is a NON-EMPTY string. Used by both {@link
+   * #probePlatformHealth} (deciding what to promote out of the {@code /health} body) and {@link
+   * #buildPayload(String, String, String, String, String)} (deciding what reaches the wire), so the
+   * omit-vs-populate rule cannot drift between the two levels.
+   */
+  static boolean isLearned(String value) {
+    return value != null && !value.isEmpty();
+  }
+
   /** Builds the JSON payload for the telemetry ping. */
   static String buildPayload(String mode, String platformVersion) {
     return buildPayload(mode, platformVersion, EndpointType.UNKNOWN, DeploymentMode.UNKNOWN);
@@ -209,6 +228,52 @@ public class TelemetryReporter {
    */
   static String buildPayload(
       String mode, String platformVersion, String endpointType, String deploymentMode) {
+    return buildPayload(mode, platformVersion, endpointType, deploymentMode, null);
+  }
+
+  /**
+   * Builds the JSON payload including the platform's licence tier (#3619).
+   *
+   * <p>{@code licenseTier} is the tier the connected platform reported on its own {@code /health}
+   * response — {@code "community"}, {@code "evaluation"}, {@code "Enterprise"}, the csaas {@code
+   * "Plus"} alias for EnterprisePlus, or the transient {@code "starting"}. Coarse adoption signal
+   * only: no licence key, no expiry, no seat count, no customer name.
+   *
+   * <p>THREE SIMILARLY-NAMED CONCEPTS LIVE NEARBY. Do not merge them:
+   *
+   * <ol>
+   *   <li>{@code deployment_mode} — SDK-derived TOPOLOGY: {@code self_hosted | community_saas |
+   *       unknown}, classified from the endpoint URL. Says WHERE the platform runs.
+   *   <li>The platform's own {@code DEPLOYMENT_MODE} env var — a server-side setting deciding which
+   *       schema/tables the binary uses. Never read by this SDK and never sent here.
+   *   <li>{@code license_tier} — what the platform REPORTED about its own licensing, for adoption
+   *       analytics.
+   * </ol>
+   *
+   * <p>ITEM 3 IS NOT AN ENTITLEMENT FACT. This SDK relays whatever {@code /health} returned, and
+   * the receiver cannot verify the relay: whoever operates the endpoint the client was pointed at
+   * controls the value completely. It must never gate entitlement, unlock a feature, or enter any
+   * authorization or billing decision. See axonflow-enterprise#3619.
+   *
+   * <p>A community-mode binary can run on any topology and vice versa, so neither field is
+   * derivable from the other.
+   *
+   * <p>The tier is sent verbatim. Casing and alias folding is the receiver's job
+   * (checkpoint-service {@code NormalizeLicenseTier}) and is deliberately NOT duplicated here — a
+   * client that folded locally would silently mask a tier this SDK build predates.
+   *
+   * <p>A {@code null} tier OMITS the key entirely, which is what "not learned" means on this wire.
+   * Absent must never become a known value: emitting {@code "community"} for a platform we could
+   * not reach would be a false claim about a customer's deployment. Note this differs from {@code
+   * platform_version}, which is written as an explicit JSON null — that is its long-standing wire
+   * shape and is left unchanged.
+   */
+  static String buildPayload(
+      String mode,
+      String platformVersion,
+      String endpointType,
+      String deploymentMode,
+      String licenseTier) {
     try {
       ObjectMapper mapper = new ObjectMapper();
       ObjectNode root = mapper.createObjectNode();
@@ -249,6 +314,17 @@ public class TelemetryReporter {
       // the "local-dev-org" sentinel. Always emitted. See axonflow-landing/content/privacy.html
       // for the customer-facing commitment that covers this field.
       root.put("org_id", telemetryOrgId());
+
+      // Key written ONLY when the tier was learned. putNull would serialize as
+      // JSON null, which is a claim ("the tier is nothing") rather than an
+      // omission ("we do not know the tier"). See this method's javadoc.
+      // isLearned, not a bare null check: this method is package-visible, so a
+      // caller can hand it "" directly. A null-only check would write a
+      // meaningless "license_tier":"" — the same rule the probe applies must
+      // apply here, which is why both call one predicate.
+      if (isLearned(licenseTier)) {
+        root.put("license_tier", licenseTier);
+      }
 
       return mapper.writeValueAsString(root);
     } catch (Exception e) {
@@ -505,8 +581,56 @@ public class TelemetryReporter {
    * axonflow-enterprise#1706.
    */
   static String detectPlatformVersion(String sdkEndpoint, long budgetMs) {
+    return probePlatformHealth(sdkEndpoint, budgetMs).platformVersion;
+  }
+
+  /**
+   * What a single {@code /health} fetch established.
+   *
+   * <p>Each field is INDEPENDENT: a response carrying one but not the other yields a
+   * partially-populated result rather than discarding both. A {@code null} field means "not
+   * learned" and is omitted from the wire — it never degrades to a default. See {@link
+   * #buildPayload(String, String, String, String, String)}.
+   */
+  static final class PlatformHealthProbe {
+    final String platformVersion;
+    final String licenseTier;
+
+    PlatformHealthProbe(String platformVersion, String licenseTier) {
+      this.platformVersion = platformVersion;
+      this.licenseTier = licenseTier;
+    }
+  }
+
+  private static final PlatformHealthProbe EMPTY_HEALTH_PROBE = new PlatformHealthProbe(null, null);
+
+  /**
+   * Bounds the {@code /health} body the probe will read. The real response is a few kilobytes; 1
+   * MiB is orders of magnitude above any legitimate body while capping how much a misbehaving or
+   * hostile endpoint can make the telemetry path buffer.
+   */
+  private static final long MAX_HEALTH_BODY_BYTES = 1L << 20;
+
+  /**
+   * Probes the agent's {@code /health} endpoint ONCE and extracts every telemetry dimension it
+   * carries.
+   *
+   * <p>Returns both fields {@code null} on any failure — unreachable endpoint, non-2xx, unparseable
+   * body — so telemetry degrades to omitting the fields and never fails the ping or throws into the
+   * caller. The body is read through a BOUNDED read, so a hostile or misbehaving endpoint cannot
+   * make the telemetry path buffer without limit; exceeding the bound truncates, which fails the
+   * parse and therefore fails open like every other probe failure.
+   *
+   * <p>This is the SDK's only {@code /health} fetch on the telemetry path; the licence tier rides
+   * along on the response already being fetched for the version. Adding a second request here would
+   * double the telemetry path's blocking budget and its failure surface — do not.
+   *
+   * @param budgetMs derived from the shared telemetry deadline so the health probe and the
+   *     checkpoint POST don't stack into a larger combined budget.
+   */
+  static PlatformHealthProbe probePlatformHealth(String sdkEndpoint, long budgetMs) {
     if (sdkEndpoint == null || sdkEndpoint.isEmpty()) {
-      return null;
+      return EMPTY_HEALTH_PROBE;
     }
     try {
       OkHttpClient client =
@@ -518,19 +642,54 @@ public class TelemetryReporter {
       Request request = new Request.Builder().url(sdkEndpoint + "/health").get().build();
 
       try (Response response = client.newCall(request).execute()) {
-        if (response.isSuccessful() && response.body() != null) {
-          ObjectMapper mapper = new ObjectMapper();
-          JsonNode root = mapper.readTree(response.body().string());
-          JsonNode versionNode = root.get("version");
-          if (versionNode != null && !versionNode.isNull() && !versionNode.asText().isEmpty()) {
-            return versionNode.asText();
-          }
+        if (!response.isSuccessful() || response.body() == null) {
+          return EMPTY_HEALTH_PROBE;
         }
+        // Bounded read. response.body().string() buffers the WHOLE body with no
+        // limit, so a hostile /health could exhaust memory on the telemetry
+        // path — and an OutOfMemoryError is an Error, not an Exception, so it
+        // would escape the catch below and reach the caller. peekBody(n) reads
+        // AT MOST n bytes, so this bound is real, the same way Go uses
+        // io.LimitReader. (The TypeScript and Python SDKs deliberately do NOT
+        // do this: their HTTP clients have already buffered the body by the
+        // time it is parsed, so a cap there would bound the parse, not the read.)
+        String rawBody = response.peekBody(MAX_HEALTH_BODY_BYTES).string();
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(rawBody);
+        if (root == null || !root.isObject()) {
+          return EMPTY_HEALTH_PROBE;
+        }
+
+        // Each field is promoted independently. An absent key leaves the other
+        // field intact — the pre-#3619 code returned early when `version` was
+        // missing, which would have discarded a learned tier.
+        String version = null;
+        JsonNode versionNode = root.get("version");
+        if (versionNode != null && !versionNode.isNull() && !versionNode.asText().isEmpty()) {
+          version = versionNode.asText();
+        }
+
+        // Stricter than the version read above, deliberately. asText() COERCES
+        // a non-textual node, so a malformed `"tier": 42` or `"tier": true`
+        // would become "42"/"true" and land in the receiver's unknown bucket
+        // as though the platform had reported a tier. Absent is the honest
+        // answer, so a non-string tier is treated as not learned. The version
+        // read keeps its long-standing coercing behaviour unchanged.
+        String tier = null;
+        JsonNode tierNode = root.get("tier");
+        if (tierNode != null && tierNode.isTextual() && isLearned(tierNode.asText())) {
+          // Verbatim, including the transient "starting" the agent returns
+          // before its licence is validated. "starting" is a real signal the
+          // receiver buckets deliberately, not an error to filter client-side.
+          tier = tierNode.asText();
+        }
+
+        return new PlatformHealthProbe(version, tier);
       }
     } catch (Exception ignored) {
-      // Silent failure
+      // Silent failure — telemetry must never disrupt SDK operation.
     }
-    return null;
+    return EMPTY_HEALTH_PROBE;
   }
 
   /**
