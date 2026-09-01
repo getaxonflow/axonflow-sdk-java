@@ -146,16 +146,24 @@ public class LicenseTierTelemetryTest {
 
     String rawHealth;
     try {
-      HttpURLConnection conn = (HttpURLConnection) URI.create(endpoint + "/health").toURL().openConnection();
+      HttpURLConnection conn =
+          (HttpURLConnection) URI.create(endpoint + "/health").toURL().openConnection();
       conn.setConnectTimeout(5000);
       conn.setReadTimeout(5000);
+      // getInputStream() throws IOException for ANY non-2xx, so a live platform
+      // answering 503 would otherwise be reported as "unreachable". Read the
+      // status first and say which case this actually is.
+      int status = conn.getResponseCode();
+      if (status < 200 || status >= 300) {
+        throw new IOException("platform answered HTTP " + status);
+      }
       try (InputStream is = conn.getInputStream()) {
         rawHealth = new String(is.readAllBytes(), StandardCharsets.UTF_8);
       }
     } catch (IOException err) {
       // Platform DOWN — a first-class real-world case, not a harness error.
       System.out.printf(
-          "Platform unreachable at %s (%s)%n  -> asserting the DOWN contract instead.%n%n",
+          "No usable /health at %s (%s)%n  -> asserting the DOWN contract instead.%n%n",
           endpoint, err);
       String body = captureOnePing(endpoint);
       if (body.isEmpty()) {
@@ -176,7 +184,21 @@ public class LicenseTierTelemetryTest {
     String liveTier = health.has("tier") ? health.get("tier").asText() : "";
     System.out.printf("Live /health tier: \"%s\"%n%n", liveTier);
     if (liveTier.isEmpty()) {
-      fail("live platform reported no tier — cannot cross-check");
+      // A platform predating the `tier` field is a LEGITIMATE contract case,
+      // not a harness error: the SDK must degrade to omission. Assert that
+      // instead of failing the run.
+      System.out.println("Live platform reports no tier -> asserting the omission contract.\n");
+      String noTierBody = captureOnePing(endpoint);
+      if (noTierBody.isEmpty()) {
+        fail("the ping was SUPPRESSED — telemetry must degrade, not stop");
+        return;
+      }
+      System.out.printf("Telemetry wire body: %s%n%n", noTierBody);
+      if ("true".equals(tierOnWire(noTierBody)[0])) {
+        fail("license_tier present though the live platform reported none");
+        return;
+      }
+      pass("platform reports no tier: ping delivered, license_tier omitted (not defaulted)");
       return;
     }
 

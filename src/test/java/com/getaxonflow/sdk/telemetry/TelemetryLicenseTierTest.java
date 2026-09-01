@@ -58,6 +58,14 @@ class TelemetryLicenseTierTest {
     assertThat(requests)
         .as("the ping must still be delivered — telemetry degrades, it does not stop")
         .hasSize(1);
+
+    // Contract: the tier rides along on the /health response ALREADY fetched
+    // for platform_version. Nothing else in this suite would notice a second
+    // request being added, so assert the count on every capture — a doubled
+    // probe doubles the telemetry path's blocking budget and failure surface.
+    assertThat(WireMock.findAll(getRequestedFor(urlEqualTo("/health"))))
+        .as("exactly ONE /health fetch per ping — no new network call")
+        .hasSizeLessThanOrEqualTo(1);
     return requests.get(0).getBodyAsString();
   }
 
@@ -187,6 +195,46 @@ class TelemetryLicenseTierTest {
   // -------------------------------------------------------------------------
   // buildPayload: omission, not null
   // -------------------------------------------------------------------------
+
+  @Test
+  @DisplayName("exactly one /health request is made per ping")
+  void exactlyOneHealthRequestPerPing(WireMockRuntimeInfo wm) {
+    stubPlatform(200, "{\"version\":\"10.3.0\",\"tier\":\"Enterprise\"}");
+
+    captureWire(wm, wm.getHttpBaseUrl());
+
+    assertThat(WireMock.findAll(getRequestedFor(urlEqualTo("/health"))))
+        .as("the tier must come from the response already fetched, not a second request")
+        .hasSize(1);
+  }
+
+  @Test
+  @DisplayName("an empty tier handed straight to buildPayload is still omitted")
+  void emptyTierPassedDirectlyToBuildPayloadIsOmitted() throws Exception {
+    // buildPayload is package-visible, so the omit rule cannot live only in
+    // the probe. A bare null check here would write "license_tier":"".
+    String payload =
+        TelemetryReporter.buildPayload("production", "10.3.0", "remote", "self_hosted", "");
+
+    assertThat(objectMapper.readTree(payload).has("license_tier")).isFalse();
+    assertThat(payload).doesNotContain("license_tier");
+  }
+
+  @Test
+  @DisplayName("an oversized /health body fails open rather than buffering without limit")
+  void oversizedHealthBodyFailsOpen(WireMockRuntimeInfo wm) {
+    // Over the 1 MiB read bound: the read truncates, the parse fails, and both
+    // fields come back null — the same degradation as any other probe failure.
+    StringBuilder pad = new StringBuilder();
+    pad.append("x".repeat(1024 * 1024 + 16));
+    stubPlatform(200, "{\"version\":\"10.3.0\",\"tier\":\"Enterprise\",\"pad\":\"" + pad + "\"}");
+
+    TelemetryReporter.PlatformHealthProbe probe =
+        TelemetryReporter.probePlatformHealth(wm.getHttpBaseUrl(), 5000L);
+
+    assertThat(probe.platformVersion).isNull();
+    assertThat(probe.licenseTier).isNull();
+  }
 
   @Test
   @DisplayName("a null tier omits the key entirely rather than writing JSON null")
