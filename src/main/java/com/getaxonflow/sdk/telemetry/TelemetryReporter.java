@@ -135,7 +135,7 @@ public class TelemetryReporter {
       // Re-read on every heartbeat rather than cached for the process
       // lifetime: a licence can be applied to, or expire on, a running
       // platform, and a cached tier would keep reporting the pre-change
-      // edition for as long as the client lives.
+      // tier for as long as the client lives.
       PlatformHealthProbe probe =
           (sdkEndpoint != null && !sdkEndpoint.isEmpty() && healthBudgetMs > MIN_BUDGET_MS)
               ? probePlatformHealth(sdkEndpoint, healthBudgetMs)
@@ -246,9 +246,14 @@ public class TelemetryReporter {
    *       unknown}, classified from the endpoint URL. Says WHERE the platform runs.
    *   <li>The platform's own {@code DEPLOYMENT_MODE} env var — a server-side setting deciding which
    *       schema/tables the binary uses. Never read by this SDK and never sent here.
-   *   <li>{@code license_tier} — the platform's EDITION/entitlement. Says WHAT the platform is
-   *       licensed for.
+   *   <li>{@code license_tier} — what the platform REPORTED about its own licensing, for adoption
+   *       analytics.
    * </ol>
+   *
+   * <p>ITEM 3 IS NOT AN ENTITLEMENT FACT. This SDK relays whatever {@code /health} returned, and
+   * the receiver cannot verify the relay: whoever operates the endpoint the client was pointed at
+   * controls the value completely. It must never gate entitlement, unlock a feature, or enter any
+   * authorization or billing decision. See axonflow-enterprise#3619.
    *
    * <p>A community-mode binary can run on any topology and vice versa, so neither field is
    * derivable from the other.
