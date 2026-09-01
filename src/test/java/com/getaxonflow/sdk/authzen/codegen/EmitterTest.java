@@ -254,6 +254,64 @@ class EmitterTest {
   }
 
   @Test
+  @DisplayName("every generated list getter hands back an unmodifiable view")
+  void everyListGetterIsUnmodifiable() {
+    // These types are the READ model for a decision an enforcement point acts
+    // on. AuthZENDecision#getObligations() wraps, but it reads through
+    // AuthZENResponseContext#getObligations(), which handed the internal list
+    // back unwrapped - so the same state stayed writable one getter deeper and
+    // an obligation could be added to, or a mandatory one removed from, a
+    // decision already handed out.
+    //
+    // Asserted by RENDERING rather than against the five array members today's
+    // artifact happens to declare: a sixth added tomorrow is covered without
+    // anybody extending a list. The byte-comparison gate cannot catch this on
+    // its own - delete the wrapping from the emitter, regenerate, and the
+    // committed files are exactly what the emitter now produces.
+    ObjectNode a = baseArtifact();
+    ObjectNode listField = MAPPER.createObjectNode();
+    listField.put("name", "leaves");
+    listField.put("required", false);
+    listField
+        .putObject("type")
+        .put("kind", "array")
+        .putObject("items")
+        .put("kind", "ref")
+        .put("ref", "authzen_leaf");
+    ((com.fasterxml.jackson.databind.node.ArrayNode) a.get("types").get(1).get("fields"))
+        .add(listField);
+
+    Map<String, String> out = render(a);
+    String holder = out.get("AuthZENHolder.java");
+    assertThat(holder).contains("import java.util.Collections;");
+    assertThat(holder)
+        .contains(
+            "  public List<AuthZENLeaf> getLeaves() {\n"
+                + "    return leaves == null ? null : Collections.unmodifiableList(leaves);\n"
+                + "  }");
+
+    // The class check: nowhere in the whole emission does a List getter return
+    // the field bare. A single wrapped getter beside an unwrapped one is the
+    // exact shape this defect had.
+    int listGetters = 0;
+    for (Map.Entry<String, String> file : out.entrySet()) {
+      String[] lines = file.getValue().split("\n", -1);
+      for (int i = 0; i < lines.length - 1; i++) {
+        if (!lines[i].startsWith("  public List<") || !lines[i].endsWith("() {")) {
+          continue;
+        }
+        listGetters++;
+        assertThat(lines[i + 1])
+            .as("%s: %s returns its backing list unwrapped", file.getKey(), lines[i].trim())
+            .contains("Collections.unmodifiableList(");
+      }
+    }
+    assertThat(listGetters)
+        .as("no List getter was emitted at all, so this assertion saw nothing")
+        .isGreaterThanOrEqualTo(1);
+  }
+
+  @Test
   @DisplayName("an empty surface is refused rather than producing an empty SDK")
   void emptySurfaceIsRefused() {
     ObjectNode a = baseArtifact();

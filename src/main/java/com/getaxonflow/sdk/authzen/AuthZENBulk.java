@@ -19,6 +19,7 @@ package com.getaxonflow.sdk.authzen;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -125,10 +126,23 @@ public final class AuthZENBulk {
   }
 
   /**
+   * The returned list is UNMODIFIABLE. Replace the member through the setter rather than mutating
+   * what this returns.
+   *
+   * <p>The wrapper is not decoration. These types are the READ model for a decision an enforcement
+   * point acts on, and every hand-written accessor over one of them already wraps - {@code
+   * AuthZENDecision#getObligations()} does. Handing the internal list back unwrapped left the same
+   * state reachable and writable one getter deeper, so an obligation could be added to, or a
+   * mandatory one removed from, a decision that had already been handed out.
+   *
+   * <p>{@code null} is returned unchanged rather than as an empty list: an absent member and an
+   * empty one are different bytes on the wire, and the validator refuses an absent required member
+   * by name.
+   *
    * @return the {@code evaluations} member
    */
   public List<AuthZENRequest> getEvaluations() {
-    return evaluations;
+    return evaluations == null ? null : Collections.unmodifiableList(evaluations);
   }
 
   /**

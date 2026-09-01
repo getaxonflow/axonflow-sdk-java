@@ -499,13 +499,38 @@ public final class Emitter {
       String field = fieldName(f.name);
       String type = javaType(f);
       String upper = upperFirst(field);
+      boolean isList = "array".equals(f.type.kind);
+      List<String> getterDoc = new ArrayList<>();
+      getterDoc.add("@return the {@code " + f.name + "} member");
       b.append(
           Layout.javadoc(
               "  ",
-              Collections.<String>emptyList(),
-              Collections.singletonList("@return the {@code " + f.name + "} member")));
+              isList
+                  ? Arrays.asList(
+                      "The returned list is UNMODIFIABLE. Replace the member through the setter"
+                          + " rather than mutating what this returns.",
+                      "<p>The wrapper is not decoration. These types are the READ model for a"
+                          + " decision an enforcement point acts on, and every hand-written"
+                          + " accessor over one of them already wraps -"
+                          + " {@code AuthZENDecision#getObligations()} does. Handing the internal"
+                          + " list back unwrapped left the same state reachable and writable one"
+                          + " getter deeper, so an obligation could be added to, or a mandatory"
+                          + " one removed from, a decision that had already been handed out.",
+                      "<p>{@code null} is returned unchanged rather than as an empty list: an"
+                          + " absent member and an empty one are different bytes on the wire, and"
+                          + " the validator refuses an absent required member by name.")
+                  : Collections.<String>emptyList(),
+              getterDoc));
       b.append("  public ").append(type).append(" get").append(upper).append("() {\n");
-      b.append("    return ").append(field).append(";\n  }\n\n");
+      if (isList) {
+        b.append("    return ")
+            .append(field)
+            .append(" == null ? null : Collections.unmodifiableList(")
+            .append(field)
+            .append(");\n  }\n\n");
+      } else {
+        b.append("    return ").append(field).append(";\n  }\n\n");
+      }
 
       b.append(
           Layout.javadoc(
@@ -730,6 +755,10 @@ public final class Emitter {
     }
     if ("array".equals(tr.kind)) {
       needed.add("java.util.List");
+      // The generated getter hands back Collections.unmodifiableList, so the
+      // import travels with the array kind rather than being added at the one
+      // call site that happens to need it today.
+      needed.add("java.util.Collections");
       collectImports(tr.items, needed);
     } else if ("map".equals(tr.kind)) {
       needed.add("java.util.Map");

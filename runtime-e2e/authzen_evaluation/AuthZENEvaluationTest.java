@@ -23,6 +23,12 @@
  *      the real client at a port nothing is listening on: a typed refusal from
  *      that client is proof the check ran before any I/O.
  *
+ *   5. THE PROFILE NEGOTIATION REFUSES. The route's header contract has one
+ *      refusal of its own - a profile the caller named and this build does not
+ *      emit, answered 406 before anything is evaluated. Every other leg sends
+ *      AuthZENContract.PROFILE_V1 or no header, both of which the server
+ *      accepts, so nothing else here reaches the negotiation's failing side.
+ *
  * Run:
  *   ./mvnw -q -DskipTests package
  *   ./mvnw -q -DskipTests dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
@@ -55,7 +61,9 @@ import com.getaxonflow.sdk.authzen.AuthZENSubject;
 import com.getaxonflow.sdk.authzen.AuthZENTransportException;
 import com.getaxonflow.sdk.authzen.AuthZENUnresolvedException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -64,13 +72,41 @@ import okhttp3.Response;
 
 public class AuthZENEvaluationTest {
 
-  static final int EXPECTED_ASSERTIONS = 13;
+  static final int EXPECTED_ASSERTIONS = 14;
 
   /** A query the default community policy set permits. */
   static final String ALLOWED_QUERY = "what is our refund policy?";
 
   /** A query the default community policy set denies (SQL injection). */
   static final String DENIED_QUERY = "'; DROP TABLE users; --";
+
+  /**
+   * The refusal codes that mean "the adapter READ this envelope and could not evaluate a member of
+   * it".
+   *
+   * <p>{@code malformed_envelope} is deliberately absent: it is what the route sends when the body
+   * never became an envelope, so accepting it would let a stack that rejects everything at the door
+   * satisfy an assertion about the mapping layer. {@code evaluation_unavailable} is absent for the
+   * same reason in the other direction - it is the evaluator being unreachable, not a member being
+   * unevaluable.
+   */
+  static final List<String> MAPPING_LAYER_CODES =
+      Arrays.asList(
+          "incomplete_evaluation",
+          "unsupported_subject",
+          "unsupported_action",
+          "unsupported_resource",
+          "unevaluable_attribute",
+          "missing_evaluable_content");
+
+  /** A well-formed envelope whose subject names no type, which the SDK also refuses locally. */
+  static final String INCOMPLETE_SUBJECT_ENVELOPE =
+      "{\"evaluation\":{\"subject\":{\"id\":\"llm-gateway-01\"},"
+          + "\"action\":{\"name\":\"llm.completion\"},"
+          + "\"resource\":{\"type\":\"llm\",\"id\":\"llm\"},"
+          + "\"context\":{\"args\":{\"query\":\""
+          + ALLOWED_QUERY
+          + "\"}}}}";
 
   static final MediaType JSON = MediaType.parse("application/json");
   static final ObjectMapper MAPPER = new ObjectMapper();
@@ -230,15 +266,8 @@ public class AuthZENEvaluationTest {
           } catch (AuthZENRefusedException refused) {
             local = refused.getPointer();
           }
-          JsonNode remote =
-              rawRefusal(
-                  "{\"evaluation\":{\"subject\":{\"id\":\"llm-gateway-01\"},"
-                      + "\"action\":{\"name\":\"llm.completion\"},"
-                      + "\"resource\":{\"type\":\"llm\",\"id\":\"llm\"},"
-                      + "\"context\":{\"args\":{\"query\":\""
-                      + ALLOWED_QUERY
-                      + "\"}}}}");
-          String remotePointer = remote.path("pointer").asText(null);
+          Refusal remote = rawRefusal(INCOMPLETE_SUBJECT_ENVELOPE);
+          String remotePointer = remote.pointer();
           require(
               "/evaluation/subject/type".equals(local) && local.equals(remotePointer),
               "local pointer " + local + " vs server pointer " + remotePointer);
@@ -249,31 +278,49 @@ public class AuthZENEvaluationTest {
     // rather than hidden behind a pointer-only assertion. The two are NOT equal
     // and that is not a defect: this client knows only that a required member is
     // missing; the server additionally knows the supported set and narrows it.
+    //
+    // isKnown() ALONE would be satisfied by malformed_envelope, which is what a
+    // stack that rejects every body at the door sends - so on its own this
+    // assertion would pass against a server that never reached the adapter.
+    // Two things narrow it: the 422, which only the mapping layer emits (the
+    // door answers 400, an unreadable profile 406, an oversized body 413), and
+    // the accepted set, which is the adapter's own member-naming vocabulary
+    // with malformed_envelope deliberately left out.
     check(
-        "the server's refusal code is one this build knows",
+        "the server's refusal is a MAPPING-layer 422, with a code this build knows",
         () -> {
-          JsonNode remote =
-              rawRefusal(
-                  "{\"evaluation\":{\"subject\":{\"id\":\"llm-gateway-01\"},"
-                      + "\"action\":{\"name\":\"llm.completion\"},"
-                      + "\"resource\":{\"type\":\"llm\",\"id\":\"llm\"},"
-                      + "\"context\":{\"args\":{\"query\":\""
-                      + ALLOWED_QUERY
-                      + "\"}}}}");
-          String remoteCode = remote.path("code").asText("");
+          Refusal remote = rawRefusal(INCOMPLETE_SUBJECT_ENVELOPE);
+          String remoteCode = remote.code();
           System.out.println(
-              "       local code=incomplete_evaluation  server code=" + remoteCode);
+              "       local code=incomplete_evaluation  server status="
+                  + remote.status
+                  + " code="
+                  + remoteCode);
+          require(
+              remote.status == 422,
+              "status was " + remote.status + ", wanted 422 (a mapping-layer refusal)");
           require(
               AuthZENErrorCode.of(remoteCode).isKnown(),
               "the server sent " + remoteCode + ", which is not in this build's enumeration");
+          require(
+              MAPPING_LAYER_CODES.contains(remoteCode),
+              "the server sent "
+                  + remoteCode
+                  + "; a refusal that reached the adapter names one of "
+                  + MAPPING_LAYER_CODES);
         });
 
-    // --- 10: the bare boolean an un-negotiated caller receives ------------
+    // --- 10b: the one refusal unique to the header contract ---------------
+    check(
+        "an unrecognised profile is refused with 406, naming the profile it does emit",
+        AuthZENEvaluationTest::rawUnrecognisedProfileIs406);
+
+    // --- 11: the bare boolean an un-negotiated caller receives ------------
     check(
         "an un-negotiated request really does come back with NO profile payload",
         AuthZENEvaluationTest::rawUnnegotiatedHasNoContext);
 
-    // --- 11: an auth failure stays observable -----------------------------
+    // --- 12: an auth failure stays observable -----------------------------
     //
     // Needs a deployment that actually refuses an unregistered caller. Plain
     // community mode treats any client id as its own tenant and answers 200, so
@@ -305,7 +352,7 @@ public class AuthZENEvaluationTest {
           });
     }
 
-    // --- 12: the legacy surface is untouched ------------------------------
+    // --- 13: the legacy surface is untouched ------------------------------
     check(
         "POST /api/v1/decide still answers, so this surface is purely additive",
         () -> {
@@ -436,8 +483,34 @@ public class AuthZENEvaluationTest {
     }
   }
 
-  /** The refusal document the SERVER returns for an envelope the SDK refuses locally. */
-  static JsonNode rawRefusal(String envelope) throws Exception {
+  /** A refusal the SERVER returned: its HTTP status alongside its document. */
+  static final class Refusal {
+    final int status;
+    final JsonNode body;
+
+    Refusal(int status, JsonNode body) {
+      this.status = status;
+      this.body = body;
+    }
+
+    String code() {
+      return body.path("code").asText("");
+    }
+
+    String pointer() {
+      return body.path("pointer").asText(null);
+    }
+  }
+
+  /**
+   * The refusal the SERVER returns for an envelope the SDK refuses locally.
+   *
+   * <p>The STATUS travels with the document because the code alone does not say WHERE the refusal
+   * happened. {@code malformed_envelope} at 400 is the door; a mapping code at 422 is the adapter
+   * having read the envelope and found a member it cannot evaluate. An assertion that reads only
+   * the code passes against a stack that rejects every body at the door.
+   */
+  static Refusal rawRefusal(String envelope) throws Exception {
     Request request =
         new Request.Builder()
             .url(agent + AxonFlow.AUTHZEN_PATH)
@@ -451,7 +524,49 @@ public class AuthZENEvaluationTest {
       require(
           !response.isSuccessful(),
           "the server ACCEPTED an envelope the SDK refuses; the two have diverged");
-      return MAPPER.readTree(text);
+      return new Refusal(response.code(), MAPPER.readTree(text));
+    }
+  }
+
+  /**
+   * A profile this build does not emit is refused with 406, before anything is evaluated.
+   *
+   * <p>This is the ONE refusal unique to the route's header contract, and the only one no other
+   * assertion here can reach: every other leg sends {@link AuthZENContract#PROFILE_V1} or no header
+   * at all, and the server accepts both. Raw HTTP because the SDK deliberately has no way to name a
+   * profile it cannot read - that is what the constant is for - so the header has to be set by hand
+   * to exercise the server's half of the negotiation.
+   */
+  static void rawUnrecognisedProfileIs406() throws Exception {
+    // The same envelope the un-negotiated leg sends and gets a 200 for, so a
+    // 406 here can only be the header. That is what makes this evidence about
+    // the negotiation rather than about the body.
+    String envelope =
+        "{\"evaluation\":{\"subject\":{\"type\":\"gateway\",\"id\":\"llm-gateway-01\"},"
+            + "\"action\":{\"name\":\"llm.completion\"},"
+            + "\"resource\":{\"type\":\"llm\",\"id\":\"llm\"},"
+            + "\"context\":{\"args\":{\"query\":\""
+            + ALLOWED_QUERY
+            + "\"}}}}";
+    Request request =
+        new Request.Builder()
+            .url(agent + AxonFlow.AUTHZEN_PATH)
+            .header("Authorization", "Basic " + basic())
+            .header("X-Client-ID", clientId)
+            .header(AxonFlow.AUTHZEN_PROFILE_HEADER, "axonflow-authzen-profile-2099-01-01")
+            .post(RequestBody.create(envelope, JSON))
+            .build();
+    try (Response response = RAW.newCall(request).execute()) {
+      String text = response.body() == null ? "" : response.body().string();
+      require(response.code() == 406, "status was " + response.code() + ", wanted 406; body=" + text);
+      JsonNode node = MAPPER.readTree(text);
+      boolean namesV1 = false;
+      for (JsonNode s : node.path("supported")) {
+        if (AuthZENContract.PROFILE_V1.equals(s.asText())) {
+          namesV1 = true;
+        }
+      }
+      require(namesV1, "the refusal did not name " + AuthZENContract.PROFILE_V1 + ": " + text);
     }
   }
 

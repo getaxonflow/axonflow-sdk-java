@@ -72,8 +72,16 @@ REGEX=$(IFS='|'; echo "${PATTERNS[*]}")
 # and missed by the allowlist. A runtime-e2e harness that boots a mock server
 # from its compose file is exactly what this gate exists to stop, so the
 # exclusion is of MARKDOWN, not an allowlist of what to look at.
+#
+# `*.rst` and `*.txt` used to be excluded here too, which overshot the comment
+# directly above by two extensions and reopened the hole the allowlist had
+# already been rejected for: a `requirements.txt` under runtime-e2e/ pinning
+# `wiremock` is a harness declaring a mock server, not prose describing one, and
+# it was invisible. Only the two MARKDOWN extensions are excluded. An .rst or
+# .txt that genuinely names one of these in prose uses the `allow-mocks-here:`
+# marker, same as any other file.
 matches=$(grep -rnE "$REGEX" "$SCAN_DIR" \
-  --exclude='*.md' --exclude='*.markdown' --exclude='*.rst' --exclude='*.txt' \
+  --exclude='*.md' --exclude='*.markdown' \
   2>/dev/null || true)
 
 if [ -z "$matches" ]; then

@@ -10,7 +10,7 @@
     <name>AxonFlow Java SDK — AuthZEN Example</name>
     <description>
         The AuthZEN-native authorization surface (ADR-065) against a running
-        AxonFlow agent: nine steps, four of them refusals.
+        AxonFlow agent: nine steps, four of them refusals or unresolved.
 
         NOTE ON THE VERSION BELOW. It matches the SDK's current pom version, and
         that coordinate is already on Maven Central WITHOUT the authzen package -

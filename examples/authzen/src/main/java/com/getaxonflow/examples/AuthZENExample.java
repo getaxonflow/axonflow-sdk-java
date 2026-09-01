@@ -48,9 +48,10 @@ import java.util.List;
  * teaches a reader to write {@code if (decision.isAllowed())} and nothing else, and the first
  * refusal they meet in production is a string in a log.
  *
- * <p>Steps 5 to 8 are refusals - four of the nine. Each one is an outcome a real gateway hits.
- * Step 9 is the check a Policy Enforcement Point owes on the ALLOW path, which is the one people
- * forget.
+ * <p>Steps 5 to 8 are refusals or unresolved - four of the nine. Step 5 is the unresolved one and
+ * is not a refusal at all: the attribute never reaches the server, so nothing on the far side ever
+ * sees it, let alone refuses it. Each of the four is an outcome a real gateway hits. Step 9 is the
+ * check a Policy Enforcement Point owes on the ALLOW path, which is the one people forget.
  *
  * <p>The three non-refusal failure types ({@link
  * com.getaxonflow.sdk.authzen.AuthZENUnusableResponseException}, {@link
