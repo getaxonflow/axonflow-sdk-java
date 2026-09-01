@@ -37,6 +37,18 @@ import com.getaxonflow.sdk.types.webhook.WebhookTypes.*;
 import com.getaxonflow.sdk.util.*;
 import java.io.BufferedReader;
 import java.io.Closeable;
+import com.getaxonflow.sdk.authzen.AuthZENBulk;
+import com.getaxonflow.sdk.authzen.AuthZENContract;
+import com.getaxonflow.sdk.authzen.AuthZENDecision;
+import com.getaxonflow.sdk.authzen.AuthZENEnvelope;
+import com.getaxonflow.sdk.authzen.AuthZENError;
+import com.getaxonflow.sdk.authzen.AuthZENEvaluationException;
+import com.getaxonflow.sdk.authzen.AuthZENRefusedException;
+import com.getaxonflow.sdk.authzen.AuthZENRequest;
+import com.getaxonflow.sdk.authzen.AuthZENResponse;
+import com.getaxonflow.sdk.authzen.AuthZENTransportException;
+import com.getaxonflow.sdk.authzen.AuthZENUnreadableProfileException;
+import com.getaxonflow.sdk.authzen.AuthZENUnusableResponseException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -194,6 +206,10 @@ public final class AxonFlow implements Closeable {
                 config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
             .build();
     this.objectMapper = createObjectMapper();
+    this.authzenReader =
+        this.objectMapper
+            .copy()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
     this.retryExecutor = new RetryExecutor(config.getRetryConfig());
     this.cache = new ResponseCache(config.getCacheConfig());
     this.asyncExecutor = ForkJoinPool.commonPool();
@@ -3915,6 +3931,177 @@ public final class AxonFlow implements Closeable {
    */
   public CompletableFuture<MediaGovernanceStatus> getMediaGovernanceStatusAsync() {
     return CompletableFuture.supplyAsync(this::getMediaGovernanceStatus, asyncExecutor);
+  }
+
+  // ========================================================================
+  // AuthZEN-native authorization (ADR-065)
+  // ========================================================================
+
+  /** The AuthZEN evaluation endpoint. */
+  public static final String AUTHZEN_PATH = "/api/v1/access/evaluation";
+
+  /**
+   * The mapper this surface DECODES with: the shared one, with unknown members made fatal.
+   *
+   * <p>{@code createObjectMapper} turns {@code FAIL_ON_UNKNOWN_PROPERTIES} off, which is right
+   * everywhere else in this SDK — a server that added a member to a status payload should not break
+   * an older client. It is exactly wrong for an authorization decision: an unknown member there
+   * means the server is speaking a profile this build does not understand, and reading the members
+   * it recognises is acting on a partial interpretation of a decision.
+   *
+   * <p>It is a COPY rather than a second mapper built from scratch, so it inherits the modules, the
+   * date handling and anything added to {@code createObjectMapper} later. The one difference is the
+   * one this surface needs, and it is visible in a single line.
+   *
+   * <p>A per-class {@code @JsonIgnoreProperties(ignoreUnknown = false)} does NOT achieve this, and
+   * an earlier version of this code claimed it did: that value is Jackson's default and only
+   * declines to IGNORE — whether declining becomes a failure is this feature's decision.
+   */
+  private final ObjectMapper authzenReader;
+
+  /**
+   * The header that negotiates the AxonFlow profile.
+   *
+   * <p>The SDK always sends it. AuthZEN 1.0's response is a bare boolean, and the four-valued
+   * state, the obligations and the approval challenge ride in the response context, which the
+   * server returns only to a caller that asked for it by version. This SDK understands the profile,
+   * so there is no reason to ask for less than it can read.
+   */
+  public static final String AUTHZEN_PROFILE_HEADER = "X-Axonflow-AuthZEN-Profile";
+
+  /**
+   * Asks whether one subject may perform one action on one resource.
+   *
+   * <p>Fails closed: every outcome that is not a readable decision is an {@link
+   * AuthZENEvaluationException}, and there is no path through this method that returns an allow it
+   * could not fully read.
+   *
+   * <pre>{@code
+   * AuthZENDecision decision =
+   *     client.evaluate(
+   *         AuthZENEvaluation.of(
+   *                 new AuthZENSubject("gateway", "llm-gateway-01"),
+   *                 new AuthZENAction("llm.completion"),
+   *                 new AuthZENResource("llm", "llm"))
+   *             .query(Attribute.known(userPrompt))
+   *             .build());
+   * if (!decision.isAllowed()) {
+   *   throw new IllegalStateException("blocked: " + decision.getState());
+   * }
+   * }</pre>
+   *
+   * @param request the evaluation
+   * @return the decision
+   * @throws AuthZENRefusedException if the request was refused rather than evaluated
+   * @throws AuthZENUnreadableProfileException if the server answered in an unknown profile
+   * @throws AuthZENUnusableResponseException if the decision cannot be trusted
+   * @throws AuthZENTransportException if the request never got an answer
+   */
+  public AuthZENDecision evaluate(AuthZENRequest request) {
+    return evaluateEnvelope(new AuthZENEnvelope().setEvaluation(request));
+  }
+
+  /**
+   * Asks whether ONE operation is permitted against SEVERAL preconditions.
+   *
+   * <p>It returns ONE decision, not one per entry. The entries of a bulk request are preconditions
+   * of a single operation (moving a ticket must be authorized against the destination project as
+   * well as against the ticket), so they combine to the least permissive outcome: one denied entry
+   * denies the operation. An API returning a list would invite a caller to act on the entry it
+   * liked.
+   *
+   * <p>Any member an entry omits is inherited from the envelope's shared base, so the common case
+   * is a shared subject and action with one resource per entry.
+   *
+   * @param bulk the preconditions
+   * @return the single decision they combine to
+   * @throws AuthZENRefusedException if the request was refused rather than evaluated
+   * @throws AuthZENUnreadableProfileException if the server answered in an unknown profile
+   * @throws AuthZENUnusableResponseException if the decision cannot be trusted
+   * @throws AuthZENTransportException if the request never got an answer
+   */
+  public AuthZENDecision evaluateAll(AuthZENBulk bulk) {
+    return evaluateEnvelope(new AuthZENEnvelope().setEvaluations(bulk));
+  }
+
+  /** The one transport path both entry points share. */
+  private AuthZENDecision evaluateEnvelope(AuthZENEnvelope envelope) {
+    // Validated before the round trip. The server enforces the same rules and
+    // answers with a typed refusal, so for most of these this is a convenience
+    // -- a caller that mis-built an envelope learns it from a local error
+    // naming the member instead of from a 422.
+    //
+    // For ONE class it is not a convenience but the whole point: an attribute
+    // the caller could not resolve has no wire representation, so the server can
+    // never refuse it. Only this check can.
+    envelope.validate("");
+
+    byte[] body;
+    try {
+      body = objectMapper.writeValueAsBytes(envelope);
+    } catch (JsonProcessingException e) {
+      // Reachable when an attribute bag holds an unresolved member and
+      // something bypassed validate(). Reported as an unusable response rather
+      // than a transport failure: nothing was sent, and calling it a transport
+      // problem would send an operator to look at the network.
+      throw new AuthZENUnusableResponseException(
+          "the envelope could not be encoded: " + e.getMessage());
+    }
+
+    // Built through the same helper every other call uses, so this surface
+    // inherits the configured endpoint, user agent, auth headers and mode
+    // rather than assembling a second opinion about any of them. Only the
+    // profile header is added on top.
+    Request httpRequest =
+        buildRequest("POST", AUTHZEN_PATH, null)
+            .newBuilder()
+            .post(RequestBody.create(body, JSON))
+            .header(AUTHZEN_PROFILE_HEADER, AuthZENContract.PROFILE_V1)
+            .build();
+
+    String raw;
+    int status;
+    try (Response response = executeHttp(httpClient, httpRequest)) {
+      status = response.code();
+      ResponseBody responseBody = response.body();
+      raw = responseBody == null ? "" : responseBody.string();
+    } catch (IOException e) {
+      throw new AuthZENTransportException("the evaluation request failed: " + e.getMessage(), 0, e);
+    }
+
+    if (status != 200) {
+      // A refusal is a typed document, so the caller can branch on the code and
+      // be pointed at the member to fix. A body that is not one still surfaces
+      // as an error -- never as a decision.
+      AuthZENError refusal;
+      try {
+        refusal = authzenReader.readValue(raw, AuthZENError.class);
+      } catch (IOException ignored) {
+        refusal = null;
+      }
+      if (refusal != null
+          && refusal.getCode() != null
+          && !refusal.getCode().value().isEmpty()
+          && refusal.getMessage() != null
+          && !refusal.getMessage().isEmpty()) {
+        throw new AuthZENRefusedException(refusal);
+      }
+      throw new AuthZENTransportException(
+          "the evaluation request failed with HTTP " + status + ": " + raw, status, null);
+    }
+
+    // Strict decoding on the success path, through authzenReader rather than
+    // the shared mapper. An unknown member in a decision is a server speaking a
+    // profile this build does not understand, and quietly dropping it would
+    // mean acting on a partial reading of an authorization decision.
+    AuthZENResponse decoded;
+    try {
+      decoded = authzenReader.readValue(raw, AuthZENResponse.class);
+    } catch (IOException e) {
+      throw new AuthZENUnusableResponseException(
+          "the decision could not be decoded: " + e.getMessage() + "; body=" + raw);
+    }
+    return AuthZENDecision.from(decoded, AUTHZEN_PROFILE_HEADER);
   }
 
   // ========================================================================

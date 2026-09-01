@@ -1,0 +1,72 @@
+/*
+ * Copyright 2026 AxonFlow
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.getaxonflow.sdk.authzen;
+
+import com.getaxonflow.sdk.exceptions.AxonFlowException;
+
+/**
+ * Everything that can come back from an evaluation instead of a decision.
+ *
+ * <p>The four subclasses are separated by what a caller should DO, not by where the failure
+ * happened:
+ *
+ * <ul>
+ *   <li>{@link AuthZENRefusedException} — the request was refused rather than evaluated. Fix the
+ *       request; the refusal names the member.
+ *   <li>{@link AuthZENUnreadableProfileException} — the server answered in a profile this build
+ *       cannot interpret. Upgrade the SDK.
+ *   <li>{@link AuthZENUnusableResponseException} — a {@code 200} this build will not act on. A
+ *       server contract violation to report.
+ *   <li>{@link AuthZENTransportException} — no answer: connection, timeout, credentials, or a
+ *       non-refusal error status.
+ * </ul>
+ *
+ * <p>Collapsing them into one opaque exception would leave a caller with a message string to match
+ * on, and the first thing such a caller does is treat an auth failure as a denial.
+ *
+ * <p>None of them is a denial. A denial is a {@link AuthZENDecision} whose {@code allowed()} is
+ * false: the request WAS evaluated and the answer was no. That distinction is a type, not a
+ * convention, so no branch can lose it.
+ */
+public abstract class AuthZENEvaluationException extends AxonFlowException {
+
+  private static final long serialVersionUID = 1L;
+
+  AuthZENEvaluationException(String message) {
+    super(message);
+  }
+
+  AuthZENEvaluationException(String message, int statusCode, String errorCode, Throwable cause) {
+    super(message, statusCode, errorCode, cause);
+  }
+
+  /**
+   * Whether sending the same request again could produce a different answer.
+   *
+   * <p>This is the whole retryable set, in one place, so a caller never has to assemble it from
+   * status codes:
+   *
+   * <ul>
+   *   <li>a refusal — only when its code is {@code evaluation_unavailable};
+   *   <li>a transport failure — timeout, connect, {@code 5xx}, {@code 429};
+   *   <li>an unreadable profile — never;
+   *   <li>an unusable response — never.
+   * </ul>
+   *
+   * @return true when a retry could change the outcome
+   */
+  public abstract boolean isRetryable();
+}
