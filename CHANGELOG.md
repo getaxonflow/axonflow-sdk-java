@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.2.0] - 2026-09-01: AuthZEN-native authorization surface
+
 ### Added
 
 - AuthZEN-native authorization surface (ADR-065, enterprise #3603 / #3616).
@@ -40,6 +42,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `null` still comes back as `null`, because an absent member and an empty one
   are different bytes on the wire.
 
+- **Documentation.** `README.md` gains an "AuthZEN-native authorization"
+  section covering the call shape, the refusal contract, bulk semantics and
+  obligations. `docs/AUTHZEN_MIGRATION_DRAFT.md` carries the field-by-field
+  mapping table and the v10.3.0 / v11.0.0 / v12.0.0 timeline; it is a DRAFT
+  held out of the README on purpose, because nothing is deprecated today. The
+  legacy surface is deprecated at v11.0.0 and removed only at v12.0.0.
+- **Runnable proofs**: `examples/authzen/` and
+  `runtime-e2e/authzen_evaluation/` (the latter runs against a live agent).
+
 ### Changed
 
 - `examples/` now compiles in CI. The root pom declares no `<modules>`, so no
@@ -48,6 +59,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   each one, on pull requests as well as pushes. Four of the five examples were
   pinned a release behind and would have kept resolving an old SDK from Maven
   Central.
+
+### Migration notes
+
+- **No migration is required.** A 9.1.0 integration behaves identically on
+  9.2.0. `POST /api/v1/decide` and the gateway/proxy methods are unchanged,
+  still supported, and wire-stable through all of v11. The notes below apply
+  only if you choose to move an integration onto the new surface.
+- The mapping is mechanical: `stage: "llm"` becomes
+  `action.name = "llm.completion"` with `resource.type = "llm"`, `stage:
+  "tool"` becomes `tool.call` with `resource.id = "server/tool"`, and `stage:
+  "agent"` becomes `agent.invoke`. `query` moves to `context.args.query`
+  (`AuthZENEvaluation.query(...)`), `caller_identity.gateway_id` becomes
+  `subject.id` with `subject.type = "gateway"`, and `verdict` becomes the
+  `decision` boolean plus `context.state`, both of which
+  `AuthZENDecision.isAllowed()` requires.
+- **The one behavioural difference to plan for**: the legacy surface accepted
+  members it did not read; the AuthZEN surface refuses them with a `422`
+  naming the exact member. Port one call, run it, and read the pointers; the
+  diff is mechanical. A refusal is a different outcome from a denial
+  (`AuthZENRefusedException` versus an `AuthZENDecision` whose `isAllowed()`
+  is false), so a caller that branched on a boolean needs one more `catch`.
+- **`Attribute` is three-valued and the wire is not.** Porting an integration
+  that resolves attributes from an identity provider or a trace propagator
+  means deciding, per attribute, whether a failure to resolve is `absent`
+  (there is no value) or `unknown` (nobody knows). The SDK refuses to send a
+  request carrying an unresolved attribute, locally, before the round trip.
+- `resource.id` for an `llm` target must be exactly `"llm"`; a provider or
+  model name is refused, because nothing reads it and accepting it would
+  report that it was considered when it was not.
+- **The legacy surface is deprecated at v11.0.0 and removed only at v12.0.0.**
+  Deprecation is a signal to plan, not a breakage: it stays wire-stable through
+  all of v11, so a 9.2.0 integration keeps working on a v11 platform without
+  edits. The full table and that timeline live in
+  `docs/AUTHZEN_MIGRATION_DRAFT.md`.
+
+### Known issues
+
+- **The `Check code formatting` CI step cannot fail (#212, OPEN).** Its retry
+  loop breaks on the first red attempt, prints `skipped` and exits 0, so the
+  formatting gate reports success whatever the tree looks like. 44 files do not
+  comply today; none of them are the AuthZEN files, so the debt is
+  pre-existing. Contributors should not read a green board as evidence that
+  formatting was checked.
 
 ## [9.1.0] - 2026-08-04
 
