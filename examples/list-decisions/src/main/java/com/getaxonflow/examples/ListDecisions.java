@@ -6,6 +6,23 @@
 // explainDecision. Surfaces the V1 upgrade envelope on RateLimitException
 // so callers can branch on tier-cap upgrade context.
 //
+// # Whose decisions come back (platform #2922)
+//
+// Not the tenant's — the caller's. On an enterprise stack a tenant-wide role
+// (admin/owner/policy_admin) lists the whole tenant, any other identity lists
+// only its own rows, and a caller presenting NO identity lists nothing
+// whatsoever. That last case used to look exactly like a quiet tenant; the SDK
+// now refuses it as a ReadScopeException instead of reporting an empty page as
+// data.
+//
+// Mint an identity the way the E2E workflow does:
+//
+//   export AXONFLOW_USER_TOKEN=$(./scripts/generate-jwt.sh --kind user \
+//       --email dev@acme.com --org-id "$AXONFLOW_CLIENT_ID" --role developer --quiet)
+//
+// (./scripts/setup-e2e-testing.sh already exports exactly this variable.)
+// Community deployments are single-operator and need none of it.
+//
 // Run from this directory after `mvn install -DskipTests` at the SDK root:
 //
 //   export AXONFLOW_AGENT_URL=http://localhost:8080
@@ -23,6 +40,7 @@ package com.getaxonflow.examples;
 
 import com.getaxonflow.sdk.AxonFlow;
 import com.getaxonflow.sdk.AxonFlowConfig;
+import com.getaxonflow.sdk.exceptions.ReadScopeException;
 import com.getaxonflow.sdk.exceptions.RateLimitException;
 import com.getaxonflow.sdk.types.DecisionSummary;
 import com.getaxonflow.sdk.types.ListDecisionsOptions;
@@ -47,6 +65,10 @@ public class ListDecisions {
                 .endpoint(endpoint)
                 .clientId(clientId)
                 .clientSecret(clientSecret)
+                // The read-path identity this listing is scoped to. See the
+                // header: leaving it unset against an enterprise stack is what
+                // made this example report a confident, empty page.
+                .userToken(System.getenv("AXONFLOW_USER_TOKEN"))
                 .build());
 
     ListDecisionsOptions.Builder b = ListDecisionsOptions.builder();
@@ -73,6 +95,20 @@ public class ListDecisions {
             "  %s %-18s %s policy=%s tool=%s%n",
             ds.getTimestamp(), ds.getDecision(), ds.getDecisionId(), policy, tool);
       }
+    } catch (ReadScopeException e) {
+      if (!e.isIdentityMissing()) {
+        throw e;
+      }
+      System.err.println("=== This read was unscoped ===");
+      System.err.printf("  %s%n%n", e.getMessage());
+      System.err.println(
+          "  The platform returned zero rows because it resolved no identity to scope on,");
+      System.err.println("  not because your tenant has no decisions. Set AXONFLOW_USER_TOKEN:");
+      System.err.println(
+          "    export AXONFLOW_USER_TOKEN=$(./scripts/generate-jwt.sh --kind user \\");
+      System.err.println(
+          "        --email dev@acme.com --org-id \"$AXONFLOW_CLIENT_ID\" --role developer --quiet)");
+      System.exit(3);
     } catch (RateLimitException rle) {
       System.err.printf("=== Tier limit reached (%s) ===%n", rle.getLimitType());
       System.err.printf("  current tier: %s%n", rle.getTier());

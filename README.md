@@ -366,6 +366,84 @@ This surface does **not** go through the client's `RetryConfig`. That executor i
 
 The rest of the package is hand-written and is meant to be edited: `Attribute`, `AttributeValue`, `AttributeMap`, `AuthZENDecision`, `AuthZENEvaluation`, `AuthZENRefusals`, and the six exception types (`AuthZENEvaluationException` and its five subclasses).
 
+## Reading decisions: who is asking decides what comes back
+
+`explainDecision` and `listDecisions` — and the audit reads — are scoped to the
+**per-user identity** you present, not to the tenant credential. Since platform
+#2922:
+
+| What you present | What an enterprise stack returns |
+|---|---|
+| a tenant-wide role (`admin`, `owner`, `policy_admin`) | the whole tenant |
+| any other identity (`developer`, `viewer`) | only the rows attributed to it |
+| **no identity** | **nothing at all** — every list is empty, every explain is not-found |
+
+`clientId`/`clientSecret` authenticate the **organization**. They do not say who
+is asking, so on their own they land in the third row. Community and
+Community-SaaS deployments are single-operator and read tenant-wide with no
+identity needed.
+
+```java
+AxonFlow client = AxonFlow.create(
+    AxonFlowConfig.builder()
+        .endpoint("http://localhost:8080")
+        .clientId(System.getenv("AXONFLOW_CLIENT_ID"))
+        .clientSecret(System.getenv("AXONFLOW_CLIENT_SECRET"))
+        .userToken(System.getenv("AXONFLOW_USER_TOKEN"))   // the per-user identity
+        .build());
+
+// Per call:
+DecisionExplanation exp = client.explainDecision(decisionId, usersToken);
+
+// Or, for a process acting on behalf of several people, derive a client bound
+// to one person. Unlike the per-call overload, which only the read methods
+// have, this reaches EVERY method.
+List<DecisionSummary> rows = client.asUser(alicesToken).listDecisions(null);
+```
+
+The token is a per-user JWT — minted by the customer portal's user-token API, or
+for local testing by `scripts/generate-jwt.sh --kind user`. It is **not** the
+tenant JWT and not `clientSecret`. It is sent as `X-User-Token`, is never
+logged, never reaches telemetry, and is never sent to any origin but the
+configured endpoint.
+
+### Telling the outcomes apart
+
+"Not found", "not yours" and "no identity resolved" used to arrive as the same
+`404`, and an unscoped list arrived as an ordinary empty page. Both now carry a
+cause:
+
+```java
+try {
+    List<DecisionSummary> decisions = client.listDecisions(null);
+} catch (ReadScopeException e) {
+    if (e.isIdentityMissing()) {
+        // The platform resolved no identity, so it returned zero rows by
+        // construction. The empty answer was never evidence about your data.
+    }
+}
+```
+
+`explainDecision` is where the other scope shows up. Under `own-rows` the
+platform answers "not attributed to you" and "not there at all" with the **same
+404**, deliberately, so that a miss cannot be used to probe for another user's
+rows — the exception reports the scope the read ran under, never a claim about
+what exists.
+
+> **A valid token can still resolve to nobody.** The platform reserves the whole
+> of `@axonflow.local` and `@axonflow.internal` for *shared* identities and
+> censuses them to nothing before scoping. A correctly-signed developer token
+> minted at `demo-user@axonflow.local` — which is `generate-jwt.sh`'s own
+> default — reads zero rows and reports `isIdentityMissing()`, exactly like no
+> token at all. Mint per-user identities at a real domain.
+
+> **Setting `userToken` affects more than reads.** The header rides every
+> request and the agent validates it on every route it proxies — not just the
+> scoped reads. A stale or rotated token therefore turns `listConnectors`,
+> `installConnector` and policy CRUD into `401`s rather than merely unscoping a
+> read. That is the correct, fail-closed direction, but it puts this value in
+> the same rotation story as `clientSecret`.
+
 ## Error Handling
 
 The SDK provides typed exceptions for different error scenarios:

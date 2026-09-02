@@ -22,7 +22,22 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.getaxonflow.sdk.authzen.AuthZENBulk;
+import com.getaxonflow.sdk.authzen.AuthZENContract;
+import com.getaxonflow.sdk.authzen.AuthZENDecision;
+import com.getaxonflow.sdk.authzen.AuthZENEnvelope;
+import com.getaxonflow.sdk.authzen.AuthZENError;
+import com.getaxonflow.sdk.authzen.AuthZENErrorCode;
+import com.getaxonflow.sdk.authzen.AuthZENEvaluationException;
+import com.getaxonflow.sdk.authzen.AuthZENRefusedException;
+import com.getaxonflow.sdk.authzen.AuthZENRequest;
+import com.getaxonflow.sdk.authzen.AuthZENResponse;
+import com.getaxonflow.sdk.authzen.AuthZENTransportException;
+import com.getaxonflow.sdk.authzen.AuthZENUnreadableProfileException;
+import com.getaxonflow.sdk.authzen.AuthZENUnresolvedException;
+import com.getaxonflow.sdk.authzen.AuthZENUnusableResponseException;
 import com.getaxonflow.sdk.exceptions.*;
+import com.getaxonflow.sdk.identity.ReadIdentity;
 import com.getaxonflow.sdk.masfeat.MASFEATTypes.*;
 import com.getaxonflow.sdk.simulation.*;
 import com.getaxonflow.sdk.telemetry.HeartbeatState;
@@ -37,20 +52,6 @@ import com.getaxonflow.sdk.types.webhook.WebhookTypes.*;
 import com.getaxonflow.sdk.util.*;
 import java.io.BufferedReader;
 import java.io.Closeable;
-import com.getaxonflow.sdk.authzen.AuthZENBulk;
-import com.getaxonflow.sdk.authzen.AuthZENContract;
-import com.getaxonflow.sdk.authzen.AuthZENDecision;
-import com.getaxonflow.sdk.authzen.AuthZENErrorCode;
-import com.getaxonflow.sdk.authzen.AuthZENEnvelope;
-import com.getaxonflow.sdk.authzen.AuthZENError;
-import com.getaxonflow.sdk.authzen.AuthZENEvaluationException;
-import com.getaxonflow.sdk.authzen.AuthZENRefusedException;
-import com.getaxonflow.sdk.authzen.AuthZENRequest;
-import com.getaxonflow.sdk.authzen.AuthZENResponse;
-import com.getaxonflow.sdk.authzen.AuthZENTransportException;
-import com.getaxonflow.sdk.authzen.AuthZENUnresolvedException;
-import com.getaxonflow.sdk.authzen.AuthZENUnreadableProfileException;
-import com.getaxonflow.sdk.authzen.AuthZENUnusableResponseException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -69,6 +70,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
 import okhttp3.*;
+import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -209,9 +211,7 @@ public final class AxonFlow implements Closeable {
             .build();
     this.objectMapper = createObjectMapper();
     this.authzenReader =
-        this.objectMapper
-            .copy()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+        this.objectMapper.copy().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
     this.retryExecutor = new RetryExecutor(config.getRetryConfig());
     this.cache = new ResponseCache(config.getCacheConfig());
     this.asyncExecutor = ForkJoinPool.commonPool();
@@ -228,6 +228,101 @@ public final class AxonFlow implements Closeable {
     // executor so a 3-second telemetry POST never delays a user request.
     // See HeartbeatState for the full algorithm.
     invokeHeartbeat();
+  }
+
+  /**
+   * A client identical to this one but presenting {@code userToken}.
+   *
+   * <p>The shape to reach for when one process acts on behalf of several people — a gateway, a bot.
+   * Unlike the per-call {@code userToken} overload, which only the read methods accept, this
+   * reaches EVERY method: there is no carve-out to remember and no path on which the identity
+   * silently widens back to the process's own.
+   *
+   * <pre>{@code
+   * AxonFlow forAlice = client.asUser(aliceToken);
+   * List<DecisionSummary> rows = forAlice.listDecisions(null);
+   * }</pre>
+   *
+   * <p>The returned client shares this one's CONNECTION POOL and dispatcher (OkHttp's {@code
+   * newBuilder()} contract), so deriving one per request is cheap. It does NOT share the identity
+   * interceptor: that one is rebuilt against the derived config, because an interceptor captured
+   * from this client would keep reading THIS client's identity and {@code asUser} would silently
+   * have no effect. Every proxy, timeout and TLS setting is carried across by {@code newBuilder()},
+   * so the derivation cannot quietly lose an egress proxy either.
+   *
+   * <p>Sub-objects that hold a reference back to a client are rebuilt against the derived one for
+   * the same reason. The session cookie is copied by value, so a portal login on either after the
+   * derivation is invisible to the other; derive after logging in if the derived client needs the
+   * portal plane, which authenticates with the cookie rather than with this identity.
+   *
+   * <p>An empty token returns a client presenting no identity at all, which on an enterprise stack
+   * reads nothing.
+   *
+   * @param userToken the per-user identity, or {@code null}/empty for none
+   * @return a derived client bound to that identity
+   */
+  public AxonFlow asUser(String userToken) {
+    String trimmed = userToken == null ? null : userToken.trim();
+    AxonFlowConfig derivedConfig =
+        config.toBuilder().userToken(trimmed == null || trimmed.isEmpty() ? null : trimmed).build();
+    return new AxonFlow(this, derivedConfig);
+  }
+
+  /**
+   * Derivation constructor: same pool, different identity.
+   *
+   * <p>Deliberately NOT a copy of every field. Anything holding a reference to the client that
+   * created it is rebuilt here; copying such a reference would hand the derived client an object
+   * that still calls through the ORIGINAL — with the original's identity — and the bug would only
+   * appear when the parent touched it first, which is exactly the ordering a long-lived gateway
+   * has.
+   */
+  private AxonFlow(AxonFlow parent, AxonFlowConfig derivedConfig) {
+    this.config = derivedConfig;
+
+    // Same pool and dispatcher (newBuilder()'s contract), and every proxy,
+    // timeout and TLS setting carried across — but the identity interceptor is
+    // REPLACED. The parent's captures the parent's config, so reusing it would
+    // leave the derived client reading the parent's identity and asUser would
+    // silently do nothing.
+    OkHttpClient.Builder derivedBuilder = parent.httpClient.newBuilder();
+    derivedBuilder
+        .networkInterceptors()
+        .removeIf(interceptor -> interceptor instanceof ReadIdentity.IdentityInterceptor);
+    derivedBuilder.addNetworkInterceptor(
+        ReadIdentity.interceptor(derivedConfig.getEndpoint(), derivedConfig::getUserToken));
+    this.httpClient = derivedBuilder.build();
+
+    this.planHttpClient =
+        this.httpClient
+            .newBuilder()
+            .callTimeout(
+                derivedConfig.getMapTimeout().toMillis(),
+                java.util.concurrent.TimeUnit.MILLISECONDS)
+            .readTimeout(
+                derivedConfig.getMapTimeout().toMillis(),
+                java.util.concurrent.TimeUnit.MILLISECONDS)
+            .writeTimeout(
+                derivedConfig.getMapTimeout().toMillis(),
+                java.util.concurrent.TimeUnit.MILLISECONDS)
+            .build();
+
+    // Shared: stateless or deliberately common across the pair.
+    this.objectMapper = parent.objectMapper;
+    this.authzenReader = parent.authzenReader;
+    this.retryExecutor = parent.retryExecutor;
+    this.cache = parent.cache;
+    this.asyncExecutor = parent.asyncExecutor;
+    this.sessionCookie = parent.sessionCookie;
+
+    // Rebuilt, NOT copied: it holds a reference to the client that created it,
+    // so a copy would still call through the parent, under the parent's
+    // identity.
+    this.masfeatNamespace = new MASFEATNamespace();
+
+    // No heartbeat here: the gate is process-global and the parent already ran
+    // it. Firing one per derived client would turn a per-request derivation
+    // into a per-request telemetry gate.
   }
 
   /**
@@ -665,21 +760,47 @@ public final class AxonFlow implements Closeable {
           Request httpRequest = buildOrchestratorRequest("POST", "/api/v1/audit/search", req);
           try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
-
-            // Handle both array and wrapped response formats
-            if (node.isArray()) {
-              List<AuditLogEntry> entries =
-                  objectMapper.convertValue(node, new TypeReference<List<AuditLogEntry>>() {});
-              return AuditSearchResponse.fromArray(
-                  entries,
-                  req.getLimit() != null ? req.getLimit() : 100,
-                  req.getOffset() != null ? req.getOffset() : 0);
+            AuditSearchResponse page =
+                decodeAuditPage(
+                    node,
+                    req.getLimit() != null ? req.getLimit() : 100,
+                    req.getOffset() != null ? req.getOffset() : 0);
+            // The audit reads are in the same role-scoped family as decisions
+            // (platform/orchestrator applyReadScopeHeader), so they inherit the
+            // same rule: an empty page under scope `none` could not have
+            // contained a row, and reporting it as data is the vacuous read
+            // this SDK now refuses. Applied to the DECODED page, so it holds on
+            // BOTH wire shapes rather than on whichever branch the server took.
+            ReadScopeException scoped =
+                ReadIdentity.refuseVacuousScopedPage(
+                    response,
+                    "audit entries",
+                    page.getEntries() == null ? 0 : page.getEntries().size());
+            if (scoped != null) {
+              throw scoped;
             }
-
-            return objectMapper.treeToValue(node, AuditSearchResponse.class);
+            return page;
           }
         },
         "searchAuditLogs");
+  }
+
+  /**
+   * Decodes an audit page in either shape the platform sends: a bare array, or the wrapped envelope
+   * with its own total/limit/offset.
+   *
+   * <p>Extracted because both audit reads decoded it inline, identically, with a separate return
+   * per shape — four places for one rule to be applied in, and the scope refusal above would have
+   * had to be written in all four to hold.
+   */
+  private AuditSearchResponse decodeAuditPage(JsonNode node, int limit, int offset)
+      throws com.fasterxml.jackson.core.JsonProcessingException {
+    if (node.isArray()) {
+      List<AuditLogEntry> entries =
+          objectMapper.convertValue(node, new TypeReference<List<AuditLogEntry>>() {});
+      return AuditSearchResponse.fromArray(entries, limit, offset);
+    }
+    return objectMapper.treeToValue(node, AuditSearchResponse.class);
   }
 
   /**
@@ -728,9 +849,36 @@ public final class AxonFlow implements Closeable {
    * @throws AxonFlowException if the request fails or the decision is past retention
    */
   public DecisionExplanation explainDecision(String decisionId) {
+    return explainDecision(decisionId, null);
+  }
+
+  /**
+   * Fetches a decision explanation as a specific per-user identity.
+   *
+   * <p>Overrides the client-wide {@code userToken} for THIS call only. Use it when one process acts
+   * on behalf of several people. An empty string is not an identity: it makes this read explicitly
+   * unidentified rather than falling back to the client-wide one — a distinction that has to exist,
+   * because "unidentified" is a state the platform treats as different from every other.
+   *
+   * <p>For a process acting for several people across MANY methods, prefer {@link #asUser(String)}:
+   * this overload exists only on the read methods, while a derived client reaches every method with
+   * no carve-out.
+   *
+   * @param decisionId the global decision identifier
+   * @param userToken the per-user identity for this call, or {@code null} to use the client's
+   * @return the decision explanation
+   * @throws ReadScopeException when the decision is not among the rows this identity can see, or no
+   *     identity was resolved. Check {@code isIdentityMissing()} to tell those apart.
+   */
+  public DecisionExplanation explainDecision(String decisionId, String userToken) {
     if (decisionId == null || decisionId.isEmpty()) {
       throw new IllegalArgumentException("decisionId is required");
     }
+    AxonFlow scoped = userToken == null ? this : asUser(userToken);
+    return scoped.explainDecisionScoped(decisionId);
+  }
+
+  private DecisionExplanation explainDecisionScoped(String decisionId) {
     return retryExecutor.execute(
         () -> {
           // Path-segment encoding: URLEncoder is application/x-www-form-urlencoded
@@ -744,6 +892,19 @@ public final class AxonFlow implements Closeable {
           String path = "/api/v1/decisions/" + encoded + "/explain";
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
           try (Response response = executeHttp(httpClient, httpRequest)) {
+            // A scoped miss reports WHY it missed. Only 404 is interpreted: the
+            // scope header is stamped before the handler writes its status, so
+            // it also rides a 500 from further down the handler, and explaining
+            // a server fault as a scoping outcome would be exactly the
+            // confidently-wrong diagnosis this type exists to prevent.
+            if (response.code() == 404) {
+              ReadScopeException scoped =
+                  ReadIdentity.scopeErrorFor(
+                      "decision", decisionId, ReadIdentity.scopeOf(response), response.code());
+              if (scoped != null) {
+                throw scoped;
+              }
+            }
             JsonNode node = parseResponseNode(response);
             return objectMapper.treeToValue(node, DecisionExplanation.class);
           }
@@ -798,6 +959,28 @@ public final class AxonFlow implements Closeable {
    * @throws AxonFlowException other HTTP errors (401, 5xx, etc.)
    */
   public List<DecisionSummary> listDecisions(ListDecisionsOptions opts) {
+    return listDecisions(opts, null);
+  }
+
+  /**
+   * Lists the decisions visible to a specific per-user identity.
+   *
+   * <p>Overrides the client-wide {@code userToken} for THIS call only. See {@link
+   * #explainDecision(String, String)} for the semantics, and {@link #asUser(String)} for the shape
+   * to prefer when one process acts for several people across many methods.
+   *
+   * @param opts filter + page-size options (may be null)
+   * @param userToken the per-user identity for this call, or {@code null} to use the client's
+   * @return the decisions visible to that identity
+   * @throws ReadScopeException when the page was empty because no per-user identity was resolved,
+   *     so it could not have contained a row
+   */
+  public List<DecisionSummary> listDecisions(ListDecisionsOptions opts, String userToken) {
+    AxonFlow scoped = userToken == null ? this : asUser(userToken);
+    return scoped.listDecisionsScoped(opts);
+  }
+
+  private List<DecisionSummary> listDecisionsScoped(ListDecisionsOptions opts) {
     return retryExecutor.execute(
         () -> {
           String path = "/api/v1/decisions" + buildListDecisionsQuery(opts);
@@ -843,6 +1026,14 @@ public final class AxonFlow implements Closeable {
               for (JsonNode row : decisionsNode) {
                 result.add(objectMapper.treeToValue(row, DecisionSummary.class));
               }
+            }
+            // An empty page under ReadScope.NONE is the fail-closed shape, not
+            // a finding: the platform returned zero rows because it resolved no
+            // identity to scope on, so the page says nothing about what exists.
+            ReadScopeException scoped =
+                ReadIdentity.refuseVacuousScopedPage(response, "decisions", result.size());
+            if (scoped != null) {
+              throw scoped;
             }
             return result;
           }
@@ -943,15 +1134,17 @@ public final class AxonFlow implements Closeable {
           Request httpRequest = buildOrchestratorRequest("GET", path, null);
           try (Response response = executeHttp(httpClient, httpRequest)) {
             JsonNode node = parseResponseNode(response);
-
-            // Handle both array and wrapped response formats
-            if (node.isArray()) {
-              List<AuditLogEntry> entries =
-                  objectMapper.convertValue(node, new TypeReference<List<AuditLogEntry>>() {});
-              return AuditSearchResponse.fromArray(entries, opts.getLimit(), opts.getOffset());
+            AuditSearchResponse page = decodeAuditPage(node, opts.getLimit(), opts.getOffset());
+            // Same rule, same family as searchAuditLogs.
+            ReadScopeException scoped =
+                ReadIdentity.refuseVacuousScopedPage(
+                    response,
+                    "audit entries",
+                    page.getEntries() == null ? 0 : page.getEntries().size());
+            if (scoped != null) {
+              throw scoped;
             }
-
-            return objectMapper.treeToValue(node, AuditSearchResponse.class);
+            return page;
           }
         },
         "getAuditLogsByTenant");
@@ -4057,7 +4250,8 @@ public final class AxonFlow implements Closeable {
       // reproduces the identical refusal forever. Same code, opposite action, so
       // they must not arrive as the same thing.
       if (AuthZENErrorCode.EVALUATION_UNAVAILABLE.equals(refusal.getCode())) {
-        throw new AuthZENUnresolvedException(refusal.getPointer(), refusal.getRefusal().getMessage());
+        throw new AuthZENUnresolvedException(
+            refusal.getPointer(), refusal.getRefusal().getMessage());
       }
       throw refusal;
     }
@@ -7920,9 +8114,9 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
-     * Reads {@code primary} if present (even when 0), otherwise {@code fallback}, otherwise 0.
-     * Used for #3254 real-key-first reads with legacy-spelling tolerance: a PRESENT primary key
-     * always wins so a genuine 0 is never overridden by a stale fallback value.
+     * Reads {@code primary} if present (even when 0), otherwise {@code fallback}, otherwise 0. Used
+     * for #3254 real-key-first reads with legacy-spelling tolerance: a PRESENT primary key always
+     * wins so a genuine 0 is never overridden by a stale fallback value.
      */
     private int intWithFallback(JsonNode node, String primary, String fallback) {
       if (node.has(primary) && !node.get(primary).isNull()) {

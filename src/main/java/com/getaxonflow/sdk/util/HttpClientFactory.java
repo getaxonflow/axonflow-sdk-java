@@ -16,6 +16,7 @@
 package com.getaxonflow.sdk.util;
 
 import com.getaxonflow.sdk.AxonFlowConfig;
+import com.getaxonflow.sdk.identity.ReadIdentity;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Locale;
@@ -153,6 +154,15 @@ public final class HttpClientFactory {
             return response;
           });
     }
+
+    // The read-path per-user identity: the SDK's ONE identity site. A NETWORK
+    // interceptor, deliberately — it runs once per HOP, including every redirect
+    // OkHttp follows, so the origin check inside is re-evaluated on each. An
+    // application interceptor runs once, before redirects, and the header would
+    // then ride the follow-up request to a host the caller never named, on
+    // exactly the hop where OkHttp drops Authorization. See ReadIdentity.
+    builder.addNetworkInterceptor(
+        ReadIdentity.interceptor(config.getEndpoint(), config::getUserToken));
 
     return builder.build();
   }
