@@ -480,6 +480,7 @@ class AdapterRegistryTest {
           java.util.regex.Pattern.compile("java\\.net\\.http\\."),
           // The legacy JDK client.
           java.util.regex.Pattern.compile("HttpURLConnection|\\.openConnection\\("),
+          java.util.regex.Pattern.compile("\\.openStream\\("),
           // A send on a chained expression: `HttpClient.newHttpClient().send(...)`.
           // Deliberately anchored on the closing paren rather than on a receiver
           // NAME — that is what made the previous needle miss this and match
@@ -587,7 +588,11 @@ class AdapterRegistryTest {
             // import-only version of this detector.
             "    private static final java.net.http.HttpClient http =",
             "        return java.net.http.HttpClient.newHttpClient()",
-            "      HttpURLConnection conn = (HttpURLConnection) url.openConnection();")) {
+            "      HttpURLConnection conn = (HttpURLConnection) url.openConnection();",
+            // `URL.openStream()` issues a GET without ever naming a client, a
+            // connection or `java.net.http` — it walked through every earlier
+            // revision of this detector. Found in review, not by the detector.
+            "      try (InputStream in = new URL(endpoint).openStream()) {")) {
       assertThat(isRequestCapability(requestCapable))
           .as("detector MISSES a request-capable line: %s", requestCapable)
           .isTrue();
@@ -819,10 +824,14 @@ class AdapterRegistryTest {
     pb.environment().put("XDG_CACHE_HOME", tmp.resolve(".cache").toString());
     pb.redirectErrorStream(true);
 
-    // RESET THE REQUEST JOURNAL FIRST. Other tests in this class POST to /v1/ping
-    // and the journal is shared across them, so `hasSize(1)` below could be
-    // satisfied by SOMEONE ELSE'S ping — passing even with the cold path made
-    // async. The assertion must read only what THIS child produced.
+    // Read only what THIS child produced. `@WireMockTest` already resets the
+    // server before each test, so this is belt-and-braces rather than the thing
+    // that makes the assertion sound — stated plainly because an earlier
+    // revision of this file carried a comment claiming the reset was load
+    // bearing while the CALL was missing entirely, and built an explanation on
+    // top of it. The reset is cheap; the false account was not.
+    WireMock.resetAllRequests();
+
     Process proc = pb.start();
     String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
     boolean exited = proc.waitFor(60, java.util.concurrent.TimeUnit.SECONDS);

@@ -405,6 +405,21 @@ class HeartbeatStateTest {
     assertThat(HeartbeatState.guardIntervalFor(Integer.MAX_VALUE)).isEqualTo(sevenDays);
     // A negative counter cannot produce a negative interval either.
     assertThat(HeartbeatState.guardIntervalFor(-5)).isEqualTo(hour);
+
+    // EXACTLY 64, AND THE REASON IS THE JVM RATHER THAN THE ARITHMETIC. Java masks a
+    // long shift distance to its low 6 bits, so `x << 64` is `x << 0` — the value comes
+    // back UNSHIFTED. Without the `Math.min(..., MAX_BACKOFF_DOUBLINGS)` clamp, a process
+    // on its 64th consecutive failure would compute a one-HOUR interval: the backoff
+    // silently inverts into its most aggressive setting at the point it should be at its
+    // most patient, and an air-gapped deployment goes back to retrying hourly forever.
+    //
+    // Every other assertion in this test survives deleting that clamp. Integer.MAX_VALUE
+    // masks to 31, which shifts to a large positive value that trips the `> 7 days` cap
+    // and returns the right answer for the wrong reason. 64 is the value that exposes it,
+    // and nothing here used it until the reviewer asked what pinned the ceiling.
+    assertThat(HeartbeatState.guardIntervalFor(64)).isEqualTo(sevenDays);
+    assertThat(HeartbeatState.guardIntervalFor(65)).isEqualTo(sevenDays);
+    assertThat(HeartbeatState.guardIntervalFor(128)).isEqualTo(sevenDays);
   }
 
   @Test
