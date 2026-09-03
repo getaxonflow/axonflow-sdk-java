@@ -208,6 +208,26 @@ jobs:
       - name: Configure Maven mirror
         uses: ./.github/actions/setup-maven
 
+      # Runs BEFORE the step it verifies, deliberately. This asserts that the
+      # formatting step still fails on a violation -- the property #220 was
+      # filed for, when the previous loop broke out of both arms on attempt 1
+      # and the required `lint` context passed whatever the check returned.
+      #
+      # The script existed from #225 but nothing invoked it, so the property it
+      # pins was unpinned in practice: the fix could regress and this job would
+      # stay green, which is the same failure one level up. It uses stubs, needs
+      # no Maven, and runs in about a second.
+      - name: Verify the formatting gate can fail
+        run: ./scripts/verify-formatting-gate.sh
+
+      # The other self-described gate in scripts/. It plants a known defect and
+      # asserts a NAMED test goes red; a surviving mutant means the suite cannot
+      # see that defect. It had zero workflow references until R3 pointed out
+      # that the first version of GuardsAreWiredTest checked the two scripts
+      # that prompted the issue rather than enumerating them.
+      - name: Verify the mutation gate still kills its mutant
+        run: ./scripts/mutation-gate.sh
+
       - name: Check code formatting
         run: |
           # BOTH arms of the previous loop broke on attempt 1, so this step exited 0

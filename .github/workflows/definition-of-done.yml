@@ -27,11 +27,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run lint
         run: |
-          if [ -x scripts/lint-no-mocks-in-runtime-e2e.sh ]; then
-            ./scripts/lint-no-mocks-in-runtime-e2e.sh
-          else
-            echo "lint-no-mocks-in-runtime-e2e.sh not present — skipping (older branch)."
-          fi
+          # Invoked through `bash`, and ABSENCE is a failure rather than a skip.
+          #
+          # The previous form tested `-x` and echoed "not present - skipping
+          # (older branch)" otherwise, so this REQUIRED context passed whenever
+          # the script was missing OR had merely lost its executable bit. That is
+          # fail-open on a missing tool: `chmod -x` alone turned the gate off and
+          # every board stayed green. One file away from the fail-open that #220
+          # was filed for, and the same shape.
+          test -f scripts/lint-no-mocks-in-runtime-e2e.sh || {
+            echo "::error::scripts/lint-no-mocks-in-runtime-e2e.sh is missing; this required check cannot pass without it"
+            exit 1
+          }
+          bash scripts/lint-no-mocks-in-runtime-e2e.sh
 
   runtime-e2e-required:
     name: Runtime E2E required for user-facing changes
