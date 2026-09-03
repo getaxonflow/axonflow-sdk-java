@@ -79,10 +79,10 @@ public final class AxonFlowConfig {
   /**
    * Default timeout for MAP (Multi-Agent Planning) requests.
    *
-   * <p>MAP plans chain several LLM calls end-to-end and routinely run longer than a single
-   * request — a 5-step plan at ~15s/step takes 60-75s by itself. 120s matches the TypeScript /
-   * Python / Go SDK defaults. Override per-client via {@link Builder#mapTimeout(Duration)} or
-   * {@code AXONFLOW_MAP_TIMEOUT_SECONDS}. The orchestrator's plan budget caps at {@code
+   * <p>MAP plans chain several LLM calls end-to-end and routinely run longer than a single request
+   * — a 5-step plan at ~15s/step takes 60-75s by itself. 120s matches the TypeScript / Python / Go
+   * SDK defaults. Override per-client via {@link Builder#mapTimeout(Duration)} or {@code
+   * AXONFLOW_MAP_TIMEOUT_SECONDS}. The orchestrator's plan budget caps at {@code
    * AXONFLOW_MAP_MAX_TIMEOUT_SECONDS} (default 300s); the front-door ALB's {@code
    * idle_timeout.timeout_seconds} must be {@code >=} that cap or the connection is killed
    * mid-stream. Keep these three knobs moving together.
@@ -98,6 +98,23 @@ public final class AxonFlowConfig {
   private final String endpoint;
   private final String clientId;
   private final String clientSecret;
+
+  /**
+   * The per-user identity this client presents on the READ path, sent as the {@code X-User-Token}
+   * header on every request bound for the configured endpoint.
+   *
+   * <p>{@code clientId}/{@code clientSecret} authenticate the ORGANIZATION; this authenticates the
+   * PERSON. Since platform #2922 the role-scoped reads ({@code explainDecision}, {@code
+   * listDecisions}, the audit reads) are answered from this identity: an enterprise stack scopes a
+   * developer or viewer to their own rows, gives a tenant-wide role (admin / owner / policy_admin)
+   * the whole tenant, and returns ZERO rows to a caller that presents no identity at all.
+   *
+   * <p>SETTING THIS AFFECTS MORE THAN READS. The header rides every request and the agent VALIDATES
+   * it on every route it proxies, so a stale or rotated token turns {@code listConnectors}, {@code
+   * installConnector} and policy CRUD into 401s rather than merely unscoping a read.
+   */
+  private final String userToken;
+
   private final Mode mode;
   private final Duration timeout;
   private final Duration mapTimeout;
@@ -116,6 +133,7 @@ public final class AxonFlowConfig {
             : normalizeUrl(builder.endpoint != null ? builder.endpoint : DEFAULT_ENDPOINT);
     this.clientId = builder.clientId;
     this.clientSecret = builder.clientSecret;
+    this.userToken = builder.userToken;
     this.mode = builder.mode != null ? builder.mode : Mode.PRODUCTION;
     this.timeout = builder.timeout != null ? builder.timeout : DEFAULT_TIMEOUT;
     this.mapTimeout = builder.mapTimeout != null ? builder.mapTimeout : DEFAULT_MAP_TIMEOUT;
@@ -245,6 +263,15 @@ public final class AxonFlowConfig {
     return clientId;
   }
 
+  /**
+   * The per-user identity for role-scoped reads, or {@code null}.
+   *
+   * @return the read-path identity token
+   */
+  public String getUserToken() {
+    return userToken;
+  }
+
   public String getClientSecret() {
     return clientSecret;
   }
@@ -295,8 +322,8 @@ public final class AxonFlowConfig {
    *
    * <p>Per ADR-050 §4, every governed request to the agent carries this header so the agent can
    * derive request scope (sdk) and validate it against the token's aud.scope via HasScope().
-   * Sourced from the bundled {@link #SDK_VERSION}; there is intentionally no env / config
-   * override (the consumer doesn't get to spoof its own client identity to the agent).
+   * Sourced from the bundled {@link #SDK_VERSION}; there is intentionally no env / config override
+   * (the consumer doesn't get to spoof its own client identity to the agent).
    *
    * @return the agent-parseable {@code "sdk-java/<semver>"} client header value
    */
@@ -325,6 +352,32 @@ public final class AxonFlowConfig {
     return Objects.hash(endpoint, clientId, mode, debug, insecureSkipVerify);
   }
 
+  /**
+   * A builder pre-populated with this config's values.
+   *
+   * <p>Every field is carried across, so a derivation cannot quietly lose a timeout, a proxy-facing
+   * TLS setting or the retry policy. {@code AxonFlow.asUser} uses it to change exactly one thing —
+   * the read-path identity — and nothing else.
+   *
+   * @return a builder seeded from this config
+   */
+  public Builder toBuilder() {
+    Builder builder = new Builder();
+    builder.endpoint = this.endpoint;
+    builder.clientId = this.clientId;
+    builder.clientSecret = this.clientSecret;
+    builder.userToken = this.userToken;
+    builder.mode = this.mode;
+    builder.timeout = this.timeout;
+    builder.mapTimeout = this.mapTimeout;
+    builder.debug = this.debug;
+    builder.insecureSkipVerify = this.insecureSkipVerify;
+    builder.retryConfig = this.retryConfig;
+    builder.cacheConfig = this.cacheConfig;
+    builder.userAgent = this.userAgent;
+    return builder;
+  }
+
   @Override
   public String toString() {
     return "AxonFlowConfig{"
@@ -348,6 +401,7 @@ public final class AxonFlowConfig {
     private String endpoint;
     private String clientId;
     private String clientSecret;
+    private String userToken;
     private Mode mode;
     private Duration timeout;
     private Duration mapTimeout;
@@ -411,6 +465,29 @@ public final class AxonFlowConfig {
     }
 
     /**
+     * Sets the per-user identity for the READ path, sent as {@code X-User-Token}.
+     *
+     * <p>{@code clientId}/{@code clientSecret} say which ORGANIZATION is asking; this says WHO.
+     * Since platform #2922 {@code explainDecision}, {@code listDecisions} and the audit reads are
+     * scoped to it — an enterprise stack returns ZERO rows to a caller that presents none, which
+     * the SDK now reports as a {@code ReadScopeException} rather than as an empty result.
+     *
+     * <p>The value is a per-user JWT: minted by the customer portal's user-token API, or for local
+     * testing by {@code scripts/generate-jwt.sh --kind user}. It is NOT the tenant JWT and not the
+     * client secret. Community deployments are single-operator and ignore it.
+     *
+     * <p>Override per call with the {@code userToken} overload on a read, or derive a client bound
+     * to one person with {@code client.asUser(token)}.
+     *
+     * @param userToken the per-user identity token
+     * @return this builder
+     */
+    public Builder userToken(String userToken) {
+      this.userToken = userToken;
+      return this;
+    }
+
+    /**
      * Sets the operating mode.
      *
      * @param mode the mode (PRODUCTION or SANDBOX)
@@ -470,14 +547,14 @@ public final class AxonFlowConfig {
      * the runtime environment. This double-gate is intentional defense-in-depth: a stray builder
      * call in application code cannot silently bypass certificate validation in production.
      *
-     * <p>If the builder flag is set but the environment variable is not, the SDK will log a
-     * warning at client construction time and keep TLS verification enabled.
+     * <p>If the builder flag is set but the environment variable is not, the SDK will log a warning
+     * at client construction time and keep TLS verification enabled.
      *
      * <p><strong>Use cases:</strong> local development against self-signed certificates only.
      * <strong>Never</strong> enable in production.
      *
-     * @param insecureSkipVerify true to request that verification be skipped (also requires
-     *     {@code AXONFLOW_INSECURE_TLS=true} environment variable)
+     * @param insecureSkipVerify true to request that verification be skipped (also requires {@code
+     *     AXONFLOW_INSECURE_TLS=true} environment variable)
      * @return this builder
      */
     public Builder insecureSkipVerify(boolean insecureSkipVerify) {
