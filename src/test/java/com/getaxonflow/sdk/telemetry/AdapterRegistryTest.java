@@ -427,7 +427,7 @@ class AdapterRegistryTest {
   }
 
   /**
-   * Request sites allowed to exist, keyed by file, with the CLOSED category each is in.
+   * Files allowed to issue HTTP requests, and the CLOSED category each is in.
    *
    * <p>A free-text reason let a new site claim any justification it liked; naming a category from a
    * fixed set makes "which kind of exemption is this" answerable.
@@ -450,43 +450,69 @@ class AdapterRegistryTest {
           "TelemetryReporter.java", RequestSiteCategory.TELEMETRY_PATH,
           "AxonFlowTry.java", RequestSiteCategory.NO_CLIENT);
 
-  private static final java.util.Map<String, Integer> REQUEST_SITE_COUNTS =
-      java.util.Map.of("AxonFlow.java", 1, "TelemetryReporter.java", 2, "AxonFlowTry.java", 1);
+  /**
+   * Evidence that a FILE can issue an HTTP request.
+   *
+   * <p>THE FILE IS THE UNIT, NOT THE CALL SITE, and that is a correction. A call-shaped needle has
+   * to guess the receiver's spelling, and every guess leaves a hole: {@code (?i:client)\.send\(}
+   * requires the literal word "client", so {@code HttpClient.newHttpClient().send(...)}, a field
+   * named {@code http} calling {@code .send(}, and {@code openConnection()} all slipped past it —
+   * while {@code mailClient.send(message)} matched and was a false positive. A needle wrong in both
+   * directions is worse than none, because it reads as coverage.
+   *
+   * <p>Asking "can this file issue an HTTP request at all" is answerable from its IMPORTS, which a
+   * receiver rename cannot change. A file that imports {@code java.net.http} can issue one however
+   * it spells the call.
+   *
+   * <p>DECLARED LIMIT: a source scan is still only as wide as what it matches. A request issued
+   * through a helper in ANOTHER file leaves no evidence here — but that helper's own file would be
+   * caught, which is the property that matters.
+   */
+  private static final java.util.List<java.util.regex.Pattern> REQUEST_CAPABILITY =
+      java.util.List.of(
+          // OkHttp: the call itself, since the import is `okhttp3.*` and is far more widespread.
+          java.util.regex.Pattern.compile("\\.newCall\\("),
+          // java.net.http, however the send is spelled — and matched ANYWHERE in
+          // code, not only on an `import` line. Re-planting the review's three
+          // bypasses showed why: a fully-qualified
+          // `java.net.http.HttpClient.newHttpClient()` needs no import at all, so
+          // an import-only pattern let two of the three straight through.
+          java.util.regex.Pattern.compile("java\\.net\\.http\\."),
+          // The legacy JDK client.
+          java.util.regex.Pattern.compile("HttpURLConnection|\\.openConnection\\("),
+          // A send on a chained expression: `HttpClient.newHttpClient().send(...)`.
+          // Deliberately anchored on the closing paren rather than on a receiver
+          // NAME — that is what made the previous needle miss this and match
+          // `mailClient.send(message)` at the same time.
+          java.util.regex.Pattern.compile("\\)\\.send\\("));
+
+  /** True when {@code line} is evidence the enclosing file can issue an HTTP request. */
+  private static boolean isRequestCapability(String line) {
+    String trimmed = line.trim();
+    // Prose mentioning an API is not a use of it — a marker string colliding with
+    // the comment beside it is its own failure mode.
+    if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
+      return false;
+    }
+    return REQUEST_CAPABILITY.stream().anyMatch(pat -> pat.matcher(line).find());
+  }
 
   @Test
-  @DisplayName("every outbound request path passes the heartbeat trigger")
+  @DisplayName("every file that can issue an HTTP request is accounted for")
   void everyRequestSitePassesTheTrigger() throws Exception {
     // The heartbeat fires on the client's FIRST OUTBOUND REQUEST, which makes "which code
     // paths count as a request" a correctness question. A gate placed at some callers is
     // not a gate on the others: the Go SDK had one bypass (StreamExecutionStatus) and the
     // Python SDK had TEN, each of which meant a process using only that path never pinged.
-    //
-    // THE NEEDLE NOW SEES java.net.http TOO. The first version matched only OkHttp's
-    // `.newCall(`, so AxonFlowTry.register() — a real outbound request, issued with
-    // HttpClient.send — was invisible to a census whose whole job is to find request
-    // paths. A guard that cannot see a whole HTTP client is not a census.
-    //
-    // DECLARED LIMIT: a source scan is only as wide as the syntax it matches. It sees
-    // `.newCall(` and `.send(` on a *client receiver, plus `.sendAsync(`. It would not see
-    // a request issued through a future helper that hides the call behind another name.
     java.nio.file.Path srcRoot = java.nio.file.Paths.get("src/main/java");
-    java.util.Map<String, Integer> found = new java.util.LinkedHashMap<>();
+    java.util.Set<String> found = new java.util.TreeSet<>();
     try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(srcRoot)) {
       for (java.nio.file.Path f : files.filter(f -> f.toString().endsWith(".java")).toList()) {
-        int count = 0;
         for (String line : java.nio.file.Files.readAllLines(f)) {
-          String trimmed = line.trim();
-          // Prose mentioning a call is not a call — a marker string colliding with the
-          // comment beside it is its own failure mode.
-          if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
-            continue;
+          if (isRequestCapability(line)) {
+            found.add(f.getFileName().toString());
+            break;
           }
-          if (REQUEST_CALL.matcher(line).find()) {
-            count++;
-          }
-        }
-        if (count > 0) {
-          found.put(f.getFileName().toString(), count);
         }
       }
     }
@@ -494,16 +520,17 @@ class AdapterRegistryTest {
     // POSITIVE CONTROL: a scan finding nothing has stopped working, and an empty result
     // would otherwise read as "no bypasses" — the most dangerous way for a source guard
     // to fail.
-    assertThat(found).as("the scan found ZERO request sites, which cannot be true").isNotEmpty();
+    assertThat(found)
+        .as("the scan found ZERO request-capable files, which cannot be true")
+        .isNotEmpty();
 
-    assertThat(found.keySet())
+    assertThat(found)
         .as(
-            "a request path outside executeHttp never reaches the heartbeat trigger, so a "
-                + "process using only that path would never ping. Route it through "
-                + "executeHttp, or call the trigger and add it to REQUEST_SITES with a category.")
-        .isEqualTo(REQUEST_SITE_COUNTS.keySet());
-    assertThat(found).isEqualTo(REQUEST_SITE_COUNTS);
-    assertThat(REQUEST_SITES.keySet()).isEqualTo(REQUEST_SITE_COUNTS.keySet());
+            "a file that can issue an HTTP request outside executeHttp is a path on which the "
+                + "SDK never pings, so a process using only that path would be invisible. Route "
+                + "it through executeHttp, or call the trigger and add it to REQUEST_SITES with "
+                + "a category.")
+        .isEqualTo(new java.util.TreeSet<>(REQUEST_SITES.keySet()));
   }
 
   @Test
@@ -527,33 +554,186 @@ class AdapterRegistryTest {
     assertThat(src).as("nor hold one").doesNotContain("private final AxonFlow ");
   }
 
-  /**
-   * How an outbound HTTP request is spelled in this SDK.
-   *
-   * <p>OkHttp's {@code .newCall(}, and {@code java.net.http}'s {@code .send(} / {@code .sendAsync(}
-   * on a receiver whose name ends in {@code Client} or {@code CLIENT}. The receiver is part of the
-   * pattern deliberately: a bare {@code .send(} matches unrelated code and a guard that cries wolf
-   * trains the next reader to add a bogus exemption, after which the census means nothing.
-   */
-  private static final java.util.regex.Pattern REQUEST_CALL =
-      java.util.regex.Pattern.compile("\\.newCall\\(|(?i:client)\\.send(?:Async)?\\(");
-
   @Test
-  @DisplayName("the census needle has no false positives")
-  void censusNeedleHasNoFalsePositives() {
-    // A guard that cries wolf is not a stricter guard: it trains the next reader to add a
-    // bogus exemption, after which the census means nothing. Ported from the Go review,
-    // where widening a needle to a bare `.Get(` flagged three `Header.Get(...)` sites.
-    for (String notARequest :
+  @DisplayName("the detector is driven by the REAL predicate, in both directions")
+  void theDetectorIsDrivenByTheRealPredicate() {
+    // THE EARLIER VERSION OF THIS TEST DID NOT USE THE DETECTOR. It re-implemented
+    // `.contains(".newCall(")` inline, so it would have passed with the regex list
+    // emptied — a control that cannot fail is not a control, which is the exact defect
+    // this file exists to prevent elsewhere.
+    for (String notARequestCapable :
         Arrays.asList(
             "    String scope = response.header(\"X-Axonflow-Read-Scope\");",
             "    Call call = client.newBuilder().build().newCall2(request);",
-            "    // return client.newCall(request).execute();")) {
-      boolean matches = notARequest.contains(".newCall(") && !notARequest.trim().startsWith("//");
-      assertThat(matches).as("false positive on: %s", notARequest).isFalse();
+            "    queue.send(message);",
+            // Previously a FALSE POSITIVE: the old needle matched any receiver whose
+            // name ended in "client". Naming the capability by IMPORT rather than by
+            // call shape removes the whole class.
+            "    mailClient.send(message);",
+            "    this.emitter.send(event);")) {
+      assertThat(isRequestCapability(notARequestCapable))
+          .as("false positive on: %s", notARequestCapable)
+          .isFalse();
     }
-    // And it must still match the real spelling.
-    assertThat("      return client.newCall(request).execute();".contains(".newCall(")).isTrue();
+
+    // And every real spelling must be caught — including the three that slipped past
+    // the call-shaped needle in review.
+    for (String requestCapable :
+        Arrays.asList(
+            "      return client.newCall(request).execute();",
+            "import java.net.http.HttpClient;",
+            "      var r = HttpClient.newHttpClient().send(req, BodyHandlers.ofString());",
+            // Fully qualified, no import — one of the two that survived the
+            // import-only version of this detector.
+            "    private static final java.net.http.HttpClient http =",
+            "        return java.net.http.HttpClient.newHttpClient()",
+            "      HttpURLConnection conn = (HttpURLConnection) url.openConnection();")) {
+      assertThat(isRequestCapability(requestCapable))
+          .as("detector MISSES a request-capable line: %s", requestCapable)
+          .isTrue();
+    }
+
+    // Comments are not code.
+    assertThat(isRequestCapability("      // return client.newCall(request).execute();")).isFalse();
+    assertThat(isRequestCapability("   * import java.net.http.HttpClient;")).isFalse();
+
+    // A FIELD receiver — `http.send(req, ...)` — is deliberately NOT matched
+    // line-by-line: no spelling of a receiver name can be enumerated safely, which
+    // is the lesson from the previous needle. It is caught at FILE level by the
+    // import, which is how the detector is actually used, so the control has to be
+    // file-shaped too.
+    java.util.List<String> fileWithFieldReceiver =
+        Arrays.asList(
+            "package com.example;",
+            "import java.net.http.HttpClient;",
+            "class Sneaky {",
+            "  private final HttpClient http = HttpClient.newHttpClient();",
+            "  void go() throws Exception { http.send(req, BodyHandlers.ofString()); }",
+            "}");
+    assertThat(fileWithFieldReceiver.stream().anyMatch(AdapterRegistryTest::isRequestCapability))
+        .as("a file with a field-named HttpClient must be caught by its import")
+        .isTrue();
+
+    // ...and a file that merely mentions HTTP in prose must not be.
+    java.util.List<String> fileWithOnlyProse =
+        Arrays.asList(
+            "package com.example;",
+            "/** Talks to the platform, but only through AxonFlow's own client. */",
+            "class Innocent {",
+            "  // import java.net.http.HttpClient; -- deliberately not used",
+            "}");
+    assertThat(fileWithOnlyProse.stream().anyMatch(AdapterRegistryTest::isRequestCapability))
+        .as("prose about HTTP is not the ability to issue HTTP")
+        .isFalse();
+  }
+
+  @Test
+  @DisplayName("followSslRedirects(false) is pinned SEPARATELY from followRedirects(false)")
+  void followSslRedirectsIsPinnedOnItsOwn() throws Exception {
+    // These are two different settings and only one of them governs the hop that
+    // matters. OkHttp's followSslRedirects controls http<->https specifically —
+    // exactly the redirect a captive portal or a TLS-terminating proxy produces —
+    // and it defaults to TRUE. Removing it alone leaves every other redirect test
+    // green, because those fixtures are http->http.
+    //
+    // The e2e cannot vary the scheme (both listeners are local http), so this is a
+    // SOURCE assertion: honest about being weaker than a behavioural one, and
+    // present because the alternative is no coverage of that axis at all.
+    String src =
+        java.nio.file.Files.readString(
+            java.nio.file.Paths.get(
+                "src/main/java/com/getaxonflow/sdk/telemetry/TelemetryReporter.java"));
+    assertThat(countOccurrences(src, ".followRedirects(false)"))
+        .as("both telemetry clients — the /health probe and the checkpoint POST")
+        .isEqualTo(2);
+    assertThat(countOccurrences(src, ".followSslRedirects(false)"))
+        .as(
+            "followRedirects(false) alone still permits an http<->https hop, which is the "
+                + "redirect a captive portal produces and the one that would relay a platform "
+                + "the caller never pointed at")
+        .isEqualTo(2);
+  }
+
+  private static int countOccurrences(String haystack, String needle) {
+    int n = 0;
+    int i = haystack.indexOf(needle);
+    while (i >= 0) {
+      n++;
+      i = haystack.indexOf(needle, i + needle.length());
+    }
+    return n;
+  }
+
+  /** Captures what a logger emitted during one block, so a diagnostic can be asserted. */
+  private static java.util.List<String> captureDebug(Class<?> loggerFor, Runnable body) {
+    ch.qos.logback.classic.Logger logger =
+        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(loggerFor);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    appender.start();
+    ch.qos.logback.classic.Level previous = logger.getLevel();
+    logger.setLevel(ch.qos.logback.classic.Level.DEBUG);
+    logger.addAppender(appender);
+    try {
+      body.run();
+    } finally {
+      logger.detachAppender(appender);
+      logger.setLevel(previous);
+    }
+    return appender.list.stream()
+        .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+        .toList();
+  }
+
+  @Test
+  @DisplayName("a refused /health redirect is LOGGED, without leaking the Location")
+  void aRefusedHealthRedirectIsLogged(WireMockRuntimeInfo wm) {
+    // A refused redirect is the one failure on this path that would otherwise look
+    // like an ordinary non-2xx, so the diagnostic naming it is part of the contract —
+    // and an unasserted log line is a claim, not a behaviour.
+    stubFor(
+        get("/health")
+            .willReturn(
+                aResponse()
+                    .withStatus(302)
+                    .withHeader("Location", "http://elsewhere.test/health")));
+
+    java.util.List<String> logged =
+        captureDebug(
+            TelemetryReporter.class,
+            () -> TelemetryReporter.probePlatformHealth(wm.getHttpBaseUrl(), 2000));
+
+    assertThat(logged)
+        .as("MUTATION GATE: delete the isRedirect branch in probePlatformHealth and this fails")
+        .anyMatch(m -> m.contains("redirect") && m.contains("302"));
+    assertThat(logged)
+        .as(
+            "the Location value is remote-controlled text; the diagnostic only needs to say "
+                + "WHAT was refused, not where it pointed")
+        .noneMatch(m -> m.contains("elsewhere.test"));
+  }
+
+  @Test
+  @DisplayName("a refused checkpoint redirect is LOGGED — the leg that would look like success")
+  void aRefusedCheckpointRedirectIsLogged(WireMockRuntimeInfo wm) {
+    stubFor(
+        post("/v1/ping")
+            .willReturn(
+                aResponse()
+                    .withStatus(302)
+                    .withHeader("Location", "http://elsewhere.test/v1/ping")));
+
+    java.util.List<String> logged =
+        captureDebug(
+            TelemetryReporter.class,
+            () ->
+                TelemetryReporter.sendPingNow(
+                    "production", "", false, wm.getHttpBaseUrl() + "/v1/ping"));
+
+    assertThat(logged)
+        .as("MUTATION GATE: delete the isRedirect branch in sendPingNow and this fails")
+        .anyMatch(m -> m.contains("redirect") && m.contains("302"));
+    assertThat(logged).noneMatch(m -> m.contains("elsewhere.test"));
   }
 
   /**
@@ -639,6 +819,10 @@ class AdapterRegistryTest {
     pb.environment().put("XDG_CACHE_HOME", tmp.resolve(".cache").toString());
     pb.redirectErrorStream(true);
 
+    // RESET THE REQUEST JOURNAL FIRST. Other tests in this class POST to /v1/ping
+    // and the journal is shared across them, so `hasSize(1)` below could be
+    // satisfied by SOMEONE ELSE'S ping — passing even with the cold path made
+    // async. The assertion must read only what THIS child produced.
     Process proc = pb.start();
     String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
     boolean exited = proc.waitFor(60, java.util.concurrent.TimeUnit.SECONDS);
@@ -658,42 +842,5 @@ class AdapterRegistryTest {
                 + "for the constructor, reintroduced by moving the trigger.%n%s",
             output)
         .hasSize(1);
-  }
-
-  @Test
-  @DisplayName("followSslRedirects(false) is pinned SEPARATELY from followRedirects(false)")
-  void followSslRedirectsIsPinnedOnItsOwn() throws Exception {
-    // These are two different settings and only one of them governs the hop that
-    // matters. OkHttp's followSslRedirects controls http<->https specifically —
-    // exactly the redirect a captive portal or a TLS-terminating proxy produces —
-    // and it defaults to TRUE. Removing it alone leaves every other redirect test
-    // green, because those fixtures are http->http.
-    //
-    // The e2e cannot vary the scheme (both listeners are local http), so this is a
-    // SOURCE assertion: honest about being weaker than a behavioural one, and
-    // present because the alternative is no coverage of that axis at all.
-    String src =
-        java.nio.file.Files.readString(
-            java.nio.file.Paths.get(
-                "src/main/java/com/getaxonflow/sdk/telemetry/TelemetryReporter.java"));
-    assertThat(countOccurrences(src, ".followRedirects(false)"))
-        .as("both telemetry clients — the /health probe and the checkpoint POST")
-        .isEqualTo(2);
-    assertThat(countOccurrences(src, ".followSslRedirects(false)"))
-        .as(
-            "followRedirects(false) alone still permits an http<->https hop, which is the "
-                + "redirect a captive portal produces and the one that would relay a platform "
-                + "the caller never pointed at")
-        .isEqualTo(2);
-  }
-
-  private static int countOccurrences(String haystack, String needle) {
-    int n = 0;
-    int i = haystack.indexOf(needle);
-    while (i >= 0) {
-      n++;
-      i = haystack.indexOf(needle, i + needle.length());
-    }
-    return n;
   }
 }

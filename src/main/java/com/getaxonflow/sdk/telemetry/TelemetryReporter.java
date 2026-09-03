@@ -43,10 +43,10 @@ import org.slf4j.LoggerFactory;
  *
  * <p>{@code AXONFLOW_TELEMETRY=off} in the environment is the SOLE opt-out path as of v8.0. The
  * v7.x {@code telemetry(Boolean)} config-builder override has been removed; the previous silent
- * suppression of sandbox-mode pings has also been removed. Sandbox-mode pings now fire on the
- * same heartbeat schedule as production-mode pings, tagged {@code stream="sandbox"} in the
- * payload so analytics can distinguish dev/test pings from production heartbeat (the wire-side
- * allowlist is enforced by the checkpoint service — see {@code IsValidIncomingStream}).
+ * suppression of sandbox-mode pings has also been removed. Sandbox-mode pings now fire on the same
+ * heartbeat schedule as production-mode pings, tagged {@code stream="sandbox"} in the payload so
+ * analytics can distinguish dev/test pings from production heartbeat (the wire-side allowlist is
+ * enforced by the checkpoint service — see {@code IsValidIncomingStream}).
  */
 public class TelemetryReporter {
 
@@ -54,6 +54,7 @@ public class TelemetryReporter {
 
   static final String DEFAULT_ENDPOINT = "https://checkpoint.getaxonflow.com/v1/ping";
   private static final int TIMEOUT_SECONDS = 3;
+
   /**
    * Minimum remaining HTTP budget (milliseconds). Below this, skip the operation rather than issue
    * a request that is almost guaranteed to time out before any useful work completes. Keeps the
@@ -106,8 +107,8 @@ public class TelemetryReporter {
   /**
    * Adapter names declared by {@link #registerAdapter}.
    *
-   * <p>A set, so a framework that registers on every wrapper construction — the ordinary case for an
-   * adapter whose constructor runs per request — declares itself once on the wire rather than N
+   * <p>A set, so a framework that registers on every wrapper construction — the ordinary case for
+   * an adapter whose constructor runs per request — declares itself once on the wire rather than N
    * times. Concurrent because registration can race a heartbeat thread reading it.
    */
   private static final java.util.Set<String> ADAPTER_REGISTRY =
@@ -135,8 +136,8 @@ public class TelemetryReporter {
    *
    * <p>Idempotent and thread-safe.
    *
-   * <p>THE NAME IS NOT VALIDATED AGAINST A LIST, DELIBERATELY. The canonical vocabulary lives on the
-   * receiver ({@code NormalizeAdapterFeature}), which folds an unrecognised name into {@code
+   * <p>THE NAME IS NOT VALIDATED AGAINST A LIST, DELIBERATELY. The canonical vocabulary lives on
+   * the receiver ({@code NormalizeAdapterFeature}), which folds an unrecognised name into {@code
    * adapter:unknown} at READ time while keeping the raw name on the row. An allowlist here would be
    * a second vocabulary that drifts: a name this SDK build predates would be dropped at the client
    * instead of arriving and rendering as "someone is using an adapter we do not know about".
@@ -165,8 +166,8 @@ public class TelemetryReporter {
    *
    * <p>An over-long entry is DROPPED rather than truncated, deliberately differing from the
    * receiver's own {@code BoundFeatures}. The receiver truncates because it is defending storage
-   * against arbitrary clients; here the entry is something this process declared about itself, and a
-   * truncated adapter name is a name nothing is running.
+   * against arbitrary clients; here the entry is something this process declared about itself, and
+   * a truncated adapter name is a name nothing is running.
    */
   static java.util.List<String> boundFeatures(java.util.List<String> features) {
     java.util.List<String> out = new java.util.ArrayList<>();
@@ -247,16 +248,14 @@ public class TelemetryReporter {
   /**
    * Send a single telemetry ping and return whether it landed.
    *
-   * <p>Returns {@code true} only when the POST received a 2xx response.
-   * Network failures, timeouts, and non-2xx responses all return
-   * {@code false}. Used by the heartbeat orchestrator (see
-   * {@link HeartbeatState}) where the boolean drives stamp-on-DELIVERY
-   * semantics: only successful POSTs advance the stamp file.
+   * <p>Returns {@code true} only when the POST received a 2xx response. Network failures, timeouts,
+   * and non-2xx responses all return {@code false}. Used by the heartbeat orchestrator (see {@link
+   * HeartbeatState}) where the boolean drives stamp-on-DELIVERY semantics: only successful POSTs
+   * advance the stamp file.
    *
-   * <p>The caller is responsible for the gating decision — this method
-   * does NOT consult AXONFLOW_TELEMETRY, isEnabled, the stamp file, or
-   * any rate-limit state. That separation lets the heartbeat module make
-   * the gating decision once and only update the stamp on success.
+   * <p>The caller is responsible for the gating decision — this method does NOT consult
+   * AXONFLOW_TELEMETRY, isEnabled, the stamp file, or any rate-limit state. That separation lets
+   * the heartbeat module make the gating decision once and only update the stamp on success.
    */
   public static boolean sendPingNow(
       String mode, String sdkEndpoint, boolean debug, String checkpointUrl) {
@@ -272,8 +271,7 @@ public class TelemetryReporter {
     String deploymentMode = classifyDeploymentMode(sdkEndpoint);
 
     try {
-      long deadlineMs =
-          System.nanoTime() / 1_000_000L + TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS);
+      long deadlineMs = System.nanoTime() / 1_000_000L + TimeUnit.SECONDS.toMillis(TIMEOUT_SECONDS);
 
       long healthBudgetMs =
           Math.min(
@@ -356,17 +354,17 @@ public class TelemetryReporter {
    *
    * <p>{@code AXONFLOW_TELEMETRY=off} in the environment is the SOLE opt-out path as of v8.0.
    * Telemetry is otherwise ON by default, regardless of mode (sandbox / production / anything
-   * else). Sandbox-mode pings are tagged {@code stream="sandbox"} in the payload so analytics
-   * can still distinguish them — see {@link #buildPayload}.
+   * else). Sandbox-mode pings are tagged {@code stream="sandbox"} in the payload so analytics can
+   * still distinguish them — see {@link #buildPayload}.
    *
-   * <p>Historical context: v7.x supported a {@code Boolean configOverride} parameter and a
-   * {@code mode != "sandbox"} default-suppression rule. Both were removed in v8.0 to leave a
-   * single, ops-controlled opt-out lever and avoid silent suppression that masks real adoption
-   * signal. See CHANGELOG v8.0.0.
+   * <p>Historical context: v7.x supported a {@code Boolean configOverride} parameter and a {@code
+   * mode != "sandbox"} default-suppression rule. Both were removed in v8.0 to leave a single,
+   * ops-controlled opt-out lever and avoid silent suppression that masks real adoption signal. See
+   * CHANGELOG v8.0.0.
    *
-   * <p>{@code DO_NOT_TRACK} is intentionally NOT honored. It is commonly inherited from host
-   * tools and developer environments (CLIs like Codex and Claude Code inject it unconditionally),
-   * which makes it an unreliable expression of user intent for AxonFlow telemetry.
+   * <p>{@code DO_NOT_TRACK} is intentionally NOT honored. It is commonly inherited from host tools
+   * and developer environments (CLIs like Codex and Claude Code inject it unconditionally), which
+   * makes it an unreliable expression of user intent for AxonFlow telemetry.
    *
    * @param axonflowTelemetry value of {@code AXONFLOW_TELEMETRY} env var (null = unset)
    * @return true if telemetry should be sent
@@ -409,8 +407,8 @@ public class TelemetryReporter {
   }
 
   /**
-   * Builds the JSON payload with explicit endpoint_type + deployment_mode classifications
-   * (v1 telemetry-schema, axonflow-enterprise#2008).
+   * Builds the JSON payload with explicit endpoint_type + deployment_mode classifications (v1
+   * telemetry-schema, axonflow-enterprise#2008).
    */
   static String buildPayload(
       String mode, String platformVersion, String endpointType, String deploymentMode) {
@@ -460,7 +458,8 @@ public class TelemetryReporter {
       String endpointType,
       String deploymentMode,
       String licenseTier) {
-    return buildPayload(mode, platformVersion, endpointType, deploymentMode, licenseTier, null, null);
+    return buildPayload(
+        mode, platformVersion, endpointType, deploymentMode, licenseTier, null, null);
   }
 
   /** Builds the payload including the platform-identity members (#3660). */
@@ -548,17 +547,16 @@ public class TelemetryReporter {
   }
 
   /**
-   * Sentinel emitted on the telemetry wire when {@code ORG_ID} is unset — the
-   * default-config Community-mode developer case. See #2277.
+   * Sentinel emitted on the telemetry wire when {@code ORG_ID} is unset — the default-config
+   * Community-mode developer case. See #2277.
    */
   public static final String ORG_ID_LOCAL_DEV_SENTINEL = "local-dev-org";
 
   /**
-   * Returns the {@code org_id} value to emit on the next telemetry ping. Reads
-   * {@code ORG_ID} from the environment (the operator's explicit configuration for
-   * self-hosted deployments, or the {@code cs_<uuid>} tenant identifier on Community
-   * SaaS) and falls back to {@link #ORG_ID_LOCAL_DEV_SENTINEL} when unset. Always
-   * returns a non-empty string. See #2277.
+   * Returns the {@code org_id} value to emit on the next telemetry ping. Reads {@code ORG_ID} from
+   * the environment (the operator's explicit configuration for self-hosted deployments, or the
+   * {@code cs_<uuid>} tenant identifier on Community SaaS) and falls back to {@link
+   * #ORG_ID_LOCAL_DEV_SENTINEL} when unset. Always returns a non-empty string. See #2277.
    */
   static String telemetryOrgId() {
     String value = System.getenv("ORG_ID");
@@ -573,8 +571,8 @@ public class TelemetryReporter {
    *
    * <p>The raw URL is never sent to the checkpoint service — only the classification.
    *
-   * <p>As of v8.0 the legacy {@code COMMUNITY_SAAS} value is removed — deployment topology
-   * lives on {@link DeploymentMode} per the v1 schema (axonflow-enterprise#2008).
+   * <p>As of v8.0 the legacy {@code COMMUNITY_SAAS} value is removed — deployment topology lives on
+   * {@link DeploymentMode} per the v1 schema (axonflow-enterprise#2008).
    */
   public static final class EndpointType {
     public static final String LOCALHOST = "localhost";
@@ -586,9 +584,9 @@ public class TelemetryReporter {
   }
 
   /**
-   * Deployment-mode classifications for telemetry (v1 schema,
-   * axonflow-enterprise#2008). Reflects deployment topology — distinct from
-   * the endpoint reachability classification on {@link EndpointType}.
+   * Deployment-mode classifications for telemetry (v1 schema, axonflow-enterprise#2008). Reflects
+   * deployment topology — distinct from the endpoint reachability classification on {@link
+   * EndpointType}.
    */
   public static final class DeploymentMode {
     public static final String SELF_HOSTED = "self_hosted";
@@ -599,11 +597,11 @@ public class TelemetryReporter {
   }
 
   /**
-   * Classifies the configured AxonFlow endpoint into the v1 deployment-mode allowlist
-   * ({@code self_hosted | community_saas | unknown}). Community-SaaS detection fires on
-   * either an {@code *.try.getaxonflow.com} host or {@code AXONFLOW_TRY=1} (the explicit
-   * override path for tenants behind a custom hostname proxying try.getaxonflow.com).
-   * Empty/unparseable endpoint resolves to {@code unknown}.
+   * Classifies the configured AxonFlow endpoint into the v1 deployment-mode allowlist ({@code
+   * self_hosted | community_saas | unknown}). Community-SaaS detection fires on either an {@code
+   * *.try.getaxonflow.com} host or {@code AXONFLOW_TRY=1} (the explicit override path for tenants
+   * behind a custom hostname proxying try.getaxonflow.com). Empty/unparseable endpoint resolves to
+   * {@code unknown}.
    */
   public static String classifyDeploymentMode(String url) {
     if ("1".equals(System.getenv("AXONFLOW_TRY"))) return DeploymentMode.COMMUNITY_SAAS;
@@ -655,9 +653,7 @@ public class TelemetryReporter {
       host = host.substring(1, host.length() - 1);
     }
 
-    if ("localhost".equals(host)
-        || "0.0.0.0".equals(host)
-        || host.endsWith(".localhost")) {
+    if ("localhost".equals(host) || "0.0.0.0".equals(host) || host.endsWith(".localhost")) {
       return EndpointType.LOCALHOST;
     }
 
@@ -714,8 +710,8 @@ public class TelemetryReporter {
   }
 
   /**
-   * Expand an IPv6 address to its full 8-hextet form with every hextet
-   * zero-padded to 4 hex digits. Returns the input unchanged on parse failure.
+   * Expand an IPv6 address to its full 8-hextet form with every hextet zero-padded to 4 hex digits.
+   * Returns the input unchanged on parse failure.
    *
    * <p>Examples:
    *
@@ -725,8 +721,8 @@ public class TelemetryReporter {
    *   fe80::a  → fe80:0000:0000:0000:0000:0000:0000:000a
    * </pre>
    *
-   * <p>This is NOT a general-purpose IPv6 parser — it assumes the input came
-   * from URI.getHost() after brackets are stripped.
+   * <p>This is NOT a general-purpose IPv6 parser — it assumes the input came from URI.getHost()
+   * after brackets are stripped.
    */
   static String expandIPv6(String addr) {
     String[] head;
@@ -809,6 +805,7 @@ public class TelemetryReporter {
   static final class PlatformHealthProbe {
     final String platformVersion;
     final String licenseTier;
+
     /** {@code /health} -> {@code edition}: the BUILD the platform is running. */
     final String edition;
 

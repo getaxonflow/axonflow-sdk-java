@@ -51,7 +51,10 @@ public class AdapterTelemetryTest {
     System.err.println("FAIL: " + msg);
   }
 
+  private static int passes = 0;
+
   static void pass(String msg) {
+    passes++;
     System.out.println("PASS: " + msg);
   }
 
@@ -319,6 +322,20 @@ public class AdapterTelemetryTest {
       System.err.println("\n" + failures + " assertion(s) FAILED");
       System.exit(1);
     }
-    System.out.println("\nAll assertions passed.");
+
+    // A PASS-COUNT FLOOR. "No failures" is also true of a driver that asserted
+    // NOTHING — a case silently skipped, a listener that never started, an early
+    // return. The floor is the number of `pass(...)` sites below, so a case that
+    // stops running fails loudly instead of reading as green.
+    final int expectedPasses = 6;
+    if (passes != expectedPasses) {
+      System.err.printf(
+          "%nFAIL: %d assertions passed, expected %d. A case stopped running — "
+              + "zero failures is not the same as everything having been checked.%n",
+          passes, expectedPasses);
+      System.exit(1);
+    }
+
+    System.out.printf("%nAll %d assertions passed.%n", passes);
   }
 }
