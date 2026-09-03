@@ -70,6 +70,23 @@ rc_of() {  # <stub-body> -> prints exit code of the step under that stub
   echo $?
 }
 
+# SELF-CHECK: this script must not carry the idiom it exists to catch.
+#
+# Round 2 found two `cat a b | grep -q` assertions in here — the same pipefail
+# race the step was fixed for. They were latent because the asserted strings sit
+# at the end of the large stream, so `cat` finished before `grep -q` exited. A
+# harness carrying the defect it checks for is worse than no harness, so the
+# rule is enforced rather than remembered.
+#
+# Code lines only: a `grep -c` on the whole file would be satisfied by the prose
+# above, which names the idiom in order to forbid it.
+offenders=$(grep -nE '^[^#]*\|[[:space:]]*grep[[:space:]]+-[a-zA-Z]*q' "$0" || true)
+if [ -n "$offenders" ]; then
+  echo "SELF-CHECK FAILED: piping into 'grep -q' under pipefail is the race this harness tests for:" >&2
+  printf '%s\n' "$offenders" >&2
+  exit 1
+fi
+
 echo "=== formatting step behaviour: $LABEL"
 bad=0
 # check <label> <stub> <expected-rc> <expected-message> [stub-sentinel]
@@ -103,13 +120,22 @@ check() {
   fi
   if [ "$got" != "$want_rc" ]; then
     verdict="WRONG (expected exit $want_rc)"; bad=1
-  elif [ -n "$want_msg" ] && ! cat "$WORK/out" "$WORK/err" | grep -qF -- "$want_msg"; then
+  # grep READS BOTH FILES DIRECTLY. It must never be `cat a b | grep -q`: under
+  # `set -o pipefail` that is the very race this harness exists to catch. grep -q
+  # exits at the first match, cat dies of SIGPIPE, and pipefail reports the
+  # pipeline failed although the MATCH SUCCEEDED. Measured with these options:
+  # `cat big small | grep -qF <marker near the start>` gives rc 141 with
+  # PIPESTATUS "141 0". Two of these assertions were written that way and were
+  # latent only because the asserted strings sit at the END of the large stream,
+  # so cat finishes before grep exits. A harness carrying the idiom it checks for
+  # is worse than no harness.
+  elif [ -n "$want_msg" ] && ! grep -qF -- "$want_msg" "$WORK/out" "$WORK/err"; then
     # The exit code is not the whole verdict. A step that fails for the WRONG
     # stated reason sends the next reader after a phantom network problem
-    # instead of a formatting violation — which is exactly how the pipefail
-    # race hid: correct exit code, wrong branch.
+    # instead of a formatting violation — which is exactly how the step's own
+    # pipefail race hid: correct exit code, wrong branch.
     verdict="WRONG (exit right, but did not say: $want_msg)"; bad=1
-  elif [ -n "$forbid" ] && cat "$WORK/out" "$WORK/err" | grep -qF -- "$forbid"; then
+  elif [ -n "$forbid" ] && grep -qF -- "$forbid" "$WORK/out" "$WORK/err"; then
     verdict="WRONG (also said: $forbid — a second branch fired)"; bad=1
   fi
   printf '  %-26s exit=%-3s %s\n' "$label" "$got" "$verdict"
@@ -133,9 +159,20 @@ check "resolution failure" \
 # THE RETRY PATH MUST ACTUALLY RETRY. The message above is reachable from a
 # single attempt if the loop is broken, so the attempt COUNT is asserted
 # separately: three "Attempt N:" lines, no more and no fewer.
-attempts=$(cat "$WORK/out" "$WORK/err" | grep -c "^Attempt " || true)
-invocations=$(wc -l < "$WORK/invocations" 2>/dev/null | tr -d ' ')
-invocations=${invocations:-0}
+# grep reads both files; `wc -l` consumes ALL of its input, so unlike `grep -q`
+# there is no early-exit consumer to trigger SIGPIPE.
+attempts=$(grep -h "^Attempt " "$WORK/out" "$WORK/err" | wc -l | tr -d ' ' || true)
+attempts=${attempts:-0}
+# GUARDED, because `wc -l < missing 2>/dev/null` does NOT suppress the message:
+# the redirection is set up before the `2>` applies, so bash prints a raw
+# "No such file or directory" — exactly when someone is diagnosing a real
+# failure and least needs unexplained noise. The value defaulted to 0 and the
+# verdict was right; the noise was the defect.
+if [ -f "$WORK/invocations" ]; then
+  invocations=$(wc -l < "$WORK/invocations" | tr -d ' ')
+else
+  invocations=0
+fi
 if [ "$attempts" -ne 3 ] || [ "$invocations" -ne 3 ]; then
   echo "  ${LABEL}: transient failure printed ${attempts} attempts and CALLED the runner ${invocations} times, expected 3 and 3" >&2
   bad=1
