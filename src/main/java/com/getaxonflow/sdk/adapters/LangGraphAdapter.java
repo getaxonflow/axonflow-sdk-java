@@ -77,6 +77,25 @@ public final class LangGraphAdapter implements AutoCloseable {
   private boolean closedNormally;
 
   private LangGraphAdapter(Builder builder) {
+    // Declare this adapter on the next telemetry heartbeat: otherwise an application driving
+    // the SDK through it is indistinguishable from bare SDK use on every dimension — same sdk,
+    // same sdk_version, same endpoint. See TelemetryReporter#registerAdapter for the full
+    // reasoning, recorded in ONE place rather than copied to each adapter.
+    //
+    // Here rather than in a static initializer, and the distinction is the point: loading the
+    // class says the adapter is on the classpath, constructing one says it is IN USE, and only
+    // the second is adoption signal.
+    //
+    // The heartbeat fires on the client's first outbound REQUEST, not at client construction,
+    // so a registration made here — necessarily after the client exists and before any call
+    // through it — reaches the very first ping. No I/O; one insert into a set that deduplicates.
+    //
+    // A LITERAL, not builder.source: `source` is a PLATFORM API value the orchestrator
+    // interprets and a caller may override, while this is a TELEMETRY value the checkpoint
+    // buckets. Deriving one from the other would let a caller repoint an analytics dimension by
+    // passing a custom source.
+    com.getaxonflow.sdk.telemetry.TelemetryReporter.registerAdapter("langgraph");
+
     this.client = builder.client;
     this.workflowName = builder.workflowName;
     this.source = builder.source;

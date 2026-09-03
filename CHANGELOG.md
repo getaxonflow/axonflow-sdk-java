@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`TelemetryReporter.registerAdapter(name)` declares a framework adapter on
+  the existing heartbeat (axonflow-enterprise#3682).** A LangChain / LangGraph /
+  LiteLLM wrapper — or your own in-house adapter — was previously
+  indistinguishable from bare SDK use on every telemetry dimension: same `sdk`,
+  same `sdk_version`, same endpoint. `registerAdapter("langgraph")` adds
+  `adapter:langgraph` to the `features` array of the ping that already fires.
+  **No new network request, no new configuration surface, no second endpoint.**
+  Idempotent and thread-safe. The name is lowercased and trimmed and otherwise
+  sent as given — deliberately NOT checked against a list of known frameworks,
+  because the canonical vocabulary lives on the receiver, which preserves an
+  unrecognised name on the row while bucketing it for reporting.
+
+  **`LangGraphAdapter` now declares itself**, so using it is enough. This is the
+  FIRST producer of `features` in this SDK — the array was a hardcoded `[]`.
+
+- **The heartbeat relays `edition` and `platform_deployment_mode`** from the
+  same `/health` response it already fetches for the platform version and
+  licence tier — no new request. Both omitted entirely when not learned, never
+  sent as `""` or `null`. `platform_deployment_mode` is the PLATFORM's own
+  deployment mode and travels under its own key; it never overwrites the
+  SDK-derived `deployment_mode` topology field.
+
+### Changed
+
+- **The telemetry heartbeat now fires on the client's first outbound request
+  rather than at client construction.** A client that is constructed and never
+  used no longer pings — a heartbeat is a claim about usage.
+
+  The reason is `registerAdapter`. Every framework adapter takes a client, so an
+  adapter cannot exist until the constructor has returned; pinging there meant
+  an adapter registering from its own constructor could never reach the first
+  ping, and the 7-day stamp then suppressed the next one for a week. For a
+  short-lived process — a CLI, a Lambda, a CI job — the adapter was never
+  reported at all.
+
+  Short-lived delivery is preserved. The constructor's ping was synchronous on
+  purpose: a JVM that exits promptly would otherwise drop a POST left on the
+  daemon executor. So when the gate is COLD — meaning the call might actually
+  send — the heartbeat runs synchronously on the caller's thread exactly as the
+  constructor used to; when warm it dispatches and returns. The latency that can
+  add to a first request is bounded at **3 seconds** (the whole path: the
+  `/health` probe and the POST share one deadline rather than stacking), is
+  reachable at most once per guard interval per process, and only when a ping is
+  actually due.
+
+- **Every value the SDK relays but did not author is now bounded at 64 bytes and
+  DROPPED WHOLE when it exceeds that** — the values promoted out of `/health`
+  and adapter names alike, through one helper so the paths cannot drift. A
+  truncated version string is a version nobody is running, and the receiver
+  would record it as a real value. The bound is measured in **bytes**
+  (`String.getBytes(UTF_8).length`), not `String.length()`, which counts UTF-16
+  code units: an emoji is length 2, one code point, and four bytes. The
+  `features` array is bounded at 32 entries of 128 bytes.
+
+### Fixed
+
+- **Redirects were followed on both telemetry legs, and on the checkpoint POST
+  that silently cost a week of telemetry.** OkHttp follows redirects by default
+  and does not re-POST across a 301/302/303 — it converts the request to a
+  **bodyless GET**. So a 302 on the checkpoint yielded a `200` for a request
+  that carried nothing, the SDK read that as delivery, and the 7-day stamp
+  advanced on a ping that was never sent. On `/health` the same default meant
+  every relayed value could describe the redirect TARGET rather than the
+  endpoint you configured. Both telemetry clients now set `followRedirects(false)`
+  **and** `followSslRedirects(false)` — the latter is what governs the
+  `http`↔`https` hop specifically — and a refused redirect is logged rather than
+  being silent.
+
+- **A delivered heartbeat could recur hourly, forever, where the stamp file
+  cannot be written** (no usable cache directory — distroless and scratch
+  containers, Lambda custom runtimes — or a read-only root filesystem, which is
+  ordinary Kubernetes hardening). A *successful* ping left no record and the
+  gate re-opened an hour later: 168 pings a week against a contract that
+  discloses one. The cadence is now also enforced in memory. In those runtimes
+  it is enforced PER PROCESS, not per machine.
+
+- **A deployment that cannot reach the checkpoint service probed the customer's
+  own platform every hour, indefinitely.** There was no failure backoff, so with
+  egress blocked — the normal state of air-gapped and in-VPC self-hosted
+  topologies — every process issued a `/health` GET against the customer's own
+  platform hourly, with a failed POST beside it. The re-check interval now
+  doubles per consecutive undelivered attempt — from **1 hour** through 2, 4,
+  8 … to a ceiling of **7 days (604,800 seconds)** after 8 failures, reset to 1
+  hour by a single delivery. No ping is lost: the stamp is untouched, so the
+  first attempt after the widened interval sends normally.
+
 ## [9.2.0] - 2026-09-01: AuthZEN-native authorization surface
 
 ### Added
