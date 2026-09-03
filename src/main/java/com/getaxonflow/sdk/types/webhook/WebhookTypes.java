@@ -202,9 +202,8 @@ public final class WebhookTypes {
     }
 
     /**
-     * Source-compat overload that omits the v6 wire-canonical fields
-     * (tenantId, orgId, secret). Existing user code calling the
-     * 6-arg constructor continues to compile; new code should pass
+     * Source-compat overload that omits the v6 wire-canonical fields (tenantId, orgId, secret).
+     * Existing user code calling the 6-arg constructor continues to compile; new code should pass
      * the security-relevant secret + scoping fields explicitly.
      */
     public WebhookSubscription(
@@ -244,10 +243,9 @@ public final class WebhookTypes {
     }
 
     /**
-     * HMAC-SHA256 signing key for verifying inbound webhook payload
-     * signatures (X-AxonFlow-Signature header). Returned by the
-     * `createWebhook` call on initial creation; required for callers
-     * to validate payload authenticity.
+     * HMAC-SHA256 signing key for verifying inbound webhook payload signatures
+     * (X-AxonFlow-Signature header). Returned by the `createWebhook` call on initial creation;
+     * required for callers to validate payload authenticity.
      */
     public String getSecret() {
       return secret;
@@ -264,17 +262,15 @@ public final class WebhookTypes {
     /**
      * Identity-based equality on {@code id}.
      *
-     * <p>A {@code WebhookSubscription} is an entity, not a value object — two
-     * instances with the same {@code id} represent the same subscription on
-     * the server, regardless of whether one view has loaded {@code secret}
-     * (returned by {@code createWebhook} only) and another has not, or
-     * whether {@code updatedAt} or {@code active} have moved between
-     * fetches. Field-by-field equality would split same-id views into
-     * different objects and break {@code Set}/{@code Map} membership and
-     * cache invalidation in caller code.
+     * <p>A {@code WebhookSubscription} is an entity, not a value object — two instances with the
+     * same {@code id} represent the same subscription on the server, regardless of whether one view
+     * has loaded {@code secret} (returned by {@code createWebhook} only) and another has not, or
+     * whether {@code updatedAt} or {@code active} have moved between fetches. Field-by-field
+     * equality would split same-id views into different objects and break {@code Set}/{@code Map}
+     * membership and cache invalidation in caller code.
      *
-     * <p>If you need content-equality (for example to detect rotated
-     * secrets), compare the relevant getters directly.
+     * <p>If you need content-equality (for example to detect rotated secrets), compare the relevant
+     * getters directly.
      */
     @Override
     public boolean equals(Object o) {

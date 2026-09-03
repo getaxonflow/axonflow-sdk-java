@@ -27,8 +27,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The emitter's own tests.
  *
- * <p>These are about the EMITTER, not about the AuthZEN surface: they feed it artifacts the real one
- * is not, and assert it refuses rather than generating something plausible. The check that the
+ * <p>These are about the EMITTER, not about the AuthZEN surface: they feed it artifacts the real
+ * one is not, and assert it refuses rather than generating something plausible. The check that the
  * committed output matches the real artifact lives in {@code AuthZENGeneratedTypesAreCurrentTest}.
  */
 class EmitterTest {
@@ -221,9 +221,7 @@ class EmitterTest {
     // proves it does. This asserts the annotation does not come back, because
     // a no-op that reads as a guarantee is worse than no annotation at all.
     for (Map.Entry<String, String> file : render(baseArtifact()).entrySet()) {
-      assertThat(file.getValue())
-          .as("%s", file.getKey())
-          .doesNotContain("JsonIgnoreProperties");
+      assertThat(file.getValue()).as("%s", file.getKey()).doesNotContain("JsonIgnoreProperties");
     }
   }
 

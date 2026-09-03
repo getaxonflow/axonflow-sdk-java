@@ -134,8 +134,8 @@ public final class MCPCheckOutputRequest {
   }
 
   /**
-   * Returns the specific tool/action name being invoked, or null when not distinguished from
-   * {@code connectorType}.
+   * Returns the specific tool/action name being invoked, or null when not distinguished from {@code
+   * connectorType}.
    */
   public String getTool() {
     return tool;

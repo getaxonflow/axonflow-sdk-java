@@ -21,7 +21,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,13 +52,11 @@ class GovernedToolTest {
   @BeforeEach
   void setUp() {
     allowedInput = new MCPCheckInputResponse(true, null, 3, null);
-    blockedInput =
-        new MCPCheckInputResponse(false, "Dangerous SQL detected", 3, null);
+    blockedInput = new MCPCheckInputResponse(false, "Dangerous SQL detected", 3, null);
     allowedOutput = new MCPCheckOutputResponse(true, null, null, 2, null, null);
     blockedOutput =
         new MCPCheckOutputResponse(false, "PII detected in output", null, 2, null, null);
-    redactedOutput =
-        new MCPCheckOutputResponse(true, null, "[REDACTED:ssn] data", 2, null, null);
+    redactedOutput = new MCPCheckOutputResponse(true, null, "[REDACTED:ssn] data", 2, null, null);
   }
 
   /** Creates a simple mock tool that returns the given result. */
@@ -151,14 +148,11 @@ class GovernedToolTest {
   @Test
   void customConnectorTypeFn() throws Exception {
     when(client.mcpCheckInput(eq("custom.web_search"), any())).thenReturn(allowedInput);
-    when(client.mcpCheckOutput(eq("custom.web_search"), isNull(), any()))
-        .thenReturn(allowedOutput);
+    when(client.mcpCheckOutput(eq("custom.web_search"), isNull(), any())).thenReturn(allowedOutput);
 
     Tool tool = mockTool("web_search", "results");
     GovernedTool governed =
-        GovernedTool.builder(tool, client)
-            .connectorTypeFn(name -> "custom." + name)
-            .build();
+        GovernedTool.builder(tool, client).connectorTypeFn(name -> "custom." + name).build();
 
     Object result = governed.invoke("query");
 
@@ -173,8 +167,7 @@ class GovernedToolTest {
     when(client.mcpCheckOutput(eq("db_query"), isNull(), any())).thenReturn(allowedOutput);
 
     Tool tool = mockTool("db_query", "rows");
-    GovernedTool governed =
-        GovernedTool.builder(tool, client).operation("query").build();
+    GovernedTool governed = GovernedTool.builder(tool, client).operation("query").build();
 
     Object result = governed.invoke("SELECT 1");
 
@@ -299,20 +292,16 @@ class GovernedToolTest {
     Tool tool = mockTool("myTool", null);
     GovernedTool governed = GovernedTool.wrap(tool, client);
 
-    assertThat(governed.toString())
-        .isEqualTo("GovernedTool(name=myTool, connectorType=myTool)");
+    assertThat(governed.toString()).isEqualTo("GovernedTool(name=myTool, connectorType=myTool)");
   }
 
   @Test
   void toStringFormatWithCustomConnector() {
     Tool tool = mockTool("myTool", null);
     GovernedTool governed =
-        GovernedTool.builder(tool, client)
-            .connectorTypeFn(name -> "ns." + name)
-            .build();
+        GovernedTool.builder(tool, client).connectorTypeFn(name -> "ns." + name).build();
 
-    assertThat(governed.toString())
-        .isEqualTo("GovernedTool(name=myTool, connectorType=ns.myTool)");
+    assertThat(governed.toString()).isEqualTo("GovernedTool(name=myTool, connectorType=ns.myTool)");
   }
 
   @Test
@@ -336,8 +325,7 @@ class GovernedToolTest {
 
   @Test
   void inputBlockedWithNullReason() {
-    MCPCheckInputResponse blockedNoReason =
-        new MCPCheckInputResponse(false, null, 1, null);
+    MCPCheckInputResponse blockedNoReason = new MCPCheckInputResponse(false, null, 1, null);
     when(client.mcpCheckInput(eq("tool"), any())).thenReturn(blockedNoReason);
 
     Tool tool = mockTool("tool", "should not run");

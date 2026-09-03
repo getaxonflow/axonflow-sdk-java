@@ -26,9 +26,9 @@ import com.getaxonflow.sdk.exceptions.AxonFlowException;
  * <ul>
  *   <li>{@link AuthZENRefusedException} — the request was refused rather than evaluated. Fix the
  *       request; the refusal names the member.
- *   <li>{@link AuthZENUnresolvedException} — the request cannot be SENT as built, because it carries
- *       an attribute nobody could resolve. Re-resolve it and build a NEW request; resending this one
- *       cannot succeed, which is why it is not folded into the refusal above.
+ *   <li>{@link AuthZENUnresolvedException} — the request cannot be SENT as built, because it
+ *       carries an attribute nobody could resolve. Re-resolve it and build a NEW request; resending
+ *       this one cannot succeed, which is why it is not folded into the refusal above.
  *   <li>{@link AuthZENUnreadableProfileException} — the server answered in a profile this build
  *       cannot interpret. Upgrade the SDK.
  *   <li>{@link AuthZENUnusableResponseException} — a {@code 200} this build will not act on. A

@@ -34,8 +34,8 @@ public final class MCPInterceptorOptions {
   }
 
   /**
-   * Returns the function that maps an MCP request to a connector type string. May be null, in
-   * which case the default {@link MCPToolRequest#getServerName()} is used.
+   * Returns the function that maps an MCP request to a connector type string. May be null, in which
+   * case the default {@link MCPToolRequest#getServerName()} is used.
    *
    * <p>Connector type identifies the MCP server/connector itself; it is sent separately from the
    * tool name (which is always {@link MCPToolRequest#getName()}) so policies can match on server

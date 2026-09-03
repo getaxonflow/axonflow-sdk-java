@@ -86,7 +86,8 @@ class AuthZENSurfaceTest {
 
   private JsonNode sentBody() throws IOException {
     List<LoggedRequest> requests =
-        server.findRequestsMatching(postRequestedFor(urlEqualTo(AxonFlow.AUTHZEN_PATH)).build())
+        server
+            .findRequestsMatching(postRequestedFor(urlEqualTo(AxonFlow.AUTHZEN_PATH)).build())
             .getRequests();
     assertThat(requests).as("a request was sent").isNotEmpty();
     return MAPPER.readTree(requests.get(0).getBody());
@@ -494,7 +495,8 @@ class AuthZENSurfaceTest {
   @DisplayName("a profile this build cannot interpret is refused and is not retryable")
   void unreadableProfileIsRefused() {
     answering(
-        200, allowBody().replace(AuthZENContract.PROFILE_V1, "axonflow-authzen-profile-2099-01-01"));
+        200,
+        allowBody().replace(AuthZENContract.PROFILE_V1, "axonflow-authzen-profile-2099-01-01"));
     AuthZENUnreadableProfileException e =
         assertThrows(AuthZENUnreadableProfileException.class, () -> client.evaluate(aRequest()));
     assertThat(e.getReceived()).isEqualTo("axonflow-authzen-profile-2099-01-01");
@@ -508,7 +510,8 @@ class AuthZENSurfaceTest {
   void unknownResponseMemberIsRefused() {
     answering(
         200,
-        allowBody().replace("\"schema_version\"", "\"quarantine_until\":\"2099\",\"schema_version\""));
+        allowBody()
+            .replace("\"schema_version\"", "\"quarantine_until\":\"2099\",\"schema_version\""));
     assertThrows(AuthZENUnusableResponseException.class, () -> client.evaluate(aRequest()));
   }
 
@@ -650,8 +653,7 @@ class AuthZENSurfaceTest {
 
     AuthZENUnresolvedException unresolved =
         assertThrows(AuthZENUnresolvedException.class, () -> client.evaluate(request));
-    assertThat(unresolved.getPointer())
-        .isEqualTo("/evaluation/context/correlation/x-session-id");
+    assertThat(unresolved.getPointer()).isEqualTo("/evaluation/context/correlation/x-session-id");
     assertThat(requestCount()).isZero();
   }
 
@@ -799,8 +801,7 @@ class AuthZENSurfaceTest {
   @DisplayName("a dependency failure is the one refusal worth retrying")
   void dependencyFailureIsRetryable() {
     answering(
-        502,
-        "{\"code\":\"evaluation_unavailable\",\"message\":\"the evaluator did not answer\"}");
+        502, "{\"code\":\"evaluation_unavailable\",\"message\":\"the evaluator did not answer\"}");
     AuthZENRefusedException refused =
         assertThrows(AuthZENRefusedException.class, () -> client.evaluate(aRequest()));
     assertThat(refused.isRetryable()).isTrue();
@@ -872,7 +873,8 @@ class AuthZENSurfaceTest {
     // The generated `const` check, which is what catches a payload whose
     // profile member was rewritten in transit rather than negotiated.
     AuthZENResponse decoded =
-        MAPPER.readValue(allowBody().replace(AuthZENContract.PROFILE_V1, "x"), AuthZENResponse.class);
+        MAPPER.readValue(
+            allowBody().replace(AuthZENContract.PROFILE_V1, "x"), AuthZENResponse.class);
     try {
       decoded.validate("");
       fail("a profile the contract does not allow must not validate");

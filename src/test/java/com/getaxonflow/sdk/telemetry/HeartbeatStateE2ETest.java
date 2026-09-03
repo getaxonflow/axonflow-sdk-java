@@ -24,9 +24,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * 4-run cross-process E2E mirroring the Go reference (see
- * {@code heartbeat_e2e_test.go}). Validates the delivered-stamp contract
- * end-to-end against a real WireMock HTTP server:
+ * 4-run cross-process E2E mirroring the Go reference (see {@code heartbeat_e2e_test.go}). Validates
+ * the delivered-stamp contract end-to-end against a real WireMock HTTP server:
  *
  * <pre>
  *   Run 1: cold start (no stamp)              → 1 ping;  stamp present
@@ -36,16 +35,15 @@ import org.junit.jupiter.api.io.TempDir;
  *                                                retry against 200-mock fires + lands cleanly
  * </pre>
  *
- * <p>The Java equivalent of Go's {@code t.Setenv("AXONFLOW_CHECKPOINT_URL")}
- * + {@code replaceHeartbeatStateForTest(stampPath)} pattern is to drive
- * the gate directly via {@link HeartbeatState#replaceForTest(Path)} and
- * pass an inline {@link HeartbeatState.PingFn} that POSTs to WireMock —
- * Java's {@code System.getenv} is immutable post-launch, so we cannot
- * inject AXONFLOW_CHECKPOINT_URL on a per-test basis the way Go can.
+ * <p>The Java equivalent of Go's {@code t.Setenv("AXONFLOW_CHECKPOINT_URL")} + {@code
+ * replaceHeartbeatStateForTest(stampPath)} pattern is to drive the gate directly via {@link
+ * HeartbeatState#replaceForTest(Path)} and pass an inline {@link HeartbeatState.PingFn} that POSTs
+ * to WireMock — Java's {@code System.getenv} is immutable post-launch, so we cannot inject
+ * AXONFLOW_CHECKPOINT_URL on a per-test basis the way Go can.
  *
- * <p>Each run installs a fresh in-memory gate at the SAME stamp path —
- * exactly the cross-run invariant the Go E2E exercises (the stamp file
- * is the source of truth across simulated process restarts).
+ * <p>Each run installs a fresh in-memory gate at the SAME stamp path — exactly the cross-run
+ * invariant the Go E2E exercises (the stamp file is the source of truth across simulated process
+ * restarts).
  */
 @WireMockTest
 @DisplayName("HeartbeatState — 4-run cross-process E2E")
@@ -65,9 +63,7 @@ class HeartbeatStateE2ETest {
 
     // Always-503 endpoint for run 4's failure leg.
     WireMock.stubFor(
-        post(urlMatching("/v1/fail.*"))
-            .withName("fail")
-            .willReturn(aResponse().withStatus(503)));
+        post(urlMatching("/v1/fail.*")).withName("fail").willReturn(aResponse().withStatus(503)));
     String failUrl = wm.getHttpBaseUrl() + "/v1/fail";
 
     // Save the process-global singleton and restore it at the end so we
@@ -85,9 +81,7 @@ class HeartbeatStateE2ETest {
       assertThat(WireMock.getAllServeEvents())
           .as("Run 1 (cold): expected exactly 1 ping")
           .hasSize(1);
-      assertThat(Files.exists(stampPath))
-          .as("Run 1 (cold): expected stamp file present")
-          .isTrue();
+      assertThat(Files.exists(stampPath)).as("Run 1 (cold): expected stamp file present").isTrue();
       long stampMtimeAfterRun1 = Files.getLastModifiedTime(stampPath).toMillis();
 
       // ----- Run 2: immediate re-run, fresh stamp → 0 pings -------------------
@@ -99,8 +93,7 @@ class HeartbeatStateE2ETest {
           .isEqualTo(stampMtimeAfterRun1);
 
       // ----- Run 3: backdate stamp 8d → 1 ping + stamp re-touched -------------
-      Files.setLastModifiedTime(
-          stampPath, FileTime.from(Instant.now().minus(8, ChronoUnit.DAYS)));
+      Files.setLastModifiedTime(stampPath, FileTime.from(Instant.now().minus(8, ChronoUnit.DAYS)));
       long stampMtimeBeforeRun3 = Files.getLastModifiedTime(stampPath).toMillis();
 
       WireMock.resetAllRequests();
@@ -118,8 +111,7 @@ class HeartbeatStateE2ETest {
 
       // ----- Run 4 (failure): backdate stamp 8d, point at 503 -----------------
       // Expectation: ping is attempted but stamp is NOT advanced.
-      Files.setLastModifiedTime(
-          stampPath, FileTime.from(Instant.now().minus(8, ChronoUnit.DAYS)));
+      Files.setLastModifiedTime(stampPath, FileTime.from(Instant.now().minus(8, ChronoUnit.DAYS)));
       long stampMtimeBeforeFail = Files.getLastModifiedTime(stampPath).toMillis();
 
       WireMock.resetAllRequests();
@@ -148,11 +140,10 @@ class HeartbeatStateE2ETest {
   }
 
   /**
-   * Simulate a "new process": install a fresh in-memory gate at the
-   * SAME stamp path (cross-run invariant) and run the gate once with
-   * an inline ping that POSTs to {@code targetUrl}. Returns once the
-   * gate's stamp write — if any — has settled, since
-   * {@link HeartbeatState#maybeSendHeartbeat} is synchronous.
+   * Simulate a "new process": install a fresh in-memory gate at the SAME stamp path (cross-run
+   * invariant) and run the gate once with an inline ping that POSTs to {@code targetUrl}. Returns
+   * once the gate's stamp write — if any — has settled, since {@link
+   * HeartbeatState#maybeSendHeartbeat} is synchronous.
    */
   private static void runOnceAt(Path stampPath, String targetUrl) {
     HeartbeatState.replaceForTest(stampPath);

@@ -116,13 +116,11 @@ public final class HITLTypes {
     /**
      * Optional outbound webhook URL associated with the request.
      *
-     * <p>Mirrors the value supplied on creation. Platforms that
-     * implement the outbound-webhook dispatcher (introduced in
-     * getaxonflow/axonflow-enterprise#2419) fire a signed POST to this
-     * URL after the request reaches a terminal state
-     * (approved/rejected/expired/overridden). Platforms that don't,
-     * simply round-trip the field. Enables webhook-driven resume
-     * (n8n Wait-node, ADK plugin polling-free mode).
+     * <p>Mirrors the value supplied on creation. Platforms that implement the outbound-webhook
+     * dispatcher (introduced in getaxonflow/axonflow-enterprise#2419) fire a signed POST to this
+     * URL after the request reaches a terminal state (approved/rejected/expired/overridden).
+     * Platforms that don't, simply round-trip the field. Enables webhook-driven resume (n8n
+     * Wait-node, ADK plugin polling-free mode).
      */
     @JsonProperty("notify_url")
     private String notifyUrl;
@@ -468,15 +466,14 @@ public final class HITLTypes {
   /**
    * Input for creating a HITL approval request.
    *
-   * <p>Mirrors {@code platform/agent/hitl/handler.go:86 CreateRequestInput}. The platform's
-   * {@code POST /api/v1/hitl/queue} handler reads {@code X-Org-ID} and {@code X-Tenant-ID} from
-   * request headers (set by the auth middleware from the SDK client's credentials), and the JSON
-   * body must carry the fields below.
+   * <p>Mirrors {@code platform/agent/hitl/handler.go:86 CreateRequestInput}. The platform's {@code
+   * POST /api/v1/hitl/queue} handler reads {@code X-Org-ID} and {@code X-Tenant-ID} from request
+   * headers (set by the auth middleware from the SDK client's credentials), and the JSON body must
+   * carry the fields below.
    *
-   * <p>Used by agent-framework callers that detect {@code require_approval} from
-   * {@code pre_check} / {@code check_tool_input} and want to enqueue the corresponding HITL row
-   * before polling the reviewer's decision (or pivoting to webhook-driven resume via
-   * {@code notifyUrl}).
+   * <p>Used by agent-framework callers that detect {@code require_approval} from {@code pre_check}
+   * / {@code check_tool_input} and want to enqueue the corresponding HITL row before polling the
+   * reviewer's decision (or pivoting to webhook-driven resume via {@code notifyUrl}).
    */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class HITLCreateInput {
@@ -509,12 +506,11 @@ public final class HITLTypes {
     private String severity;
 
     /**
-     * Optional outbound webhook URL fired async after terminal state transition. Must be
-     * {@code https://} (or {@code http://} for self-hosted local-dev). Server-side validation
-     * rejects bad schemes with HTTP 400. Pair with the HMAC-SHA256 {@code X-AxonFlow-Signature}
-     * header on the receiver side; signing key is the deployment-configured
-     * {@code AXONFLOW_HITL_WEBHOOK_SIGNING_KEY}. Introduced in
-     * getaxonflow/axonflow-enterprise#2419.
+     * Optional outbound webhook URL fired async after terminal state transition. Must be {@code
+     * https://} (or {@code http://} for self-hosted local-dev). Server-side validation rejects bad
+     * schemes with HTTP 400. Pair with the HMAC-SHA256 {@code X-AxonFlow-Signature} header on the
+     * receiver side; signing key is the deployment-configured {@code
+     * AXONFLOW_HITL_WEBHOOK_SIGNING_KEY}. Introduced in getaxonflow/axonflow-enterprise#2419.
      */
     @JsonProperty("notify_url")
     private String notifyUrl;

@@ -48,14 +48,13 @@ class DecisionExplainTest {
           + "\"historical_hit_count_session\": 3,"
           + "\"policy_source_link\": \"https://policies.axonflow/sqli\","
           + "\"tool_signature\": \"Bash\","
-          + "\"future_field_unknown\": \"ignored\""  // forward-compat check
+          + "\"future_field_unknown\": \"ignored\"" // forward-compat check
           + "}";
 
   @BeforeEach
   void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
     axonflow =
-        AxonFlow.create(
-            AxonFlowConfig.builder().endpoint(wmRuntimeInfo.getHttpBaseUrl()).build());
+        AxonFlow.create(AxonFlowConfig.builder().endpoint(wmRuntimeInfo.getHttpBaseUrl()).build());
   }
 
   @Test

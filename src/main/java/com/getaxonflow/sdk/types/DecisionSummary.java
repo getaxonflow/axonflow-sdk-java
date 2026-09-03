@@ -14,14 +14,13 @@ import java.util.Map;
 /**
  * Slim 5-field row returned by {@code AxonFlow.listDecisions}.
  *
- * <p>Companion to {@link DecisionExplanation}; matches the platform
- * GET /api/v1/decisions wire shape. {@code policyId} and
- * {@code toolSignature} are optional because pre-α1 audit rows + dynamic-only
- * blocks may not populate them; additive new fields land via
- * {@code @JsonIgnoreProperties(ignoreUnknown = true)} per ADR-043
- * §"Versioning" (non-breaking).
+ * <p>Companion to {@link DecisionExplanation}; matches the platform GET /api/v1/decisions wire
+ * shape. {@code policyId} and {@code toolSignature} are optional because pre-α1 audit rows +
+ * dynamic-only blocks may not populate them; additive new fields land via
+ * {@code @JsonIgnoreProperties(ignoreUnknown = true)} per ADR-043 §"Versioning" (non-breaking).
  *
  * <p>Cross-SDK parity:
+ *
  * <ul>
  *   <li>Go: axonflow-sdk-go/decisions.go (DecisionSummary)
  *   <li>Python: axonflow-sdk-python/axonflow/decisions.py (DecisionSummary)
@@ -79,12 +78,12 @@ public final class DecisionSummary {
   }
 
   /**
-   * The sanitized request context the PEP attached to the decision (canonical
-   * {@code lower_snake_case} keys, string values), surfaced from the audit
-   * row's {@code policy_details->'context'}. The list summary is truncated by
-   * the platform to the 5 most-correlated keys; the full map is available via
-   * {@code AxonFlow.explainDecision}. May be {@code null} for pre-v8.4.0 audit
-   * rows or decisions with no context. (platform #2509 / epic #2508)
+   * The sanitized request context the PEP attached to the decision (canonical {@code
+   * lower_snake_case} keys, string values), surfaced from the audit row's {@code
+   * policy_details->'context'}. The list summary is truncated by the platform to the 5
+   * most-correlated keys; the full map is available via {@code AxonFlow.explainDecision}. May be
+   * {@code null} for pre-v8.4.0 audit rows or decisions with no context. (platform #2509 / epic
+   * #2508)
    */
   public Map<String, String> getContext() {
     return context;

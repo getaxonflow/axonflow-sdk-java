@@ -21,11 +21,10 @@ import java.time.Instant;
 /**
  * Thrown when the rate limit has been exceeded.
  *
- * <p>For V1 tier-cap 429s (e.g. {@code listDecisions} page-size cap, daily-quota
- * cap), {@link #getLimitType()}, {@link #getTier()}, and {@link #getUpgrade()}
- * are populated from the platform-side
- * feedback_429_no_upgrade_hint_is_conversion_gap.md envelope. Legacy 429s
- * leave them null for backwards compatibility.
+ * <p>For V1 tier-cap 429s (e.g. {@code listDecisions} page-size cap, daily-quota cap), {@link
+ * #getLimitType()}, {@link #getTier()}, and {@link #getUpgrade()} are populated from the
+ * platform-side feedback_429_no_upgrade_hint_is_conversion_gap.md envelope. Legacy 429s leave them
+ * null for backwards compatibility.
  */
 public class RateLimitException extends AxonFlowException {
 
@@ -72,9 +71,9 @@ public class RateLimitException extends AxonFlowException {
   }
 
   /**
-   * Creates a new RateLimitException carrying the V1 upgrade envelope.
-   * Used by {@code AxonFlow.listDecisions} (and other tier-capped endpoints)
-   * so callers can branch on the upgrade fields without re-parsing the body.
+   * Creates a new RateLimitException carrying the V1 upgrade envelope. Used by {@code
+   * AxonFlow.listDecisions} (and other tier-capped endpoints) so callers can branch on the upgrade
+   * fields without re-parsing the body.
    *
    * @param message the error message
    * @param limit the maximum requests allowed
@@ -142,8 +141,8 @@ public class RateLimitException extends AxonFlowException {
   }
 
   /**
-   * Returns the platform-side limit identifier (e.g. {@code decision_list_size},
-   * {@code daily_request_count}). Null for legacy 429s without a V1 envelope.
+   * Returns the platform-side limit identifier (e.g. {@code decision_list_size}, {@code
+   * daily_request_count}). Null for legacy 429s without a V1 envelope.
    *
    * @return the limit_type or null
    */
@@ -152,8 +151,8 @@ public class RateLimitException extends AxonFlowException {
   }
 
   /**
-   * Returns the caller's current pricing tier (e.g. {@code Community}, {@code Free}).
-   * Null for legacy 429s without a V1 envelope.
+   * Returns the caller's current pricing tier (e.g. {@code Community}, {@code Free}). Null for
+   * legacy 429s without a V1 envelope.
    *
    * @return the tier or null
    */
@@ -162,9 +161,8 @@ public class RateLimitException extends AxonFlowException {
   }
 
   /**
-   * Returns the upgrade context (tier, wording, compareUrl, buyUrl) so callers can
-   * surface a tier-upgrade affordance to the user. Null when the 429 didn't carry
-   * a V1 envelope.
+   * Returns the upgrade context (tier, wording, compareUrl, buyUrl) so callers can surface a
+   * tier-upgrade affordance to the user. Null when the 429 didn't carry a V1 envelope.
    *
    * @return the upgrade info or null
    */
@@ -176,6 +174,7 @@ public class RateLimitException extends AxonFlowException {
    * Pricing-tier upgrade context emitted in a V1 429 envelope.
    *
    * <p>Cross-SDK parity:
+   *
    * <ul>
    *   <li>Go: axonflow-sdk-go/decisions.go (UpgradeInfo)
    *   <li>Python: axonflow-sdk-python/axonflow/exceptions.py (UpgradeInfo)

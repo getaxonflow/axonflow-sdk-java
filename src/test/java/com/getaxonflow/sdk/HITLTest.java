@@ -264,13 +264,13 @@ class HITLTest {
               .withRequestBody(matchingJsonPath("$.client_id", equalTo("loan-desk")))
               .withRequestBody(
                   matchingJsonPath(
-                      "$.notify_url",
-                      equalTo("https://workflows.example.com/hooks/loan-approve")))
+                      "$.notify_url", equalTo("https://workflows.example.com/hooks/loan-approve")))
               .withRequestBody(matchingJsonPath("$.severity", equalTo("high"))));
     }
 
     @Test
-    @DisplayName("should accept minimal required-field set (clientId + originalQuery + requestType)")
+    @DisplayName(
+        "should accept minimal required-field set (clientId + originalQuery + requestType)")
     void shouldAcceptMinimalRequiredFields() {
       stubFor(
           post(urlEqualTo("/api/v1/hitl/queue"))
@@ -297,11 +297,7 @@ class HITLTest {
                               + "}}")));
 
       HITLCreateInput input =
-          HITLCreateInput.builder()
-              .clientId("c1")
-              .originalQuery("q")
-              .requestType("chat")
-              .build();
+          HITLCreateInput.builder().clientId("c1").originalQuery("q").requestType("chat").build();
 
       HITLApprovalRequest result = axonflow.createHITLRequest(input);
       assertThat(result.getRequestId()).isEqualTo("hitl-req-minimal");
@@ -366,7 +362,9 @@ class HITLTest {
       stubFor(
           post(urlEqualTo("/api/v1/hitl/queue"))
               .willReturn(
-                  aResponse().withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER)));
+                  aResponse()
+                      .withFault(
+                          com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER)));
 
       HITLCreateInput input =
           HITLCreateInput.builder()
@@ -392,8 +390,7 @@ class HITLTest {
     @Test
     @DisplayName("should reject missing original_query")
     void shouldRejectMissingOriginalQuery() {
-      HITLCreateInput input =
-          HITLCreateInput.builder().clientId("c1").requestType("chat").build();
+      HITLCreateInput input = HITLCreateInput.builder().clientId("c1").requestType("chat").build();
       assertThatThrownBy(() -> axonflow.createHITLRequest(input))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("original_query");
@@ -402,8 +399,7 @@ class HITLTest {
     @Test
     @DisplayName("should reject missing request_type")
     void shouldRejectMissingRequestType() {
-      HITLCreateInput input =
-          HITLCreateInput.builder().clientId("c1").originalQuery("q").build();
+      HITLCreateInput input = HITLCreateInput.builder().clientId("c1").originalQuery("q").build();
       assertThatThrownBy(() -> axonflow.createHITLRequest(input))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("request_type");

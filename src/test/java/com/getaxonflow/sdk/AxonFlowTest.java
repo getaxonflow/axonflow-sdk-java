@@ -585,10 +585,10 @@ class AxonFlowTest {
                     .withStatus(200)
                     .withHeader("Content-Type", "application/json")
                     .withBody(
-                        "{\"providers\":[" +
-                            "{\"name\":\"anthropic\",\"type\":\"anthropic\",\"enabled\":true,\"has_api_key\":true,\"health\":{\"status\":\"healthy\",\"message\":\"provider is operational\",\"last_checked\":\"2026-04-28T08:45:12Z\"}}," +
-                            "{\"name\":\"openai\",\"type\":\"openai\",\"enabled\":true,\"has_api_key\":true,\"health\":{\"status\":\"unhealthy\",\"message\":\"billing exceeded\"}}" +
-                            "]}")));
+                        "{\"providers\":["
+                            + "{\"name\":\"anthropic\",\"type\":\"anthropic\",\"enabled\":true,\"has_api_key\":true,\"health\":{\"status\":\"healthy\",\"message\":\"provider is operational\",\"last_checked\":\"2026-04-28T08:45:12Z\"}},"
+                            + "{\"name\":\"openai\",\"type\":\"openai\",\"enabled\":true,\"has_api_key\":true,\"health\":{\"status\":\"unhealthy\",\"message\":\"billing exceeded\"}}"
+                            + "]}")));
 
     List<LLMProvider> providers = axonflow.listLLMProviders();
 
@@ -686,7 +686,8 @@ class AxonFlowTest {
   @DisplayName("listLLMProvidersPaged returns pagination metadata")
   void listLLMProvidersPagedReturnsPaginationMeta() {
     stubFor(
-        get(urlMatching("/api/v1/llm-providers\\?.*page=2.*page_size=5.*|/api/v1/llm-providers\\?.*page_size=5.*page=2.*"))
+        get(urlMatching(
+                "/api/v1/llm-providers\\?.*page=2.*page_size=5.*|/api/v1/llm-providers\\?.*page_size=5.*page=2.*"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
@@ -738,8 +739,9 @@ class AxonFlowTest {
   @DisplayName("listLLMProviders combined filters (type + enabled)")
   void listLLMProvidersCombinedFilters() {
     stubFor(
-        get(urlMatching("/api/v1/llm-providers\\?.*type=anthropic.*enabled=true.*"
-                + "|/api/v1/llm-providers\\?.*enabled=true.*type=anthropic.*"))
+        get(urlMatching(
+                "/api/v1/llm-providers\\?.*type=anthropic.*enabled=true.*"
+                    + "|/api/v1/llm-providers\\?.*enabled=true.*type=anthropic.*"))
             .willReturn(
                 aResponse()
                     .withStatus(200)
@@ -786,7 +788,8 @@ class AxonFlowTest {
   }
 
   @Test
-  @DisplayName("LLMProvider with omitted enabled field uses Boolean (null), isEnabled() returns false")
+  @DisplayName(
+      "LLMProvider with omitted enabled field uses Boolean (null), isEnabled() returns false")
   void llmProviderEnabledIsBoxed() {
     stubFor(
         get(urlEqualTo("/api/v1/llm-providers"))
@@ -844,9 +847,9 @@ class AxonFlowTest {
   void llmProviderPrimitiveAccessorsNullSafe() {
     // Construct via the boxed constructor with explicit nulls — Jackson's
     // omit-field path produces this same state.
-    LLMProvider p = new LLMProvider(
-        "x", "openai", null, null, null, null, null,
-        null, null, null, null, null, null);
+    LLMProvider p =
+        new LLMProvider(
+            "x", "openai", null, null, null, null, null, null, null, null, null, null, null);
 
     // Primitive accessors null-safe-unbox to 0 / false; boxed accessors expose
     // the actual null so callers can distinguish "explicitly 0" from "not set".
@@ -2237,8 +2240,9 @@ class AxonFlowTest {
   }
 
   @Test
-  @DisplayName("mcpCheckInput with a \"tool\" option should send connector_type and tool as "
-      + "separate fields")
+  @DisplayName(
+      "mcpCheckInput with a \"tool\" option should send connector_type and tool as "
+          + "separate fields")
   void mcpCheckInputWithToolOptionShouldSendConnectorTypeAndToolSeparately() {
     stubFor(
         post(urlEqualTo("/api/v1/mcp/check-input"))
@@ -2400,8 +2404,9 @@ class AxonFlowTest {
   }
 
   @Test
-  @DisplayName("mcpCheckOutput with a \"tool\" option should send connector_type and tool as "
-      + "separate fields")
+  @DisplayName(
+      "mcpCheckOutput with a \"tool\" option should send connector_type and tool as "
+          + "separate fields")
   void mcpCheckOutputWithToolOptionShouldSendConnectorTypeAndToolSeparately() {
     stubFor(
         post(urlEqualTo("/api/v1/mcp/check-output"))
@@ -2792,7 +2797,8 @@ class AxonFlowTest {
     assertThat(response.getCount()).isEqualTo(1);
     assertThat(response.getPendingApprovals()).hasSize(1);
     assertThat(response.getPendingApprovals().get(0).getPlanId()).isEqualTo("plan-abc");
-    assertThat(response.getPendingApprovals().get(0).getStepName()).isEqualTo("Analyze transaction");
+    assertThat(response.getPendingApprovals().get(0).getStepName())
+        .isEqualTo("Analyze transaction");
   }
 
   @Test

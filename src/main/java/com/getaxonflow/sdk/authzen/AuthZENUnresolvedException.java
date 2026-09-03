@@ -18,12 +18,12 @@ package com.getaxonflow.sdk.authzen;
 /**
  * The request cannot be SENT as built: it carries an attribute the caller could not resolve.
  *
- * <p>Separate from {@link AuthZENRefusedException}, and NOT retryable, because the two need opposite
- * actions from the caller. A server {@code evaluation_unavailable} says "send these bytes again";
- * this says "re-resolve the attribute and build a NEW request". Reporting it as retryable — which an
- * earlier version of this SDK did — sends a {@code while (e.isRetryable())} loop against a request
- * whose refusal is frozen inside it, so every attempt produces the identical error until the budget
- * runs out.
+ * <p>Separate from {@link AuthZENRefusedException}, and NOT retryable, because the two need
+ * opposite actions from the caller. A server {@code evaluation_unavailable} says "send these bytes
+ * again"; this says "re-resolve the attribute and build a NEW request". Reporting it as retryable —
+ * which an earlier version of this SDK did — sends a {@code while (e.isRetryable())} loop against a
+ * request whose refusal is frozen inside it, so every attempt produces the identical error until
+ * the budget runs out.
  *
  * <p>The OPERATION may well succeed once the attribute resolves. That is a statement about a
  * different request, and it is why this carries the pointer and the reason rather than a boolean.

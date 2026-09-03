@@ -21,9 +21,9 @@ import org.junit.jupiter.api.Test;
  * X-Client-ID header verification (v9 identity).
  *
  * <p>Every governed request carries {@code X-Client-ID} alongside Basic Auth. The agent's
- * apiAuthMiddleware overwrites the header with its own auth-derived value, so a missing or
- * wrong client-side header is harmless server-side. These tests pin SDK-emitted behaviour so
- * future regressions are caught early.
+ * apiAuthMiddleware overwrites the header with its own auth-derived value, so a missing or wrong
+ * client-side header is harmless server-side. These tests pin SDK-emitted behaviour so future
+ * regressions are caught early.
  */
 @WireMockTest
 @DisplayName("X-Client-ID header (v9)")

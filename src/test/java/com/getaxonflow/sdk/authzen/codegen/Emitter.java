@@ -58,9 +58,9 @@ import java.util.Set;
  * generated classes carry NO annotation for that, and the first version of this emitter was wrong
  * about why they could: {@code @JsonIgnoreProperties(ignoreUnknown = false)} is Jackson's DEFAULT,
  * and it only declines to ignore — whether that becomes a failure is the mapper's {@code
- * FAIL_ON_UNKNOWN_PROPERTIES}, which the SDK's shared mapper turns OFF. The annotation was a
- * no-op that read as a guarantee, and a test decoding a decision with an extra member passed
- * straight through it.
+ * FAIL_ON_UNKNOWN_PROPERTIES}, which the SDK's shared mapper turns OFF. The annotation was a no-op
+ * that read as a guarantee, and a test decoding a decision with an extra member passed straight
+ * through it.
  *
  * <p>The strictness therefore lives where it can actually take effect: {@code AxonFlow} decodes
  * this surface with a COPY of its mapper that has the feature on. See {@code
@@ -340,7 +340,8 @@ public final class Emitter {
                     + " equivalent to any known value."),
             Collections.singletonList(
                 "@return true when the value is one of {@link #KNOWN_WIRE_VALUES}")));
-    b.append("  public boolean isKnown() {\n    return KNOWN_WIRE_VALUES.contains(value);\n  }\n\n");
+    b.append(
+        "  public boolean isKnown() {\n    return KNOWN_WIRE_VALUES.contains(value);\n  }\n\n");
 
     b.append("  @Override\n  public boolean equals(Object other) {\n");
     b.append("    if (this == other) {\n      return true;\n    }\n");
@@ -886,12 +887,56 @@ public final class Emitter {
 
   private static boolean isJavaKeyword(String s) {
     return Arrays.asList(
-            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
-            "const", "continue", "default", "do", "double", "else", "enum", "extends", "final",
-            "finally", "float", "for", "goto", "if", "implements", "import", "instanceof", "int",
-            "interface", "long", "native", "new", "package", "private", "protected", "public",
-            "return", "short", "static", "strictfp", "super", "switch", "synchronized", "this",
-            "throw", "throws", "transient", "try", "void", "volatile", "while")
+            "abstract",
+            "assert",
+            "boolean",
+            "break",
+            "byte",
+            "case",
+            "catch",
+            "char",
+            "class",
+            "const",
+            "continue",
+            "default",
+            "do",
+            "double",
+            "else",
+            "enum",
+            "extends",
+            "final",
+            "finally",
+            "float",
+            "for",
+            "goto",
+            "if",
+            "implements",
+            "import",
+            "instanceof",
+            "int",
+            "interface",
+            "long",
+            "native",
+            "new",
+            "package",
+            "private",
+            "protected",
+            "public",
+            "return",
+            "short",
+            "static",
+            "strictfp",
+            "super",
+            "switch",
+            "synchronized",
+            "this",
+            "throw",
+            "throws",
+            "transient",
+            "try",
+            "void",
+            "volatile",
+            "while")
         .contains(s);
   }
 }

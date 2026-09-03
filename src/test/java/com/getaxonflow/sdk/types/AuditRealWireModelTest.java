@@ -52,8 +52,8 @@ import org.junit.jupiter.api.Test;
  *
  * <p>The mapper here is configured the same way {@code AxonFlow} configures its production mapper
  * (plain {@code ObjectMapper} + {@code JavaTimeModule}; unknown properties tolerated via the
- * model's {@code @JsonIgnoreProperties}). It is a separate instance, not the production object -
- * if {@code AxonFlow}'s mapper construction gains configuration, mirror it here.
+ * model's {@code @JsonIgnoreProperties}). It is a separate instance, not the production object - if
+ * {@code AxonFlow}'s mapper construction gains configuration, mirror it here.
  */
 @DisplayName("Audit model - real wire fields (#3254)")
 class AuditRealWireModelTest {
