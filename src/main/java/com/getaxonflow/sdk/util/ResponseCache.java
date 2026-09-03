@@ -121,12 +121,40 @@ public final class ResponseCache {
    * @return a unique cache key
    */
   public static String generateKey(String requestType, String query, String userToken) {
+    return generateKey(requestType, query, userToken, null);
+  }
+
+  /**
+   * Generates a cache key that also distinguishes the caller's READ-PATH identity.
+   *
+   * <p>{@code readIdentity} is a different thing from {@code userToken}: that one is the write-path
+   * body field the call was made with, and this one is the {@code X-User-Token} header the request
+   * will carry. Both belong in the key, because both can change the answer.
+   *
+   * <p>It has to be here because a client derived with {@code asUser} SHARES the parent's cache by
+   * design — deriving one per request must not cost a cache. Without this component, {@code
+   * base.asUser(ALICE)} and {@code base.asUser(BOB)} making the same call hash to the same entry,
+   * so one request is sent carrying ALICE and BOB is served ALICE's governed response from the
+   * cache, with nothing evaluated on his behalf at all. Measured on the two-derived-clients test:
+   * one request reached the server for two callers.
+   *
+   * <p>The identity is hashed, never stored, so a cache dump cannot yield the credential.
+   *
+   * @param requestType the type of request
+   * @param query the query string
+   * @param userToken the write-path user token carried in the request body
+   * @param readIdentity the per-user identity the request will present, or {@code null} for none
+   * @return a unique cache key
+   */
+  public static String generateKey(
+      String requestType, String query, String userToken, String readIdentity) {
     String input =
         String.format(
-            "%s:%s:%s",
+            "%s:%s:%s:%s",
             requestType != null ? requestType : "",
             query != null ? query : "",
-            userToken != null ? userToken : "");
+            userToken != null ? userToken : "",
+            readIdentity != null ? readIdentity : "");
 
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");

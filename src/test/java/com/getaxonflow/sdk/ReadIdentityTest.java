@@ -14,14 +14,16 @@ import com.getaxonflow.sdk.exceptions.ReadScopeException;
 import com.getaxonflow.sdk.identity.ReadIdentity;
 import com.getaxonflow.sdk.identity.ReadScope;
 import com.getaxonflow.sdk.types.*;
+import com.getaxonflow.sdk.types.ClientRequest;
+import com.getaxonflow.sdk.types.RequestType;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -535,6 +537,89 @@ class ReadIdentityTest {
   }
 
   // ========================================================================
+  // A derived client shares the cache — so the key must know the identity
+  // ========================================================================
+
+  @Test
+  @DisplayName("two derived clients do not share a cached response")
+  void twoDerivedClientsDoNotShareACachedResponse() {
+    // The Rust sibling shipped this as a live cross-user data leak once its
+    // identity started riding /api/request. Here it is LATENT rather than live:
+    // that handler sits outside proxyAuthMiddleware and resolves the caller from
+    // the BODY token, which is already in the key. Fixed anyway, for two
+    // reasons. asUser's javadoc promises that no path widens back to the
+    // process's own identity, and a cache that answers one caller with another's
+    // response is exactly that widening. And "latent" here means "depends on a
+    // platform routing decision this SDK does not control" — the day
+    // /api/request moves behind the middleware, the leak is live and nothing in
+    // this repo changed.
+    stubFor(
+        post(urlEqualTo("/api/request"))
+            .willReturn(okJson("{\"success\":true,\"data\":{\"content\":\"answer\"}}")));
+
+    AxonFlow base = client(null);
+    String query = "the same question from two people";
+
+    base.asUser("ALICE-TOKEN")
+        .proxyLLMCall(
+            ClientRequest.builder()
+                .userToken("")
+                .query(query)
+                .requestType(RequestType.MCP_QUERY)
+                .build());
+    base.asUser("BOB-TOKEN")
+        .proxyLLMCall(
+            ClientRequest.builder()
+                .userToken("")
+                .query(query)
+                .requestType(RequestType.MCP_QUERY)
+                .build());
+
+    List<LoggedRequest> seen = findAll(postRequestedFor(urlEqualTo("/api/request")));
+    List<String> identities =
+        seen.stream()
+            .map(
+                r ->
+                    r.getHeader(ReadIdentity.HEADER_USER_TOKEN) == null
+                        ? "NO IDENTITY"
+                        : r.getHeader(ReadIdentity.HEADER_USER_TOKEN))
+            .toList();
+
+    assertThat(seen)
+        .as(
+            "two identities asking the same question must produce TWO governed requests. One means"
+                + " the second caller was served the FIRST caller's response from a shared cache,"
+                + " without the platform evaluating anything on their behalf. Identities seen: %s",
+            identities)
+        .hasSize(2);
+    assertThat(identities).contains("ALICE-TOKEN", "BOB-TOKEN");
+  }
+
+  @Test
+  @DisplayName("one identity asking twice still hits the cache")
+  void oneIdentityAskingTwiceStillHitsTheCache() {
+    // The other failure direction: a key that never matches is a disabled cache
+    // wearing a fix's name, and it would satisfy the test above on its own.
+    stubFor(
+        post(urlEqualTo("/api/request"))
+            .willReturn(okJson("{\"success\":true,\"data\":{\"content\":\"answer\"}}")));
+
+    AxonFlow alice = client(null).asUser("ALICE-TOKEN");
+    for (int i = 0; i < 2; i++) {
+      alice.proxyLLMCall(
+          ClientRequest.builder()
+              .userToken("")
+              .query("one question")
+              .requestType(RequestType.MCP_QUERY)
+              .build());
+    }
+
+    assertThat(findAll(postRequestedFor(urlEqualTo("/api/request"))))
+        .as("the same identity asking the same question twice must be served from the cache")
+        .hasSize(1);
+  }
+
+  // ========================================================================
   // One transport site
   // ========================================================================
 
@@ -562,23 +647,87 @@ class ReadIdentityTest {
     List<String> literals = new ArrayList<>();
     try (Stream<Path> paths = Files.walk(Path.of("src", "main", "java"))) {
       for (Path path : paths.filter(p -> p.toString().endsWith(".java")).toList()) {
+        // Flattened rather than scanned per LINE. google-java-format wraps a
+        // long call across lines, so `.header(` and the constant naming the
+        // header land on different lines and no single line carries both — a
+        // second stamping site then reads as clean, and the guard's coverage
+        // depends on how long the surrounding identifiers happen to be.
+        //
+        // Comments are dropped first: the claim is about CODE. The header is
+        // named in prose in several javadocs on purpose, and counting those
+        // would make the guard fail for being well documented, which teaches
+        // the next author to delete the explanation rather than the duplicate.
+        StringBuilder flat = new StringBuilder();
+        List<Integer> lineOf = new ArrayList<>();
         List<String> lines = Files.readAllLines(path);
+        boolean inBlockComment = false;
         for (int i = 0; i < lines.size(); i++) {
           String line = lines.get(i).trim();
-          // Comments are excluded: the claim is about CODE. The header is named
-          // in prose in several docstrings on purpose, and counting those would
-          // make the guard fail for being well documented — which teaches the
-          // next author to delete the explanation rather than the duplicate.
-          if (line.startsWith("*") || line.startsWith("//") || line.startsWith("/*")) {
-            continue;
+          if (inBlockComment) {
+            int close = line.indexOf("*/");
+            if (close < 0) {
+              continue;
+            }
+            line = line.substring(close + 2);
+            inBlockComment = false;
           }
-          Matcher setterMatch = setter.matcher(line);
-          if (setterMatch.find()) {
-            setters.add(path + ":" + (i + 1));
+          int open = line.indexOf("/*");
+          if (open >= 0) {
+            int close = line.indexOf("*/", open + 2);
+            if (close < 0) {
+              inBlockComment = true;
+              line = line.substring(0, open);
+            } else {
+              line = line.substring(0, open) + line.substring(close + 2);
+            }
           }
-          if (literal.matcher(line).find()) {
-            literals.add(path + ":" + (i + 1));
+          int lineComment = line.indexOf("//");
+          if (lineComment >= 0) {
+            line = line.substring(0, lineComment);
           }
+          for (char c : line.toCharArray()) {
+            if (Character.isWhitespace(c)) {
+              continue;
+            }
+            flat.append(c);
+            lineOf.add(i + 1);
+          }
+        }
+
+        String text = flat.toString();
+        String folded = text.toLowerCase(java.util.Locale.ROOT);
+
+        // Every verb that writes a header, each paired with the header it names
+        // IN THE SAME MATCH so the two cannot be satisfied by unrelated
+        // statements. `add` matters as much as `header`: on Headers.Builder it
+        // does NOT replace, so a second stamp written with it puts TWO values
+        // on the wire.
+        for (String verb : List.of(".header(", ".addheader(", ".add(", ".set(", ".headers(")) {
+          int from = 0;
+          while (true) {
+            int at = folded.indexOf(verb, from);
+            if (at < 0) {
+              break;
+            }
+            from = at + verb.length();
+            // The argument list, bounded so a match cannot reach past the call
+            // it belongs to.
+            String window = folded.substring(from, Math.min(from + 160, folded.length()));
+            String arg = window.contains(",") ? window.substring(0, window.indexOf(',')) : window;
+            if (arg.contains("header_user_token") || arg.contains("\"x-user-token\"")) {
+              setters.add(path + ":" + lineOf.get(at));
+            }
+          }
+        }
+
+        int from = 0;
+        while (true) {
+          int at = folded.indexOf("\"x-user-token\"", from);
+          if (at < 0) {
+            break;
+          }
+          from = at + 1;
+          literals.add(path + ":" + lineOf.get(at));
         }
       }
     }

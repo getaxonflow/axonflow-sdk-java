@@ -1732,9 +1732,15 @@ public final class AxonFlow implements Closeable {
     boolean hasMedia = finalRequest.getMedia() != null && !finalRequest.getMedia().isEmpty();
 
     // Check cache first (skip for media requests)
+    // The read identity is a key component, not just a header: a derived client
+    // shares this cache, so without it two identities asking the same question
+    // collide and the second is served the first one's governed response.
     String cacheKey =
         ResponseCache.generateKey(
-            finalRequest.getRequestType(), finalRequest.getQuery(), finalRequest.getUserToken());
+            finalRequest.getRequestType(),
+            finalRequest.getQuery(),
+            finalRequest.getUserToken(),
+            config.getUserToken());
 
     if (!hasMedia) {
       java.util.Optional<ClientResponse> cached = cache.get(cacheKey, ClientResponse.class);
