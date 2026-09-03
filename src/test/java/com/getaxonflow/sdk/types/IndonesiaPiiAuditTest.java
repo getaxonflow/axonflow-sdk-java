@@ -1,9 +1,5 @@
-/*
- * Copyright 2025 AxonFlow
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- */
+// Copyright 2025 AxonFlow
+// SPDX-License-Identifier: MIT
 package com.getaxonflow.sdk.types;
 
 import static org.assertj.core.api.Assertions.*;

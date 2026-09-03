@@ -95,6 +95,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hour by a single delivery. No ping is lost: the stamp is untouched, so the
   first attempt after the widened interval sends normally.
 
+### Changed
+
+- License: the SDK is now distributed under the MIT License, matching the
+  other AxonFlow SDKs and plugins; releases up to 9.2.0 remain Apache-2.0 as
+  published. Maven Central artifacts are immutable, so the already-published
+  jars keep the license they were published under; the change takes effect
+  from the next release.
+
 ## [9.2.0] - 2026-09-01: AuthZEN-native authorization surface
 
 ### Added

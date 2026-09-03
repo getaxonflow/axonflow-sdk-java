@@ -1,5 +1,5 @@
 // Copyright 2026 AxonFlow
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
 //
 // Operator example for AxonFlow.listDecisions (Session γ / #1982).
 // Implements the GET /api/v1/decisions contract — companion to
