@@ -19,8 +19,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Health snapshot for a registered LLM provider, returned inside an {@link
- * LLMProvider} record from {@code GET /api/v1/llm-providers}.
+ * Health snapshot for a registered LLM provider, returned inside an {@link LLMProvider} record from
+ * {@code GET /api/v1/llm-providers}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class LLMProviderHealth {

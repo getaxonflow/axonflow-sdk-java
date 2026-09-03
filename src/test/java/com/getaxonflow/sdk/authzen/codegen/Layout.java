@@ -35,10 +35,9 @@ import java.util.List;
  * this SDK's CI still builds on 11.
  *
  * <p>So the emitter emits what the formatter would emit, and {@code
- * AuthZENGeneratedTypesRespectTheColumnLimitTest} is what keeps the two honest for the rule a
- * test can check without the formatter on the classpath: no generated line exceeds the column
- * limit. That is not the whole of google-java-format, and the test says so rather than implying
- * it is.
+ * AuthZENGeneratedTypesRespectTheColumnLimitTest} is what keeps the two honest for the rule a test
+ * can check without the formatter on the classpath: no generated line exceeds the column limit.
+ * That is not the whole of google-java-format, and the test says so rather than implying it is.
  */
 final class Layout {
 

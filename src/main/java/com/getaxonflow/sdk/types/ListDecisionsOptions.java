@@ -10,15 +10,13 @@ import java.time.Instant;
 /**
  * Optional filters for {@code AxonFlow.listDecisions}.
  *
- * <p>Every field is optional; null values are omitted from the URL so the
- * platform applies its tier-default page. {@code decision}, when set, must be one
- * of the canonical audit verdicts {@code "allowed"}, {@code "blocked"},
- * {@code "redacted"}, {@code "needs_approval"}, or {@code "error"} (platform
- * 9.0.0+); the pre-9.0.0 values {@code "allow"} / {@code "deny"} /
- * {@code "require_approval"} are rejected with HTTP 400 by 9.0.0 (see
- * https://docs.getaxonflow.com/docs/deployment/v8-to-v9-migration/).
- * {@code limit} is server-capped per tier; over-cap requests yield a 429
- * with the V1 upgrade envelope (surfaced as {@link
+ * <p>Every field is optional; null values are omitted from the URL so the platform applies its
+ * tier-default page. {@code decision}, when set, must be one of the canonical audit verdicts {@code
+ * "allowed"}, {@code "blocked"}, {@code "redacted"}, {@code "needs_approval"}, or {@code "error"}
+ * (platform 9.0.0+); the pre-9.0.0 values {@code "allow"} / {@code "deny"} / {@code
+ * "require_approval"} are rejected with HTTP 400 by 9.0.0 (see
+ * https://docs.getaxonflow.com/docs/deployment/v8-to-v9-migration/). {@code limit} is server-capped
+ * per tier; over-cap requests yield a 429 with the V1 upgrade envelope (surfaced as {@link
  * com.getaxonflow.sdk.exceptions.RateLimitException} carrying upgrade info).
  *
  * <p>Use the builder for ergonomic optional construction:

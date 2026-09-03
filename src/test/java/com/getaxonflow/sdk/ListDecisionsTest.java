@@ -29,8 +29,7 @@ class ListDecisionsTest {
   @BeforeEach
   void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
     axonflow =
-        AxonFlow.create(
-            AxonFlowConfig.builder().endpoint(wmRuntimeInfo.getHttpBaseUrl()).build());
+        AxonFlow.create(AxonFlowConfig.builder().endpoint(wmRuntimeInfo.getHttpBaseUrl()).build());
   }
 
   @Test
@@ -203,8 +202,7 @@ class ListDecisionsTest {
                     .withStatus(401)
                     .withBody("{\"error\":\"X-Tenant-ID header is required\"}")));
 
-    assertThatThrownBy(() -> axonflow.listDecisions(null))
-        .isInstanceOf(AxonFlowException.class);
+    assertThatThrownBy(() -> axonflow.listDecisions(null)).isInstanceOf(AxonFlowException.class);
   }
 
   @Test
@@ -262,8 +260,7 @@ class ListDecisionsTest {
   @Test
   @DisplayName("buildListDecisionsQuery — partial options omit None fields")
   void buildQueryPartial() {
-    ListDecisionsOptions opts =
-        ListDecisionsOptions.builder().decision("blocked").limit(7).build();
+    ListDecisionsOptions opts = ListDecisionsOptions.builder().decision("blocked").limit(7).build();
     assertThat(AxonFlow.buildListDecisionsQuery(opts)).isEqualTo("?decision=blocked&limit=7");
   }
 

@@ -36,8 +36,8 @@ import org.junit.jupiter.api.Test;
  * generates.
  *
  * <p>This is the whole reason the generated files may be committed at all. A committed generated
- * file that nothing checks is a hand-written file with a misleading header: it drifts from its input
- * on the first edit, and the header goes on claiming it did not.
+ * file that nothing checks is a hand-written file with a misleading header: it drifts from its
+ * input on the first edit, and the header goes on claiming it did not.
  */
 class AuthZENGeneratedTypesAreCurrentTest {
 

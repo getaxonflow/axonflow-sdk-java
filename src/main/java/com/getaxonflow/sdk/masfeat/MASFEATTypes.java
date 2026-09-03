@@ -553,9 +553,9 @@ public final class MASFEATTypes {
    * <p>Wire mapping note (#3254): the {@code @JsonProperty} tags carry the REAL wire names served
    * by the orchestrator's {@code masfeat.AISystemRegistry} struct. The SDK populates this type via
    * a hand-written parser ({@code AxonFlow.MASFEATNamespace}); the tags exist so the Jackson
-   * surface is truthful and the wire-shape binding gate can bind this model to the spec. The
-   * {@code customerImpact}/{@code modelComplexity}/{@code humanReliance} JAVA names are historic;
-   * their wire names are {@code risk_rating_impact}/{@code risk_rating_complexity}/{@code
+   * surface is truthful and the wire-shape binding gate can bind this model to the spec. The {@code
+   * customerImpact}/{@code modelComplexity}/{@code humanReliance} JAVA names are historic; their
+   * wire names are {@code risk_rating_impact}/{@code risk_rating_complexity}/{@code
    * risk_rating_reliance} and the data is real. {@code businessOwner} is a compatibility alias
    * populated from the wire's {@code owner_email}; prefer {@link #getOwnerEmail()}.
    */
@@ -898,11 +898,10 @@ public final class MASFEATTypes {
     /**
      * Returns systems grouped by use case.
      *
-     * @deprecated never populated on the 9.x line - the server's {@code RegistrySummary} has
-     *     never carried {@code by_use_case} (getaxonflow/axonflow-enterprise#3254). Read the
-     *     materiality counters ({@link #getHighMaterialityCount()} etc.), {@link
-     *     #getAssessmentsDue()} and {@link #getKillSwitchesTriggered()}. Scheduled for removal in
-     *     the next major.
+     * @deprecated never populated on the 9.x line - the server's {@code RegistrySummary} has never
+     *     carried {@code by_use_case} (getaxonflow/axonflow-enterprise#3254). Read the materiality
+     *     counters ({@link #getHighMaterialityCount()} etc.), {@link #getAssessmentsDue()} and
+     *     {@link #getKillSwitchesTriggered()}. Scheduled for removal in the next major.
      */
     @Deprecated
     public Map<String, Integer> getByUseCase() {
@@ -920,8 +919,8 @@ public final class MASFEATTypes {
     /**
      * Returns systems grouped by status.
      *
-     * @deprecated never populated on the 9.x line - the server's {@code RegistrySummary} has
-     *     never carried {@code by_status} (getaxonflow/axonflow-enterprise#3254). Read {@link
+     * @deprecated never populated on the 9.x line - the server's {@code RegistrySummary} has never
+     *     carried {@code by_status} (getaxonflow/axonflow-enterprise#3254). Read {@link
      *     #getActiveSystems()} and {@link #getTotalSystems()}. Scheduled for removal in the next
      *     major.
      */
@@ -1488,9 +1487,9 @@ public final class MASFEATTypes {
     private String triggeredBy;
 
     /**
-     * Wire mapping note (#3254): the wire key is {@code trigger_reason} (the server has never
-     * sent {@code triggered_reason}). The JAVA name is historic; the data is real - the parser
-     * reads {@code trigger_reason} first and falls back to the legacy spelling.
+     * Wire mapping note (#3254): the wire key is {@code trigger_reason} (the server has never sent
+     * {@code triggered_reason}). The JAVA name is historic; the data is real - the parser reads
+     * {@code trigger_reason} first and falls back to the legacy spelling.
      */
     @JsonProperty("trigger_reason")
     private String triggeredReason;

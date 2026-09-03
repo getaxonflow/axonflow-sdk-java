@@ -68,10 +68,10 @@ import java.util.function.Supplier;
  * <p>The refusal an unknown attribute produces is NOT retryable, and that is the opposite of what
  * it first looks like. A source that could not answer this second may answer the next one - but
  * that is a statement about a DIFFERENT request. This one carries the unresolved attribute inside
- * it, so resending the identical bytes reproduces the identical refusal forever, and a {@code
- * while (e.isRetryable())} loop would burn its whole budget on it. Re-resolve the attribute and
- * build a new request; the SDK reports that with {@link AuthZENUnresolvedException} rather than
- * through the server's retryable {@code evaluation_unavailable}.
+ * it, so resending the identical bytes reproduces the identical refusal forever, and a {@code while
+ * (e.isRetryable())} loop would burn its whole budget on it. Re-resolve the attribute and build a
+ * new request; the SDK reports that with {@link AuthZENUnresolvedException} rather than through the
+ * server's retryable {@code evaluation_unavailable}.
  *
  * <h2>Why this is a final class with private constructors</h2>
  *

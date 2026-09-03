@@ -351,11 +351,9 @@ class AuditToolCallTest {
         post(urlEqualTo("/api/v1/audit/tool-call"))
             .willReturn(aResponse().withStatus(401).withBody("{\"error\":\"unauthorized\"}")));
 
-    AuditToolCallRequest request =
-        AuditToolCallRequest.builder().toolName("web_search").build();
+    AuditToolCallRequest request = AuditToolCallRequest.builder().toolName("web_search").build();
 
-    assertThatThrownBy(() -> axonflow.auditToolCall(request))
-        .isInstanceOf(AxonFlowException.class);
+    assertThatThrownBy(() -> axonflow.auditToolCall(request)).isInstanceOf(AxonFlowException.class);
 
     // wiremock counts requests; exactly one means the SDK did NOT retry.
     verify(1, postRequestedFor(urlEqualTo("/api/v1/audit/tool-call")));

@@ -127,8 +127,7 @@ public final class GovernedTool implements Tool {
 
     List<GovernedTool> result = new ArrayList<>(tools.size());
     for (Tool tool : tools) {
-      String ct =
-          connectorTypeFn != null ? connectorTypeFn.apply(tool.name()) : tool.name();
+      String ct = connectorTypeFn != null ? connectorTypeFn.apply(tool.name()) : tool.name();
       result.add(new GovernedTool(tool, client, ct, operation != null ? operation : "execute"));
     }
     return result;

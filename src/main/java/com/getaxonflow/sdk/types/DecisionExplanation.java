@@ -19,8 +19,8 @@ import java.util.Map;
  * <p>Shape frozen per ADR-043 (Explainability Data Contract). Additive-only changes are
  * non-breaking; renames or removals require a major version bump.
  *
- * <p>Unknown fields from future platform versions are ignored to preserve forward
- * compatibility — see the {@code @JsonIgnoreProperties(ignoreUnknown = true)} annotation.
+ * <p>Unknown fields from future platform versions are ignored to preserve forward compatibility —
+ * see the {@code @JsonIgnoreProperties(ignoreUnknown = true)} annotation.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public final class DecisionExplanation {
@@ -122,12 +122,11 @@ public final class DecisionExplanation {
   }
 
   /**
-   * The FULL sanitized request context the PEP attached to the decision
-   * (canonical {@code lower_snake_case} keys, string values), read from the
-   * audit row's {@code policy_details->'context'}. Unlike {@link DecisionSummary}
-   * (truncated to 5 keys), explain returns every persisted key up to the
-   * platform's 10-key cap. May be {@code null} for pre-v8.4.0 audit rows.
-   * (platform #2509 / epic #2508)
+   * The FULL sanitized request context the PEP attached to the decision (canonical {@code
+   * lower_snake_case} keys, string values), read from the audit row's {@code
+   * policy_details->'context'}. Unlike {@link DecisionSummary} (truncated to 5 keys), explain
+   * returns every persisted key up to the platform's 10-key cap. May be {@code null} for pre-v8.4.0
+   * audit rows. (platform #2509 / epic #2508)
    */
   public Map<String, String> getContext() {
     return context;

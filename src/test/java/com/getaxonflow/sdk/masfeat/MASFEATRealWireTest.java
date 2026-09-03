@@ -38,8 +38,8 @@ import org.junit.jupiter.api.Test;
  *
  * <p>These tests exercise the SDK's REAL parse path - the hand-written parsers in {@code
  * AxonFlow.MASFEATNamespace} reached through the public client methods over WireMock - not the
- * post-parse object shape (a #3254-class fiction lives in what the parser READS, so only
- * driving the parser can catch it).
+ * post-parse object shape (a #3254-class fiction lives in what the parser READS, so only driving
+ * the parser can catch it).
  *
  * <p>Every assertion on a #3254 fix is mutation-proof by construction: the asserted value differs
  * from what the PRE-FIX parser would have produced (0 / null / the legacy key's value).

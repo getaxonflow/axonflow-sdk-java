@@ -547,8 +547,8 @@ public final class WorkflowTypes {
     }
 
     /**
-     * Returns the retry policy for this step gate request.
-     * "idempotent" (default): return cached decision. "reevaluate": force fresh evaluation.
+     * Returns the retry policy for this step gate request. "idempotent" (default): return cached
+     * decision. "reevaluate": force fresh evaluation.
      */
     public String getRetryPolicy() {
       return retryPolicy;
@@ -558,8 +558,8 @@ public final class WorkflowTypes {
      * Returns the caller-supplied idempotency key, or {@code null} if none was set.
      *
      * <p>Once recorded on the first gate call for a {@code (workflow_id, step_id)}, the key is
-     * immutable — subsequent gate/complete calls must pass the same key or raise
-     * {@code IdempotencyKeyMismatchException}.
+     * immutable — subsequent gate/complete calls must pass the same key or raise {@code
+     * IdempotencyKeyMismatchException}.
      *
      * @return the idempotency key, or null
      */
@@ -681,8 +681,8 @@ public final class WorkflowTypes {
   /**
    * First-class state signal returned on every {@link StepGateResponse}.
    *
-   * <p>Replaces the ambiguous {@code cached: bool} field. Prefer these fields to
-   * {@link StepGateResponse#isCached()} and {@link StepGateResponse#getDecisionSource()}.
+   * <p>Replaces the ambiguous {@code cached: bool} field. Prefer these fields to {@link
+   * StepGateResponse#isCached()} and {@link StepGateResponse#getDecisionSource()}.
    */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class RetryContext {
@@ -733,8 +733,7 @@ public final class WorkflowTypes {
       this.completionCount = completionCount;
       this.priorCompletionStatus = priorCompletionStatus;
       this.priorOutputAvailable = priorOutputAvailable;
-      this.priorOutput =
-          priorOutput != null ? Collections.unmodifiableMap(priorOutput) : null;
+      this.priorOutput = priorOutput != null ? Collections.unmodifiableMap(priorOutput) : null;
       this.priorCompletionAt = priorCompletionAt;
       this.firstAttemptAt = firstAttemptAt;
       this.lastAttemptAt = lastAttemptAt;
@@ -744,7 +743,9 @@ public final class WorkflowTypes {
       this.idempotencyKey = idempotencyKey != null ? idempotencyKey : "";
     }
 
-    /** Number of /gate calls for this (workflow, step), including the current call. Always &gt;= 1. */
+    /**
+     * Number of /gate calls for this (workflow, step), including the current call. Always &gt;= 1.
+     */
     public int getGateCount() {
       return gateCount;
     }
@@ -788,8 +789,8 @@ public final class WorkflowTypes {
     }
 
     /**
-     * Decision of the immediately prior gate call. On first call, equals the current call's
-     * {@code decision}.
+     * Decision of the immediately prior gate call. On first call, equals the current call's {@code
+     * decision}.
      */
     public GateDecision getLastDecision() {
       return lastDecision;
@@ -938,7 +939,8 @@ public final class WorkflowTypes {
     }
 
     /**
-     * Returns whether this response was served from a prior decision rather than a fresh evaluation.
+     * Returns whether this response was served from a prior decision rather than a fresh
+     * evaluation.
      *
      * @deprecated Use {@code getRetryContext().getGateCount() > 1} instead. Will be removed in a
      *     future major version.
@@ -1046,17 +1048,49 @@ public final class WorkflowTypes {
       this.createdAt = createdAt;
     }
 
-    public long getId() { return id; }
-    public String getWorkflowId() { return workflowId; }
-    public String getStepId() { return stepId; }
-    public int getStepIndex() { return stepIndex; }
-    public String getStepType() { return stepType; }
-    public String getCheckpointType() { return checkpointType; }
-    public String getGateDecision() { return gateDecision; }
-    public String getGateReason() { return gateReason; }
-    public boolean isResumable() { return resumable; }
-    public int getResumeCount() { return resumeCount; }
-    public String getCreatedAt() { return createdAt; }
+    public long getId() {
+      return id;
+    }
+
+    public String getWorkflowId() {
+      return workflowId;
+    }
+
+    public String getStepId() {
+      return stepId;
+    }
+
+    public int getStepIndex() {
+      return stepIndex;
+    }
+
+    public String getStepType() {
+      return stepType;
+    }
+
+    public String getCheckpointType() {
+      return checkpointType;
+    }
+
+    public String getGateDecision() {
+      return gateDecision;
+    }
+
+    public String getGateReason() {
+      return gateReason;
+    }
+
+    public boolean isResumable() {
+      return resumable;
+    }
+
+    public int getResumeCount() {
+      return resumeCount;
+    }
+
+    public String getCreatedAt() {
+      return createdAt;
+    }
   }
 
   /** Response from listing checkpoints. */
@@ -1073,14 +1107,18 @@ public final class WorkflowTypes {
     public CheckpointListResponse(
         @JsonProperty("checkpoints") List<Checkpoint> checkpoints,
         @JsonProperty("workflow_id") String workflowId) {
-      this.checkpoints = checkpoints != null
-          ? Collections.unmodifiableList(checkpoints)
-          : Collections.emptyList();
+      this.checkpoints =
+          checkpoints != null ? Collections.unmodifiableList(checkpoints) : Collections.emptyList();
       this.workflowId = workflowId;
     }
 
-    public List<Checkpoint> getCheckpoints() { return checkpoints; }
-    public String getWorkflowId() { return workflowId; }
+    public List<Checkpoint> getCheckpoints() {
+      return checkpoints;
+    }
+
+    public String getWorkflowId() {
+      return workflowId;
+    }
   }
 
   /** Response after resuming from a checkpoint. */
@@ -1126,13 +1164,33 @@ public final class WorkflowTypes {
       this.message = message;
     }
 
-    public String getWorkflowId() { return workflowId; }
-    public String getResumedFromCheckpoint() { return resumedFromCheckpoint; }
-    public int getResumedFromIndex() { return resumedFromIndex; }
-    public String getNewDecision() { return newDecision; }
-    public String getDecisionSource() { return decisionSource; }
-    public int getResumeCount() { return resumeCount; }
-    public String getMessage() { return message; }
+    public String getWorkflowId() {
+      return workflowId;
+    }
+
+    public String getResumedFromCheckpoint() {
+      return resumedFromCheckpoint;
+    }
+
+    public int getResumedFromIndex() {
+      return resumedFromIndex;
+    }
+
+    public String getNewDecision() {
+      return newDecision;
+    }
+
+    public String getDecisionSource() {
+      return decisionSource;
+    }
+
+    public int getResumeCount() {
+      return resumeCount;
+    }
+
+    public String getMessage() {
+      return message;
+    }
   }
 
   /** Information about a workflow step. */
@@ -1649,9 +1707,9 @@ public final class WorkflowTypes {
     }
 
     /**
-     * Opt in to receiving {@code retry_context.prior_output} populated on the response when a
-     * prior /complete has landed. Default is {@code false} because prior output may be large
-     * and/or contain sensitive data.
+     * Opt in to receiving {@code retry_context.prior_output} populated on the response when a prior
+     * /complete has landed. Default is {@code false} because prior output may be large and/or
+     * contain sensitive data.
      */
     public static StepGateOptions includePriorOutput() {
       return new StepGateOptions(true);
@@ -1985,8 +2043,8 @@ public final class WorkflowTypes {
     }
 
     /**
-     * Back-compat constructor matching the legacy (workflow_id, step_id, status) shape.
-     * Rich fields default to null. Retained so existing test fixtures keep compiling.
+     * Back-compat constructor matching the legacy (workflow_id, step_id, status) shape. Rich fields
+     * default to null. Retained so existing test fixtures keep compiling.
      */
     public RejectStepResponse(String workflowId, String stepId, String status) {
       this(workflowId, null, stepId, status, null, null, null, null, null, null, null, null, null);
@@ -2107,11 +2165,10 @@ public final class WorkflowTypes {
   /**
    * A pending approval for a workflow step.
    *
-   * <p>Populated by both {@code getPendingApprovals} (WCP plane) and
-   * {@code getPendingPlanApprovals} (MAP plane). The {@code planId} field is
-   * the one intentional asymmetry between the two planes — populated on
-   * MAP-plane entries, {@code null} on WCP-plane entries (mirrors ADR-046
-   * parity rule).
+   * <p>Populated by both {@code getPendingApprovals} (WCP plane) and {@code
+   * getPendingPlanApprovals} (MAP plane). The {@code planId} field is the one intentional asymmetry
+   * between the two planes — populated on MAP-plane entries, {@code null} on WCP-plane entries
+   * (mirrors ADR-046 parity rule).
    */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class PendingApproval {
@@ -2160,7 +2217,18 @@ public final class WorkflowTypes {
         String stepName,
         String stepType,
         String createdAt) {
-      this(workflowId, workflowName, null, stepId, 0, stepName, stepType, null, null, null, createdAt);
+      this(
+          workflowId,
+          workflowName,
+          null,
+          stepId,
+          0,
+          stepName,
+          stepType,
+          null,
+          null,
+          null,
+          createdAt);
     }
 
     @JsonCreator
@@ -2309,8 +2377,8 @@ public final class WorkflowTypes {
   }
 
   /**
-   * Response containing a list of pending approvals. Shape matches the server wire contract:
-   * {@code pending_approvals} array plus {@code count}.
+   * Response containing a list of pending approvals. Shape matches the server wire contract: {@code
+   * pending_approvals} array plus {@code count}.
    */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static final class PendingApprovalsResponse {

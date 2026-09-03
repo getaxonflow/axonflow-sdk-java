@@ -27,9 +27,9 @@ import org.junit.jupiter.api.Test;
 /**
  * X-Axonflow-Client header injection — ADR-050 §4.
  *
- * <p>Asserts every governed request forwards {@code X-Axonflow-Client:
- * sdk-java/<SDK_VERSION>} so the agent can derive request scope (sdk) and validate against the
- * token's aud.scope via HasScope().
+ * <p>Asserts every governed request forwards {@code X-Axonflow-Client: sdk-java/<SDK_VERSION>} so
+ * the agent can derive request scope (sdk) and validate against the token's aud.scope via
+ * HasScope().
  *
  * <p>Header value is sourced from the bundled {@link AxonFlowConfig#SDK_VERSION}; the consumer
  * cannot spoof its own client identity through config (intentional — honest-99% header injection
@@ -71,8 +71,7 @@ class ClientHeaderTest {
   @Test
   @DisplayName("getClientHeader returns sdk-java/<semver>")
   void getClientHeaderShouldMatchExpectedFormat() {
-    AxonFlowConfig config =
-        AxonFlowConfig.builder().agentUrl("http://localhost:8080").build();
+    AxonFlowConfig config = AxonFlowConfig.builder().agentUrl("http://localhost:8080").build();
 
     String header = config.getClientHeader();
     assertThat(header).startsWith("sdk-java/");

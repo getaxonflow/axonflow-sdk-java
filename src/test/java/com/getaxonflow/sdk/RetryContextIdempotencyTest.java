@@ -66,17 +66,36 @@ class RetryContextIdempotencyTest {
       String lastDecision,
       String idempotencyKey) {
     return "{"
-        + "\"gate_count\":" + gateCount + ","
-        + "\"completion_count\":" + completionCount + ","
-        + "\"prior_completion_status\":\"" + priorStatus + "\","
-        + "\"prior_output_available\":" + priorOutputAvailable + ","
-        + "\"prior_output\":" + priorOutput + ","
+        + "\"gate_count\":"
+        + gateCount
+        + ","
+        + "\"completion_count\":"
+        + completionCount
+        + ","
+        + "\"prior_completion_status\":\""
+        + priorStatus
+        + "\","
+        + "\"prior_output_available\":"
+        + priorOutputAvailable
+        + ","
+        + "\"prior_output\":"
+        + priorOutput
+        + ","
         + "\"prior_completion_at\":"
-        + (priorCompletionAt == null ? "null" : "\"" + priorCompletionAt + "\"") + ","
-        + "\"first_attempt_at\":\"" + firstAttemptAt + "\","
-        + "\"last_attempt_at\":\"" + lastAttemptAt + "\","
-        + "\"last_decision\":\"" + lastDecision + "\","
-        + "\"idempotency_key\":\"" + idempotencyKey + "\""
+        + (priorCompletionAt == null ? "null" : "\"" + priorCompletionAt + "\"")
+        + ","
+        + "\"first_attempt_at\":\""
+        + firstAttemptAt
+        + "\","
+        + "\"last_attempt_at\":\""
+        + lastAttemptAt
+        + "\","
+        + "\"last_decision\":\""
+        + lastDecision
+        + "\","
+        + "\"idempotency_key\":\""
+        + idempotencyKey
+        + "\""
         + "}";
   }
 
@@ -95,10 +114,15 @@ class RetryContextIdempotencyTest {
             + "}";
     stubFor(
         post(urlEqualTo(GATE_PATH))
-            .willReturn(aResponse().withStatus(200).withBody(body).withHeader("Content-Type", "application/json")));
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withBody(body)
+                    .withHeader("Content-Type", "application/json")));
 
     StepGateResponse gate =
-        axonflow.stepGate("wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build());
+        axonflow.stepGate(
+            "wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build());
 
     RetryContext rc = gate.getRetryContext();
     assertThat(rc).isNotNull();
@@ -138,7 +162,8 @@ class RetryContextIdempotencyTest {
 
     RetryContext rc =
         axonflow
-            .stepGate("wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
+            .stepGate(
+                "wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
             .getRetryContext();
     assertThat(rc.getGateCount()).isEqualTo(2);
     assertThat(rc.getCompletionCount()).isEqualTo(1);
@@ -149,7 +174,8 @@ class RetryContextIdempotencyTest {
   }
 
   @Test
-  @DisplayName("second-call without completion: gate_count=2, prior_completion_status=gated_not_completed")
+  @DisplayName(
+      "second-call without completion: gate_count=2, prior_completion_status=gated_not_completed")
   void secondCallWithoutCompletion() {
     String body =
         "{"
@@ -172,7 +198,8 @@ class RetryContextIdempotencyTest {
 
     RetryContext rc =
         axonflow
-            .stepGate("wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
+            .stepGate(
+                "wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
             .getRetryContext();
     assertThat(rc.getGateCount()).isEqualTo(2);
     assertThat(rc.getCompletionCount()).isZero();
@@ -255,8 +282,12 @@ class RetryContextIdempotencyTest {
         "step_1",
         MarkStepCompletedRequest.builder().output(Map.of("ok", true)).idempotencyKey(key).build());
 
-    verify(postRequestedFor(urlEqualTo(GATE_PATH)).withRequestBody(containing("\"idempotency_key\":\"" + key + "\"")));
-    verify(postRequestedFor(urlEqualTo(COMPLETE_PATH)).withRequestBody(containing("\"idempotency_key\":\"" + key + "\"")));
+    verify(
+        postRequestedFor(urlEqualTo(GATE_PATH))
+            .withRequestBody(containing("\"idempotency_key\":\"" + key + "\"")));
+    verify(
+        postRequestedFor(urlEqualTo(COMPLETE_PATH))
+            .withRequestBody(containing("\"idempotency_key\":\"" + key + "\"")));
   }
 
   @Test
@@ -269,7 +300,11 @@ class RetryContextIdempotencyTest {
             + "\"expected_idempotency_key\":\"a\",\"received_idempotency_key\":\"b\"}}}";
     stubFor(
         post(urlEqualTo(COMPLETE_PATH))
-            .willReturn(aResponse().withStatus(409).withBody(errorBody).withHeader("Content-Type", "application/json")));
+            .willReturn(
+                aResponse()
+                    .withStatus(409)
+                    .withBody(errorBody)
+                    .withHeader("Content-Type", "application/json")));
 
     assertThatThrownBy(
             () ->
@@ -315,7 +350,8 @@ class RetryContextIdempotencyTest {
 
     RetryContext rc =
         axonflow
-            .stepGate("wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
+            .stepGate(
+                "wf_1", "step_1", StepGateRequest.builder().stepType(StepType.LLM_CALL).build())
             .getRetryContext();
     assertThat(rc.getIdempotencyKey()).isEmpty();
   }
@@ -327,14 +363,18 @@ class RetryContextIdempotencyTest {
         "{\"error\":{\"code\":\"IDEMPOTENCY_KEY_MISMATCH\",\"message\":\"mismatch\","
             + "\"details\":{\"workflow_id\":\"wf_1\",\"step_id\":\"step_1\","
             + "\"expected_idempotency_key\":\"a\",\"received_idempotency_key\":\"b\"}}}";
-    stubFor(post(urlEqualTo(GATE_PATH)).willReturn(aResponse().withStatus(409).withBody(errorBody)));
+    stubFor(
+        post(urlEqualTo(GATE_PATH)).willReturn(aResponse().withStatus(409).withBody(errorBody)));
 
     assertThatThrownBy(
             () ->
                 axonflow.stepGate(
                     "wf_1",
                     "step_1",
-                    StepGateRequest.builder().stepType(StepType.LLM_CALL).idempotencyKey("b").build()))
+                    StepGateRequest.builder()
+                        .stepType(StepType.LLM_CALL)
+                        .idempotencyKey("b")
+                        .build()))
         .isInstanceOf(IdempotencyKeyMismatchException.class)
         .satisfies(
             e -> {

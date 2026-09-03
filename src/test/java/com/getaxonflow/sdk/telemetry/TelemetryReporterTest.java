@@ -97,7 +97,9 @@ class TelemetryReporterTest {
   void testPayloadDeploymentModeReflection() throws Exception {
     String payload =
         TelemetryReporter.buildPayload(
-            "sandbox", null, TelemetryReporter.EndpointType.LOCALHOST,
+            "sandbox",
+            null,
+            TelemetryReporter.EndpointType.LOCALHOST,
             TelemetryReporter.DeploymentMode.SELF_HOSTED);
     JsonNode root = objectMapper.readTree(payload);
     assertThat(root.get("deployment_mode").asText()).isEqualTo("self_hosted");
@@ -236,8 +238,7 @@ class TelemetryReporterTest {
   }
 
   @Test
-  @DisplayName(
-      "v8: ping fires in sandbox mode AND payload carries stream=\"sandbox\"")
+  @DisplayName("v8: ping fires in sandbox mode AND payload carries stream=\"sandbox\"")
   void shouldFirePingWithStreamSandboxInSandboxMode(WireMockRuntimeInfo wmRuntimeInfo)
       throws Exception {
     // v8 contract: sandbox-mode clients fire telemetry (v7 silently suppressed them) and
@@ -276,12 +277,7 @@ class TelemetryReporterTest {
 
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-    TelemetryReporter.sendPing(
-        "production",
-        "http://localhost:8080",
-        false,
-        null,
-        customUrl);
+    TelemetryReporter.sendPing("production", "http://localhost:8080", false, null, customUrl);
 
     Thread.sleep(2000);
 
@@ -332,11 +328,7 @@ class TelemetryReporterTest {
     assertThatCode(
             () -> {
               TelemetryReporter.sendPing(
-                  "production",
-                  "http://localhost:8080",
-                  false,
-                  null,
-                  customUrl);
+                  "production", "http://localhost:8080", false, null, customUrl);
 
               // Wait long enough for the async call to hit the timeout and fail
               Thread.sleep(5000);
@@ -354,11 +346,7 @@ class TelemetryReporterTest {
     assertThatCode(
             () -> {
               TelemetryReporter.sendPing(
-                  "production",
-                  "http://localhost:8080",
-                  false,
-                  null,
-                  customUrl);
+                  "production", "http://localhost:8080", false, null, customUrl);
 
               // Give the async call time to complete
               Thread.sleep(2000);
@@ -397,12 +385,7 @@ class TelemetryReporterTest {
 
     // Use localhost:1 so detectPlatformVersion gets immediate connection-refused
     // (localhost:8080 may have a running service that returns a version)
-    TelemetryReporter.sendPing(
-        "enterprise",
-        "http://localhost:1",
-        false,
-        null,
-        customUrl);
+    TelemetryReporter.sendPing("enterprise", "http://localhost:1", false, null, customUrl);
 
     Thread.sleep(2000);
 
@@ -493,8 +476,7 @@ class TelemetryReporterTest {
   void testPayloadIncludesCsPrefixedTenant() throws Exception {
     String payload = TelemetryReporter.buildPayload("production", null);
     JsonNode root = objectMapper.readTree(payload);
-    assertThat(root.get("org_id").asText())
-        .isEqualTo("cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff");
+    assertThat(root.get("org_id").asText()).isEqualTo("cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff");
     assertThat(payload).contains("\"org_id\":\"cs_f29e9c5c-5c5b-4e0d-8e0d-aabbccddeeff\"");
   }
 
@@ -506,8 +488,7 @@ class TelemetryReporterTest {
     stubFor(post("/v1/ping").willReturn(ok()));
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-    TelemetryReporter.sendPing(
-        "production", "http://localhost:8080", false, null, customUrl);
+    TelemetryReporter.sendPing("production", "http://localhost:8080", false, null, customUrl);
     Thread.sleep(2000);
 
     var requests = WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping")));
@@ -525,8 +506,7 @@ class TelemetryReporterTest {
     stubFor(post("/v1/ping").willReturn(ok()));
     String customUrl = wmRuntimeInfo.getHttpBaseUrl() + "/v1/ping";
 
-    TelemetryReporter.sendPing(
-        "production", "http://localhost:8080", false, null, customUrl);
+    TelemetryReporter.sendPing("production", "http://localhost:8080", false, null, customUrl);
     Thread.sleep(2000);
 
     var requests = WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping")));

@@ -132,8 +132,8 @@ public final class AuditToolCallRequest {
    * Returns the name of the client/integration that made this tool call (e.g. "claude_code",
    * "codex", "cursor", "openclaw"). Preferred over the deprecated {@link #getToolType()}.
    *
-   * <p>Requires a platform with caller_name support (v9.11.0+); older platforms silently drop
-   * this field, so also set {@code toolType} if you need attribution there.
+   * <p>Requires a platform with caller_name support (v9.11.0+); older platforms silently drop this
+   * field, so also set {@code toolType} if you need attribution there.
    */
   public String getCallerName() {
     return callerName;
@@ -277,8 +277,8 @@ public final class AuditToolCallRequest {
      * @param toolType the tool type (e.g., "function", "mcp", "api")
      * @return this builder
      * @deprecated (getaxonflow/axonflow-enterprise#2912) use {@link #callerName(String)} instead.
-     *     Kept as a deprecated input fallback: the server resolves {@code caller_name} if
-     *     supplied, else this legacy {@code tool_type} field, else a default.
+     *     Kept as a deprecated input fallback: the server resolves {@code caller_name} if supplied,
+     *     else this legacy {@code tool_type} field, else a default.
      */
     @Deprecated
     public Builder toolType(String toolType) {

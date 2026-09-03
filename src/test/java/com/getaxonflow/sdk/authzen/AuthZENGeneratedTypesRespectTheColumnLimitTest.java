@@ -31,10 +31,10 @@ import org.junit.jupiter.api.Test;
  *
  * <h2>What this test does NOT establish</h2>
  *
- * <p>It is not a formatting check. google-java-format is not on the test classpath — it is a
- * plugin dependency, and its current release needs JDK 17 while this SDK still builds on 11 — so
- * this asserts the ONE rule that can be checked without it, and says so rather than implying
- * coverage it does not have.
+ * <p>It is not a formatting check. google-java-format is not on the test classpath — it is a plugin
+ * dependency, and its current release needs JDK 17 while this SDK still builds on 11 — so this
+ * asserts the ONE rule that can be checked without it, and says so rather than implying coverage it
+ * does not have.
  *
  * <p>The reason the rule matters: the emitter reproduces the formatter's layout so that the
  * committed bytes and the formatter agree. An over-long line is the failure mode that makes them
