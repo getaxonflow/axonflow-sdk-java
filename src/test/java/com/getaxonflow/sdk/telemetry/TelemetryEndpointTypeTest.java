@@ -1,9 +1,7 @@
-/*
- * Copyright 2026 AxonFlow
- * Licensed under the Apache License, Version 2.0.
- *
- * Tests for classifyEndpoint (issue #1525).
- */
+// Copyright 2026 AxonFlow
+// SPDX-License-Identifier: MIT
+//
+// Tests for classifyEndpoint (issue #1525).
 package com.getaxonflow.sdk.telemetry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

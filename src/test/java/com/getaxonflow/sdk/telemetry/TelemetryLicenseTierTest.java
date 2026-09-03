@@ -1,9 +1,5 @@
-/*
- * Copyright 2026 AxonFlow
- *
- * Licensed under the Business Source License 1.1 (the "License");
- * you may not use this file except in compliance with the License.
- */
+// Copyright 2026 AxonFlow
+// SPDX-License-Identifier: MIT
 package com.getaxonflow.sdk.telemetry;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;

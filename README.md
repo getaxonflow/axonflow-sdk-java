@@ -4,7 +4,7 @@ Official Java SDK for [AxonFlow](https://getaxonflow.com) - AI Governance Platfo
 
 [![CI](https://github.com/getaxonflow/axonflow-sdk-java/actions/workflows/ci.yml/badge.svg)](https://github.com/getaxonflow/axonflow-sdk-java/actions/workflows/ci.yml)
 [![Maven Central](https://img.shields.io/maven-central/v/com.getaxonflow/axonflow-sdk.svg)](https://search.maven.org/artifact/com.getaxonflow/axonflow-sdk)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **Upgrade strongly recommended.** AxonFlow ships substantial monthly security and quality hardening; staying on the latest major is the security-supported release line. [Latest release](https://github.com/getaxonflow/axonflow-sdk-java/releases/latest) · [Security advisories](https://github.com/getaxonflow/axonflow-sdk-java/security/advisories)
 
@@ -845,7 +845,7 @@ We welcome contributions. Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-This SDK is licensed under the [Apache License 2.0](LICENSE).
+This SDK is licensed under the [MIT License](LICENSE), matching the other AxonFlow SDKs and plugins. Artifacts published up to and including 9.2.0 were released under Apache-2.0 and remain so as published.
 
 ## Support
 

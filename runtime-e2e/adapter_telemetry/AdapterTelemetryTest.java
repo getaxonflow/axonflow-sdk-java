@@ -1,31 +1,29 @@
-/*
- * Copyright 2026 AxonFlow
- * Licensed under the Business Source License 1.1.
- *
- * runtime-e2e/adapter_telemetry/AdapterTelemetryTest.java
- *
- * Real-wire proof of the adapter registry (axonflow-enterprise#3682).
- *
- * Asserts, through the SDK's real public surface and over real sockets:
- *
- *   1. The SDK's OWN LangGraphAdapter declares itself with no telemetry code
- *      in the application.
- *   2. An unregistered adapter does not appear.
- *   3. A 65-byte name is dropped WHOLE, not truncated, and does not take the
- *      valid name with it.
- *   4. `edition` and `platform_deployment_mode` ride the SAME /health fetch,
- *      and the platform's mode does NOT overwrite the SDK's own topology.
- *   5. A redirect is refused on BOTH legs, each proven with TWO listeners
- *      where the second one records.
- *
- * WHY THERE ARE LISTENERS. The real checkpoint service is PRODUCTION — a
- * runtime proof must not deliver test pings to it. Bytes still flow real ->
- * real through the JDK's HttpServer and the SDK's outbound OkHttpClient; the
- * stand-ins are the two PEERS, exactly as in the neighbouring
- * license_tier_telemetry driver.
- *
- *   java -cp "<sdk-jar>:<deps>" runtime-e2e/adapter_telemetry/AdapterTelemetryTest.java
- */
+// Copyright 2026 AxonFlow
+// SPDX-License-Identifier: MIT
+//
+// runtime-e2e/adapter_telemetry/AdapterTelemetryTest.java
+//
+// Real-wire proof of the adapter registry (axonflow-enterprise#3682).
+//
+// Asserts, through the SDK's real public surface and over real sockets:
+//
+//   1. The SDK's OWN LangGraphAdapter declares itself with no telemetry code
+//      in the application.
+//   2. An unregistered adapter does not appear.
+//   3. A 65-byte name is dropped WHOLE, not truncated, and does not take the
+//      valid name with it.
+//   4. `edition` and `platform_deployment_mode` ride the SAME /health fetch,
+//      and the platform's mode does NOT overwrite the SDK's own topology.
+//   5. A redirect is refused on BOTH legs, each proven with TWO listeners
+//      where the second one records.
+//
+// WHY THERE ARE LISTENERS. The real checkpoint service is PRODUCTION — a
+// runtime proof must not deliver test pings to it. Bytes still flow real ->
+// real through the JDK's HttpServer and the SDK's outbound OkHttpClient; the
+// stand-ins are the two PEERS, exactly as in the neighbouring
+// license_tier_telemetry driver.
+//
+//   java -cp "<sdk-jar>:<deps>" runtime-e2e/adapter_telemetry/AdapterTelemetryTest.java
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

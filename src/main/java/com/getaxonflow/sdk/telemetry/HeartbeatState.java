@@ -1,7 +1,5 @@
-/*
- * Copyright 2026 AxonFlow
- * Licensed under the Business Source License 1.1.
- */
+// Copyright 2026 AxonFlow
+// SPDX-License-Identifier: MIT
 package com.getaxonflow.sdk.telemetry;
 
 import java.io.IOException;

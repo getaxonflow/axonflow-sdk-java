@@ -1,8 +1,5 @@
-/*
- * Copyright 2025 AxonFlow
- *
- * Licensed under the Apache License, Version 2.0.
- */
+// Copyright 2025 AxonFlow
+// SPDX-License-Identifier: MIT
 package com.getaxonflow.sdk;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
