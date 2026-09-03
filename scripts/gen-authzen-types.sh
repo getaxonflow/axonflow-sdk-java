@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ci-wiring-exempt: a code GENERATOR, not a gate. CI does not regenerate; it verifies, via AuthZENGeneratedTypesAreCurrentTest, which fails if a committed type is not what this script would produce. Running the generator in CI would test the generator against itself.
 # Emits src/main/java/com/getaxonflow/sdk/authzen/*.java from the platform's
 # canonical contract artifact, testdata/authzen-surface.json.
 #

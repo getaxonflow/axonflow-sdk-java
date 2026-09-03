@@ -61,6 +61,16 @@ p.write_text(p.read_text().replace(os.environ["FIND"], os.environ["REPLACE"], 1)
   local out rc
   out=$(./mvnw test -Dtest="$selector" -DfailIfNoTests=true 2>&1) && rc=0 || rc=$?
   mv -f "$file.mutbak" "$file"
+  # Mark the restored file NEWER than the class the mutant compiled to.
+  #
+  # `mv` preserves the backup's mtime, so the restored source is older than the
+  # mutated .class in target/. Maven's incremental compiler then skips it and the
+  # MUTANT survives into the next `mvn test` on that working tree -- the source is
+  # clean, `git status` is clean, and two unrelated-looking tests fail. Measured:
+  # after this gate ran, `mvn package` reported 2 failures in AdapterRegistryTest
+  # that `mvn clean` alone made disappear. CI never sees it (fresh checkout), which
+  # is exactly why it would have stayed unexplained locally.
+  touch "$file"
 
   local line run fails errs
   line=$(printf '%s' "$out" | grep -E "Tests run: [0-9]+, Failures: [0-9]+, Errors: [0-9]+" | tail -1)
