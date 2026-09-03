@@ -51,7 +51,12 @@ chmod +x "$WORK/step.sh"
 
 mkdir -p "$WORK/bin"
 rc_of() {  # <stub-body> -> prints exit code of the step under that stub
-  printf '#!/usr/bin/env bash\n%s\n' "$1" > "$WORK/bin/mvn"
+  # Every invocation is RECORDED. Counting "Attempt N:" lines counts what the
+  # step PRINTED, which a broken loop can still print three times while calling
+  # the runner once. The count that means "it retried" is the number of times
+  # the runner actually ran.
+  rm -f "$WORK/invocations"
+  printf '#!/usr/bin/env bash\necho x >> "%s"\n%s\n' "$WORK/invocations" "$1" > "$WORK/bin/mvn"
   chmod +x "$WORK/bin/mvn"
   # The transient case sleeps 30s between attempts; cap it so the harness is quick.
   # STDOUT AND STDERR ARE KEPT SEPARATE, and that is load bearing. The step
@@ -129,8 +134,10 @@ check "resolution failure" \
 # single attempt if the loop is broken, so the attempt COUNT is asserted
 # separately: three "Attempt N:" lines, no more and no fewer.
 attempts=$(cat "$WORK/out" "$WORK/err" | grep -c "^Attempt " || true)
-if [ "$attempts" -ne 3 ]; then
-  echo "  ${LABEL}: transient failure produced ${attempts} attempts, expected 3" >&2
+invocations=$(wc -l < "$WORK/invocations" 2>/dev/null | tr -d ' ')
+invocations=${invocations:-0}
+if [ "$attempts" -ne 3 ] || [ "$invocations" -ne 3 ]; then
+  echo "  ${LABEL}: transient failure printed ${attempts} attempts and CALLED the runner ${invocations} times, expected 3 and 3" >&2
   bad=1
 fi
 
