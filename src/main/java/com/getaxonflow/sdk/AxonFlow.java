@@ -210,8 +210,39 @@ public final class AxonFlow implements Closeable {
                 config.getMapTimeout().toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
             .build();
     this.objectMapper = createObjectMapper();
-    this.authzenReader =
+    // FAIL_ON_UNKNOWN_PROPERTIES is the decode-side half of the surface's rule:
+    // an unknown member in a decision is a server speaking a profile this build
+    // does not understand, and quietly dropping it means acting on a partial
+    // reading of an authorization decision.
+    //
+    // The coercion settings are the other half, and they close a quieter hole
+    // (the ruling that landed in the Python sibling): without them Jackson
+    // COERCES, so a decision arriving as the string "true" was read as the
+    // boolean true and an obligation whose `mandatory` member arrived as 1 was
+    // read as true. Those are type errors on the wire being silently repaired
+    // into a reading nobody sent — on exactly the members that decide whether an
+    // unsupported obligation must DENY.
+    ObjectMapper strictReader =
         this.objectMapper.copy().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
+    strictReader.configure(
+        com.fasterxml.jackson.databind.MapperFeature.ALLOW_COERCION_OF_SCALARS, false);
+    com.fasterxml.jackson.databind.cfg.MutableCoercionConfig booleans =
+        strictReader.coercionConfigFor(com.fasterxml.jackson.databind.type.LogicalType.Boolean);
+    booleans.setCoercion(
+        com.fasterxml.jackson.databind.cfg.CoercionInputShape.String,
+        com.fasterxml.jackson.databind.cfg.CoercionAction.Fail);
+    booleans.setCoercion(
+        com.fasterxml.jackson.databind.cfg.CoercionInputShape.Integer,
+        com.fasterxml.jackson.databind.cfg.CoercionAction.Fail);
+    com.fasterxml.jackson.databind.cfg.MutableCoercionConfig integers =
+        strictReader.coercionConfigFor(com.fasterxml.jackson.databind.type.LogicalType.Integer);
+    integers.setCoercion(
+        com.fasterxml.jackson.databind.cfg.CoercionInputShape.String,
+        com.fasterxml.jackson.databind.cfg.CoercionAction.Fail);
+    integers.setCoercion(
+        com.fasterxml.jackson.databind.cfg.CoercionInputShape.Boolean,
+        com.fasterxml.jackson.databind.cfg.CoercionAction.Fail);
+    this.authzenReader = strictReader;
     this.retryExecutor = new RetryExecutor(config.getRetryConfig());
     this.cache = new ResponseCache(config.getCacheConfig());
     this.asyncExecutor = ForkJoinPool.commonPool();
@@ -317,7 +348,10 @@ public final class AxonFlow implements Closeable {
 
     // Rebuilt, NOT copied: it holds a reference to the client that created it,
     // so a copy would still call through the parent, under the parent's
-    // identity.
+    // identity. The R3 mutant that replaced this with
+    // `parent.masfeatNamespace` SURVIVED 33 tests — the line was right and
+    // nothing checked it, which is the same shape as a claim with no test.
+    // ReadIdentityTest#aDerivedClientRebuildsEveryClientBoundMember now does.
     this.masfeatNamespace = new MASFEATNamespace();
 
     // No heartbeat here: the gate is process-global and the parent already ran

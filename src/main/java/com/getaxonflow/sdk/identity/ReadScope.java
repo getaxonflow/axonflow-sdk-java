@@ -26,7 +26,9 @@ import java.util.Objects;
  *       invent an outcome.
  * </ul>
  */
-public final class ReadScope {
+public final class ReadScope implements java.io.Serializable {
+
+  private static final long serialVersionUID = 1L;
 
   /** No {@code X-Axonflow-Read-Scope} header at all. Distinct from {@link #NONE}. */
   public static final ReadScope ABSENT = new ReadScope("");

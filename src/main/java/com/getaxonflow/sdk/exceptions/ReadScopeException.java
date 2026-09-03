@@ -51,7 +51,14 @@ public class ReadScopeException extends AxonFlowException {
 
   private static final long serialVersionUID = 1L;
 
-  private final transient ReadScope scope;
+  /**
+   * NOT {@code transient}: an exception that loses its diagnosis when serialized reports {@code
+   * isIdentityMissing() == false} and {@code getScope() == null} at the far end — a confidently
+   * wrong answer, and the one this type exists to prevent. {@link ReadScope} is {@link
+   * java.io.Serializable} for the same reason.
+   */
+  private final ReadScope scope;
+
   private final int statusCode;
   private final String resource;
   private final String identifier;

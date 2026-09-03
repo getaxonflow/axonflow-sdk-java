@@ -103,18 +103,44 @@ public final class ReadIdentity {
       Request request = chain.request();
       String value = token.get();
       String trimmed = value == null ? "" : value.trim();
-      if (trimmed.isEmpty() || configured == null || !sameOrigin(request.url(), configured)) {
+      boolean offOrigin = configured == null || !sameOrigin(request.url(), configured);
+      if (offOrigin) {
+        // EVERY credential is dropped, not just the identity. OkHttp follows
+        // redirects itself and strips only Authorization on a host change, so
+        // X-Client-ID and X-Axonflow-Client would otherwise arrive at a host
+        // the caller never named. Authorization is dropped here too, defensively
+        // — relying on OkHttp's list to keep covering it is the same bet the
+        // TypeScript sibling lost, where a hand-rolled follower dropped only the
+        // new header and leaked the tenant secret off-origin.
+        Request.Builder stripped = request.newBuilder();
+        for (String credential : CREDENTIAL_HEADERS) {
+          stripped.removeHeader(credential);
+        }
+        return chain.proceed(stripped.build());
+      }
+      if (trimmed.isEmpty()) {
         // Never send an empty header. To the platform a present-but-empty
         // X-User-Token is still an absent one, but sending it advertises an
         // identity mechanism the caller is not using, and it is one refactor
         // away from a present-but-invalid token, which is a hard 401. The
-        // removal also makes an explicit per-call clearing actually clear, and
-        // it is what drops the identity on a cross-origin redirect hop.
+        // removal also makes an explicit per-call clearing actually clear.
         return chain.proceed(request.newBuilder().removeHeader(HEADER_USER_TOKEN).build());
       }
       return chain.proceed(request.newBuilder().header(HEADER_USER_TOKEN, trimmed).build());
     }
   }
+
+  /**
+   * Every credential this SDK sends, so an off-origin hop can drop ALL of them.
+   *
+   * <p>Not just the new one. OkHttp's own follower strips {@code Authorization} on a host change
+   * and that list is FIXED: {@code X-Client-ID} and {@code X-Axonflow-Client} are not on it, and
+   * they name the caller to whoever receives them. {@code Authorization} is listed here anyway,
+   * defensively — a guard that relies on another library's list staying correct is a guard with a
+   * dependency nobody is watching.
+   */
+  private static final java.util.List<String> CREDENTIAL_HEADERS =
+      java.util.List.of("Authorization", HEADER_USER_TOKEN, "X-Client-ID", "X-Axonflow-Client");
 
   private static boolean sameOrigin(HttpUrl a, HttpUrl b) {
     return a.scheme().equals(b.scheme()) && a.host().equals(b.host()) && a.port() == b.port();

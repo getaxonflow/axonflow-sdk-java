@@ -6,12 +6,14 @@
 package com.getaxonflow.sdk;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.*;
 
 import com.getaxonflow.sdk.exceptions.ReadScopeException;
 import com.getaxonflow.sdk.identity.ReadIdentity;
 import com.getaxonflow.sdk.identity.ReadScope;
 import com.getaxonflow.sdk.types.*;
+import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.nio.file.Files;
@@ -276,107 +278,107 @@ class ReadIdentityTest {
   }
 
   @Test
-  @DisplayName("the identity is never sent to any origin but the configured endpoint")
-  void identityNotSentOffOrigin() {
-    // The redirect property, asserted at the stamping site. OkHttp strips
-    // Authorization on a host change and its list is fixed; X-User-Token is not
-    // on it, and the sibling SDKs measured the per-user credential outliving
-    // the tenant one on exactly that hop.
-    AxonFlow axonflow = client(TEST_TOKEN);
-    okhttp3.Request onOrigin = new okhttp3.Request.Builder().url(baseUrl + "/api/v1/x").build();
-    okhttp3.Request offOrigin =
-        new okhttp3.Request.Builder().url("http://elsewhere.invalid/api/v1/x").build();
-
-    ReadIdentity.IdentityInterceptor interceptor =
-        ReadIdentity.interceptor(baseUrl, () -> TEST_TOKEN);
-
-    assertThat(stampedHeader(interceptor, onOrigin)).isEqualTo(TEST_TOKEN);
-    assertThat(stampedHeader(interceptor, offOrigin)).isNull();
-    assertThat(axonflow).isNotNull();
-  }
-
-  /** Runs one request through the interceptor and reports what it stamped. */
-  private static String stampedHeader(
-      ReadIdentity.IdentityInterceptor interceptor, okhttp3.Request request) {
-    final String[] seen = new String[1];
-    okhttp3.Interceptor.Chain chain = new RecordingChain(request, seen);
+  @DisplayName("a cross-origin redirect delivers NO credential to the far end")
+  void noCredentialSurvivesACrossOriginRedirect() {
+    // Through TWO REAL SERVERS and OkHttp's own follower, not a hand-rolled
+    // Chain. The previous version drove a fake Chain, which meant the decision
+    // that actually carries the property — addNetworkInterceptor rather than
+    // addInterceptor — was never exercised: an application interceptor runs
+    // once, BEFORE redirects, and that mutant survived all 33 tests while a
+    // real redirect delivered the identity cross-origin. A test that rebuilds a
+    // production object tests a lookalike.
+    WireMockServer elsewhere = new WireMockServer(options().dynamicPort());
+    elsewhere.start();
     try {
-      interceptor.intercept(chain);
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
+      elsewhere.stubFor(
+          get(urlPathEqualTo("/api/v1/decisions")).willReturn(okJson("{\"decisions\":[]}")));
+      stubFor(
+          get(urlPathEqualTo("/api/v1/decisions"))
+              .willReturn(
+                  aResponse()
+                      .withStatus(302)
+                      .withHeader("Location", elsewhere.baseUrl() + "/api/v1/decisions")));
+
+      try {
+        client(TEST_TOKEN).listDecisions(null);
+      } catch (RuntimeException ignored) {
+        // The far end's response shape is not what this test is about.
+      }
+
+      // Precondition: the ORIGIN request carried them all, or the assertions
+      // below are vacuous.
+      verify(
+          getRequestedFor(urlPathEqualTo("/api/v1/decisions"))
+              .withHeader(ReadIdentity.HEADER_USER_TOKEN, equalTo(TEST_TOKEN))
+              .withHeader("Authorization", matching("Basic .*")));
+      // Precondition: the redirect was actually FOLLOWED, or "no credential
+      // arrived" is true of a request that never happened.
+      elsewhere.verify(getRequestedFor(urlPathEqualTo("/api/v1/decisions")));
+
+      for (String credential :
+          new String[] {
+            "Authorization", ReadIdentity.HEADER_USER_TOKEN, "X-Client-ID", "X-Axonflow-Client"
+          }) {
+        elsewhere.verify(
+            getRequestedFor(urlPathEqualTo("/api/v1/decisions")).withoutHeader(credential));
+      }
+    } finally {
+      elsewhere.stop();
     }
-    return seen[0];
   }
 
-  /** A minimal Chain that records the request the interceptor produced. */
-  private static final class RecordingChain implements okhttp3.Interceptor.Chain {
-    private final okhttp3.Request request;
-    private final String[] seen;
+  @Test
+  @DisplayName("a same-HOST but different-PORT redirect is also off-origin")
+  void aDifferentPortIsADifferentOrigin() {
+    // OkHttp compares only the HOST for its own sensitive-header stripping, so
+    // a port change forwards Authorization. The rule here is stricter on
+    // purpose: a different port is a different service, and an identity
+    // assertion should not have a "close enough".
+    WireMockServer otherPort = new WireMockServer(options().dynamicPort());
+    otherPort.start();
+    try {
+      otherPort.stubFor(
+          get(urlPathEqualTo("/api/v1/decisions")).willReturn(okJson("{\"decisions\":[]}")));
+      stubFor(
+          get(urlPathEqualTo("/api/v1/decisions"))
+              .willReturn(
+                  aResponse()
+                      .withStatus(302)
+                      .withHeader("Location", otherPort.baseUrl() + "/api/v1/decisions")));
 
-    RecordingChain(okhttp3.Request request, String[] seen) {
-      this.request = request;
-      this.seen = seen;
-    }
+      try {
+        client(TEST_TOKEN).listDecisions(null);
+      } catch (RuntimeException ignored) {
+        // See above.
+      }
 
-    @Override
-    public okhttp3.Request request() {
-      return request;
+      otherPort.verify(getRequestedFor(urlPathEqualTo("/api/v1/decisions")));
+      otherPort.verify(
+          getRequestedFor(urlPathEqualTo("/api/v1/decisions"))
+              .withoutHeader(ReadIdentity.HEADER_USER_TOKEN));
+      otherPort.verify(
+          getRequestedFor(urlPathEqualTo("/api/v1/decisions")).withoutHeader("Authorization"));
+    } finally {
+      otherPort.stop();
     }
+  }
 
-    @Override
-    public okhttp3.Response proceed(okhttp3.Request forwarded) {
-      seen[0] = forwarded.header(ReadIdentity.HEADER_USER_TOKEN);
-      return new okhttp3.Response.Builder()
-          .request(forwarded)
-          .protocol(okhttp3.Protocol.HTTP_1_1)
-          .code(200)
-          .message("OK")
-          .body(okhttp3.ResponseBody.create("{}", okhttp3.MediaType.get("application/json")))
-          .build();
-    }
+  @Test
+  @DisplayName("every credential SURVIVES a same-origin redirect")
+  void credentialsSurviveASameOriginRedirect() {
+    // The other failure direction: stripping too eagerly turns an ordinary
+    // redirect into an unauthenticated request.
+    stubFor(
+        get(urlPathEqualTo("/api/v1/decisions"))
+            .willReturn(
+                aResponse().withStatus(302).withHeader("Location", "/api/v1/decisions/p2")));
+    stubFor(
+        get(urlPathEqualTo("/api/v1/decisions/p2"))
+            .withHeader(ReadIdentity.HEADER_USER_TOKEN, equalTo(TEST_TOKEN))
+            .withHeader("Authorization", matching("Basic .*"))
+            .willReturn(okJson(ROW_PAGE)));
 
-    @Override
-    public okhttp3.Connection connection() {
-      return null;
-    }
-
-    @Override
-    public okhttp3.Call call() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int connectTimeoutMillis() {
-      return 0;
-    }
-
-    @Override
-    public okhttp3.Interceptor.Chain withConnectTimeout(
-        int timeout, java.util.concurrent.TimeUnit unit) {
-      return this;
-    }
-
-    @Override
-    public int readTimeoutMillis() {
-      return 0;
-    }
-
-    @Override
-    public okhttp3.Interceptor.Chain withReadTimeout(
-        int timeout, java.util.concurrent.TimeUnit unit) {
-      return this;
-    }
-
-    @Override
-    public int writeTimeoutMillis() {
-      return 0;
-    }
-
-    @Override
-    public okhttp3.Interceptor.Chain withWriteTimeout(
-        int timeout, java.util.concurrent.TimeUnit unit) {
-      return this;
-    }
+    assertThat(client(TEST_TOKEN).listDecisions(null)).hasSize(1);
   }
 
   // ========================================================================
@@ -580,5 +582,118 @@ class ReadIdentityTest {
     assertThat(literals)
         .as("the literal belongs in the HEADER_USER_TOKEN constant alone")
         .hasSize(1);
+  }
+
+  // ========================================================================
+  // Round 2: a derived client owns every client-bound member, the AuthZEN
+  // reader does not coerce, and the refusal survives serialization
+  // ========================================================================
+
+  @Test
+  @DisplayName("a derived client rebuilds every member that holds a client reference")
+  void aDerivedClientRebuildsEveryClientBoundMember() throws Exception {
+    // The mutant `this.masfeatNamespace = parent.masfeatNamespace` SURVIVED the
+    // round-1 suite: the derivation constructor was right and nothing checked
+    // it. A structural argument is testimony until something can fail.
+    AxonFlow parent = client("ADMIN-TOKEN");
+    // Bound on the PARENT first — the only ordering in which the bug appears,
+    // and exactly the ordering a long-lived gateway has.
+    Object parentNamespace = parent.masfeat();
+    AxonFlow derived = parent.asUser("ALICE-TOKEN");
+
+    assertThat(derived.masfeat())
+        .as(
+            "the derived client inherited the parent's namespace, which still calls through the"
+                + " parent and therefore under the PARENT's identity")
+        .isNotSameAs(parentNamespace);
+
+    // The census behind the fix: ANY field whose declared type is a member
+    // class of AxonFlow holds a client reference, so none may be shared.
+    // Naming only masfeatNamespace would rot the moment a second is added.
+    for (java.lang.reflect.Field field : AxonFlow.class.getDeclaredFields()) {
+      if (field.getType().getEnclosingClass() != AxonFlow.class) {
+        continue;
+      }
+      field.setAccessible(true);
+      assertThat(field.get(derived))
+          .as(
+              "%s holds a reference to the client that created it and must be rebuilt on"
+                  + " derivation, not copied",
+              field.getName())
+          .isNotSameAs(field.get(parent));
+    }
+  }
+
+  @Test
+  @DisplayName("a derived client's plan transport is its own, not the parent's")
+  void aDerivedClientHasItsOwnPlanTransport() throws Exception {
+    // The plan client is built from the DERIVED httpClient, so it carries the
+    // derived identity. Building it from the parent's survived round 1.
+    stubFor(
+        get(urlPathMatching("/api/v1/plan/.*"))
+            .willReturn(okJson("{\"plan_id\":\"p1\",\"status\":\"completed\"}")));
+
+    try {
+      client("ADMIN-TOKEN").asUser("ALICE-TOKEN").getPlanStatus("p1");
+    } catch (RuntimeException ignored) {
+      // The response shape is not what this test is about; the header is.
+    }
+
+    verify(
+        getRequestedFor(urlPathMatching("/api/v1/plan/.*"))
+            .withHeader(ReadIdentity.HEADER_USER_TOKEN, equalTo("ALICE-TOKEN")));
+  }
+
+  @Test
+  @DisplayName("the AuthZEN reader refuses a coerced scalar")
+  void theAuthzenReaderDoesNotCoerceScalars() throws Exception {
+    // Without the coercion settings Jackson REPAIRS type errors: a decision
+    // arriving as the string "true" was read as the boolean true, and an
+    // obligation whose `mandatory` arrived as 1 was read as true — on exactly
+    // the members that decide whether an unsupported obligation must DENY.
+    java.lang.reflect.Field readerField = AxonFlow.class.getDeclaredField("authzenReader");
+    readerField.setAccessible(true);
+    com.fasterxml.jackson.databind.ObjectMapper reader =
+        (com.fasterxml.jackson.databind.ObjectMapper) readerField.get(client(null));
+
+    assertThatThrownBy(
+            () ->
+                reader.readValue(
+                    "{\"decision\":\"true\"}", com.getaxonflow.sdk.authzen.AuthZENResponse.class))
+        .as("a decision arriving as a STRING must be refused, not coerced")
+        .isInstanceOf(Exception.class);
+
+    // The other failure direction: strictness that refuses valid payloads is an
+    // outage, not a guard.
+    assertThat(
+            reader
+                .readValue(
+                    "{\"decision\":false}", com.getaxonflow.sdk.authzen.AuthZENResponse.class)
+                .getDecision())
+        .isFalse();
+  }
+
+  @Test
+  @DisplayName("the refusal survives serialization with its diagnosis intact")
+  void theRefusalSurvivesSerialization() throws Exception {
+    // A `transient` scope made isIdentityMissing() report FALSE and getScope()
+    // null at the far end — a confidently wrong answer from the type whose
+    // whole job is to stop confidently wrong answers.
+    ReadScopeException original = new ReadScopeException(ReadScope.NONE, 200, "decisions", null);
+
+    java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+    try (java.io.ObjectOutputStream out = new java.io.ObjectOutputStream(bytes)) {
+      out.writeObject(original);
+    }
+    ReadScopeException restored;
+    try (java.io.ObjectInputStream in =
+        new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+      restored = (ReadScopeException) in.readObject();
+    }
+
+    assertThat(restored.getScope()).isEqualTo(ReadScope.NONE);
+    assertThat(restored.isIdentityMissing()).isTrue();
+    assertThat(restored.getStatusCode()).isEqualTo(200);
+    assertThat(restored.getMessage()).isEqualTo(original.getMessage());
   }
 }
