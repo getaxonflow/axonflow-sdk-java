@@ -289,6 +289,12 @@ public final class AxonFlow implements Closeable {
    * <p>An empty token returns a client presenting no identity at all, which on an enterprise stack
    * reads nothing.
    *
+   * <p><b>Do not {@link #close()} a derived client.</b> Sharing the transport has one sharp edge:
+   * {@code close()} shuts the dispatcher's executor and evicts the connection pool, and both are
+   * the PARENT's. Closing a per-request derived client therefore takes the parent's transport down
+   * with it, and every other derived client with it. A derived client owns no transport to release,
+   * so there is nothing to close; let it be collected and close the parent once, at the end.
+   *
    * @param userToken the per-user identity, or {@code null}/empty for none
    * @return a derived client bound to that identity
    */
@@ -8186,6 +8192,16 @@ public final class AxonFlow implements Closeable {
     }
   }
 
+  /**
+   * Releases this client's transport: shuts the dispatcher's executor, evicts the connection pool
+   * and clears the cache.
+   *
+   * <p><b>Call this only on a client you constructed, never on one from {@link
+   * #asUser(String)}.</b> A derived client SHARES the parent's dispatcher and pool by design, so
+   * those two lines act on the parent's transport, not on a copy — closing a derived client
+   * silently disables the parent and every sibling derived from it. A derived client holds nothing
+   * of its own to release.
+   */
   @Override
   public void close() {
     httpClient.dispatcher().executorService().shutdown();
