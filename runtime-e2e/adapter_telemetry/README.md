@@ -9,8 +9,8 @@ telemetry legs.
 ## Run it
 
 ```bash
-mvn -q dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
-mvn -q package -DskipTests
+./mvnw -q dependency:build-classpath -Dmdep.outputFile=/tmp/cp.txt
+./mvnw -q package -DskipTests
 java -cp "target/classes:$(cat /tmp/cp.txt)" \
   runtime-e2e/adapter_telemetry/AdapterTelemetryTest.java
 ```
@@ -70,4 +70,10 @@ saw nothing" is equally true of a run that never happened.
 | Remove `followRedirects(false)` from the checkpoint client | case 5: `the TARGET received 1 request(s)` |
 
 The unit suite (`src/test/java/.../AdapterRegistryTest.java`) carries the same mutants plus
-the byte-vs-code-unit boundary; all twelve were run and observed red.
+the byte-vs-code-unit boundary, the gate-driven backoff, and the short-lived-process delivery
+proof. All were run and observed red.
+
+**The exception, stated rather than implied:** making `lastCheckedMillis` non-volatile does
+NOT fail any test. A memory-visibility property is not observable by a deterministic unit
+test — a stale read is permitted, not required. It is a correctness fix without a gate, and
+saying so is better than listing it beside mutants that are genuinely pinned.

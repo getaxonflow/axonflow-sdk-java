@@ -4,30 +4,32 @@
  */
 package com.getaxonflow.sdk.telemetry;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.getaxonflow.sdk.AxonFlow;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Adapter registry, relay caps and redirect refusal (axonflow-enterprise#3682 items 1-2).
  *
  * <p>WHAT THESE TESTS CAN AND CANNOT VARY. The HTTP cases run against real WireMock servers on
- * loopback and drive the SDK's own OkHttp calls, so the redirect axis is varied end to end —
- * which matters here more than in Python, because OkHttp FOLLOWS redirects by default and this is a
- * live defect rather than a pin. The redirect cases use TWO servers, and the second one records.
+ * loopback and drive the SDK's own OkHttp calls, so the redirect axis is varied end to end — which
+ * matters here more than in Python, because OkHttp FOLLOWS redirects by default and this is a live
+ * defect rather than a pin. The redirect cases use TWO servers, and the second one records.
  *
  * <p>They CANNOT vary two axes, stated rather than left implied:
  *
@@ -186,7 +188,8 @@ class AdapterRegistryTest {
         .isEqualTo(128);
     String within = "adapter:" + "b".repeat(128 - "adapter:".length());
     String over = within + "b";
-    assertThat(TelemetryReporter.boundFeatures(Arrays.asList(within, over))).containsExactly(within);
+    assertThat(TelemetryReporter.boundFeatures(Arrays.asList(within, over)))
+        .containsExactly(within);
   }
 
   // -------------------------------------------------------------------------
@@ -342,8 +345,7 @@ class AdapterRegistryTest {
                       .withHeader("Location", target.baseUrl() + "/v1/ping")));
 
       boolean delivered =
-          TelemetryReporter.sendPingNow(
-              "production", "", false, wm.getHttpBaseUrl() + "/v1/ping");
+          TelemetryReporter.sendPingNow("production", "", false, wm.getHttpBaseUrl() + "/v1/ping");
 
       assertThat(WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping"))))
           .as("the redirector was never contacted")
@@ -424,6 +426,33 @@ class AdapterRegistryTest {
         .isEmpty();
   }
 
+  /**
+   * Request sites allowed to exist, keyed by file, with the CLOSED category each is in.
+   *
+   * <p>A free-text reason let a new site claim any justification it liked; naming a category from a
+   * fixed set makes "which kind of exemption is this" answerable.
+   */
+  private enum RequestSiteCategory {
+    /** {@code executeHttp} itself — THE wrapper, which calls the trigger. */
+    WRAPPER,
+    /** The telemetry path. MUST NOT trigger, or the heartbeat triggers itself recursively. */
+    TELEMETRY_PATH,
+    /**
+     * A package-level function with no client and no configured endpoint, so there is nothing for a
+     * heartbeat to describe. The Go SDK exempts {@code register.go} on identical grounds.
+     */
+    NO_CLIENT
+  }
+
+  private static final java.util.Map<String, RequestSiteCategory> REQUEST_SITES =
+      java.util.Map.of(
+          "AxonFlow.java", RequestSiteCategory.WRAPPER,
+          "TelemetryReporter.java", RequestSiteCategory.TELEMETRY_PATH,
+          "AxonFlowTry.java", RequestSiteCategory.NO_CLIENT);
+
+  private static final java.util.Map<String, Integer> REQUEST_SITE_COUNTS =
+      java.util.Map.of("AxonFlow.java", 1, "TelemetryReporter.java", 2, "AxonFlowTry.java", 1);
+
   @Test
   @DisplayName("every outbound request path passes the heartbeat trigger")
   void everyRequestSitePassesTheTrigger() throws Exception {
@@ -432,19 +461,14 @@ class AdapterRegistryTest {
     // not a gate on the others: the Go SDK had one bypass (StreamExecutionStatus) and the
     // Python SDK had TEN, each of which meant a process using only that path never pinged.
     //
-    // This SDK routes every public request through executeHttp. This census is what keeps
-    // that true: a new raw newCall() fails here until its author accounts for it.
+    // THE NEEDLE NOW SEES java.net.http TOO. The first version matched only OkHttp's
+    // `.newCall(`, so AxonFlowTry.register() — a real outbound request, issued with
+    // HttpClient.send — was invisible to a census whose whole job is to find request
+    // paths. A guard that cannot see a whole HTTP client is not a census.
     //
     // DECLARED LIMIT: a source scan is only as wide as the syntax it matches. It sees
-    // `.newCall(`, which is how every OkHttp request in this SDK is issued. It would not
-    // see a request issued through a future helper that hides the call.
-    java.util.Map<String, Integer> allowed = new java.util.LinkedHashMap<>();
-    // executeHttp itself — THE wrapper. It calls the trigger immediately before this call.
-    allowed.put("AxonFlow.java", 1);
-    // The telemetry path itself: the /health probe and the checkpoint POST. These MUST
-    // NOT call the trigger, or the heartbeat triggers itself, recursively.
-    allowed.put("TelemetryReporter.java", 2);
-
+    // `.newCall(` and `.send(` on a *client receiver, plus `.sendAsync(`. It would not see
+    // a request issued through a future helper that hides the call behind another name.
     java.nio.file.Path srcRoot = java.nio.file.Paths.get("src/main/java");
     java.util.Map<String, Integer> found = new java.util.LinkedHashMap<>();
     try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(srcRoot)) {
@@ -457,7 +481,7 @@ class AdapterRegistryTest {
           if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
             continue;
           }
-          if (line.contains(".newCall(")) {
+          if (REQUEST_CALL.matcher(line).find()) {
             count++;
           }
         }
@@ -472,13 +496,47 @@ class AdapterRegistryTest {
     // to fail.
     assertThat(found).as("the scan found ZERO request sites, which cannot be true").isNotEmpty();
 
-    assertThat(found)
+    assertThat(found.keySet())
         .as(
             "a request path outside executeHttp never reaches the heartbeat trigger, so a "
                 + "process using only that path would never ping. Route it through "
-                + "executeHttp, or call the trigger and update this census.")
-        .isEqualTo(allowed);
+                + "executeHttp, or call the trigger and add it to REQUEST_SITES with a category.")
+        .isEqualTo(REQUEST_SITE_COUNTS.keySet());
+    assertThat(found).isEqualTo(REQUEST_SITE_COUNTS);
+    assertThat(REQUEST_SITES.keySet()).isEqualTo(REQUEST_SITE_COUNTS.keySet());
   }
+
+  @Test
+  @DisplayName("the AxonFlowTry exclusion premise still holds")
+  void theNoClientExclusionPremiseHolds() throws Exception {
+    // AxonFlowTry is excluded on the grounds that it is a package-level registration
+    // helper with no client and no configured endpoint — pinging there would report a
+    // deployment that does not exist yet. If that stops being true the exclusion is
+    // stale, so the premise is ASSERTED rather than trusted.
+    assertThat(REQUEST_SITES.get("AxonFlowTry.java")).isEqualTo(RequestSiteCategory.NO_CLIENT);
+
+    String src =
+        java.nio.file.Files.readString(
+            java.nio.file.Paths.get("src/main/java/com/getaxonflow/sdk/AxonFlowTry.java"));
+    assertThat(src)
+        .as("register() must still be static — an instance method would have a client")
+        .contains("public static TryRegistration register(");
+    assertThat(src)
+        .as("AxonFlowTry must not construct an AxonFlow client; if it does, the exclusion is stale")
+        .doesNotContain("AxonFlow.create(");
+    assertThat(src).as("nor hold one").doesNotContain("private final AxonFlow ");
+  }
+
+  /**
+   * How an outbound HTTP request is spelled in this SDK.
+   *
+   * <p>OkHttp's {@code .newCall(}, and {@code java.net.http}'s {@code .send(} / {@code .sendAsync(}
+   * on a receiver whose name ends in {@code Client} or {@code CLIENT}. The receiver is part of the
+   * pattern deliberately: a bare {@code .send(} matches unrelated code and a guard that cries wolf
+   * trains the next reader to add a bogus exemption, after which the census means nothing.
+   */
+  private static final java.util.regex.Pattern REQUEST_CALL =
+      java.util.regex.Pattern.compile("\\.newCall\\(|(?i:client)\\.send(?:Async)?\\(");
 
   @Test
   @DisplayName("the census needle has no false positives")
@@ -491,12 +549,151 @@ class AdapterRegistryTest {
             "    String scope = response.header(\"X-Axonflow-Read-Scope\");",
             "    Call call = client.newBuilder().build().newCall2(request);",
             "    // return client.newCall(request).execute();")) {
-      boolean matches =
-          notARequest.contains(".newCall(")
-              && !notARequest.trim().startsWith("//");
+      boolean matches = notARequest.contains(".newCall(") && !notARequest.trim().startsWith("//");
       assertThat(matches).as("false positive on: %s", notARequest).isFalse();
     }
     // And it must still match the real spelling.
     assertThat("      return client.newCall(request).execute();".contains(".newCall(")).isTrue();
+  }
+
+  /**
+   * A whole JVM that constructs a client, makes ONE call, and returns from main.
+   *
+   * <p>Spawned as a real subprocess by the test below. In-process is not an option and the reason
+   * is structural, not stylistic: the checkpoint URL is read from {@code System.getenv}, surefire
+   * pins {@code AXONFLOW_TELEMETRY=off} for the whole run, and neither can be changed from inside a
+   * running JVM. The Go SDK's #1693 regression test compiles and runs a binary for exactly this
+   * reason.
+   */
+  public static final class ShortLivedMain {
+    public static void main(String[] args) {
+      AxonFlow client =
+          AxonFlow.create(
+              AxonFlow.builder().endpoint(args[0]).clientId("id").clientSecret("secret").build());
+      try {
+        client.listConnectors();
+        System.out.println("CHILD: listConnectors returned");
+      } catch (RuntimeException e) {
+        // The API response shape is irrelevant — the heartbeat rides the ATTEMPT,
+        // so a caller whose first call fails is still a caller. Printed so a
+        // harness failure is distinguishable from SDK behaviour.
+        System.out.println(
+            "CHILD: listConnectors threw " + e.getClass().getName() + ": " + e.getMessage());
+      }
+      // No sleep, no join. This is the shape of a real short-lived caller, and
+      // it is the shape that drops a backgrounded POST.
+    }
+  }
+
+  @Test
+  @DisplayName("a process that makes ONE call and exits still delivers the ping")
+  void aShortLivedProcessStillDelivers(WireMockRuntimeInfo wm, @TempDir Path tmp) throws Exception {
+    // R3 round 1, H2: `invokeHeartbeatOnRequest() { invokeHeartbeatAsync(); }`
+    // left ALL 1522 tests green. Surefire runs with telemetry off, and the
+    // existing short-lived fixture's instant listeners cannot express the
+    // defect — a backgrounded ping wins that race every time, so the fixture
+    // reads as a disproof of a bug it never gave itself a chance to see.
+    //
+    // The constructor's ping was SYNCHRONOUS on purpose: a JVM that exits
+    // promptly would otherwise drop a POST left on the daemon executor. Moving
+    // the trigger to the first request had to preserve that, which is what
+    // `invokeHeartbeatOnRequest` does by running the gate inline when COLD.
+    //
+    // THE 700 ms DELAY IS WHAT MAKES THE DEFECT EXPRESSIBLE. It is on the
+    // /health probe, so the telemetry path takes long enough that a
+    // backgrounded ping is still in flight when main returns. With no delay
+    // both implementations pass and the fixture proves nothing.
+    stubFor(
+        get("/health")
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withFixedDelay(700)
+                    .withHeader("Content-Type", "application/json")
+                    .withBody("{\"status\":\"healthy\",\"version\":\"10.4.0\"}")));
+    stubFor(post("/v1/ping").willReturn(ok()));
+    stubFor(get(urlPathMatching("/api/.*")).willReturn(ok("{\"connectors\":[]}")));
+
+    ProcessBuilder pb =
+        new ProcessBuilder(
+            System.getProperty("java.home") + "/bin/java",
+            // -Duser.home, NOT just the HOME env var. HeartbeatState.resolveStampPath
+            // reads System.getProperty("user.home") on macOS, so a developer machine
+            // that pinged recently has a FRESH STAMP and the gate suppresses the ping —
+            // which would make this test pass vacuously if the assertion were inverted,
+            // and fail confusingly as it stands. Found by this test failing with the
+            // child exiting too fast to have made the 700 ms probe.
+            "-Duser.home=" + tmp,
+            "-cp",
+            System.getProperty("java.class.path"),
+            ShortLivedMain.class.getName(),
+            wm.getHttpBaseUrl());
+    // The two settings that cannot be changed from inside a JVM, which is why
+    // this is a subprocess at all.
+    pb.environment().put("AXONFLOW_CHECKPOINT_URL", wm.getHttpBaseUrl() + "/v1/ping");
+    pb.environment().remove("AXONFLOW_TELEMETRY");
+    // A private stamp dir, so a developer machine that pinged recently does not
+    // silence the run — the 7-day stamp would suppress it and the test would
+    // pass vacuously.
+    pb.environment().put("HOME", tmp.toString());
+    pb.environment().put("XDG_CACHE_HOME", tmp.resolve(".cache").toString());
+    pb.redirectErrorStream(true);
+
+    Process proc = pb.start();
+    String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+    boolean exited = proc.waitFor(60, java.util.concurrent.TimeUnit.SECONDS);
+
+    assertThat(exited).as("the child did not exit; harness failure, not SDK behaviour").isTrue();
+    assertThat(proc.exitValue())
+        .as(
+            "the child died (exit %s) — HARNESS failure, not SDK fail-open.%n%s",
+            proc.exitValue(), output)
+        .isZero();
+
+    assertThat(WireMock.findAll(postRequestedFor(urlEqualTo("/v1/ping"))))
+        .as(
+            "MUTATION GATE: make invokeHeartbeatOnRequest delegate straight to "
+                + "invokeHeartbeatAsync and this is empty. The cold path must run inline, or a "
+                + "JVM that exits after one call drops the POST — the defect issue #1693 fixed "
+                + "for the constructor, reintroduced by moving the trigger.%n%s",
+            output)
+        .hasSize(1);
+  }
+
+  @Test
+  @DisplayName("followSslRedirects(false) is pinned SEPARATELY from followRedirects(false)")
+  void followSslRedirectsIsPinnedOnItsOwn() throws Exception {
+    // These are two different settings and only one of them governs the hop that
+    // matters. OkHttp's followSslRedirects controls http<->https specifically —
+    // exactly the redirect a captive portal or a TLS-terminating proxy produces —
+    // and it defaults to TRUE. Removing it alone leaves every other redirect test
+    // green, because those fixtures are http->http.
+    //
+    // The e2e cannot vary the scheme (both listeners are local http), so this is a
+    // SOURCE assertion: honest about being weaker than a behavioural one, and
+    // present because the alternative is no coverage of that axis at all.
+    String src =
+        java.nio.file.Files.readString(
+            java.nio.file.Paths.get(
+                "src/main/java/com/getaxonflow/sdk/telemetry/TelemetryReporter.java"));
+    assertThat(countOccurrences(src, ".followRedirects(false)"))
+        .as("both telemetry clients — the /health probe and the checkpoint POST")
+        .isEqualTo(2);
+    assertThat(countOccurrences(src, ".followSslRedirects(false)"))
+        .as(
+            "followRedirects(false) alone still permits an http<->https hop, which is the "
+                + "redirect a captive portal produces and the one that would relay a platform "
+                + "the caller never pointed at")
+        .isEqualTo(2);
+  }
+
+  private static int countOccurrences(String haystack, String needle) {
+    int n = 0;
+    int i = haystack.indexOf(needle);
+    while (i >= 0) {
+      n++;
+      i = haystack.indexOf(needle, i + needle.length());
+    }
+    return n;
   }
 }

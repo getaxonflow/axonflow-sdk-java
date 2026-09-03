@@ -46,10 +46,13 @@ class HeartbeatStateTest {
     HeartbeatState h = new HeartbeatState(stamp);
     AtomicInteger pings = new AtomicInteger(0);
 
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
 
     assertThat(pings.get()).isEqualTo(1);
     assertThat(Files.exists(stamp)).isTrue();
@@ -65,10 +68,13 @@ class HeartbeatStateTest {
 
     HeartbeatState h = new HeartbeatState(stamp);
     AtomicInteger pings = new AtomicInteger(0);
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
 
     assertThat(pings.get()).isEqualTo(0);
   }
@@ -83,10 +89,13 @@ class HeartbeatStateTest {
 
     HeartbeatState h = new HeartbeatState(stamp);
     AtomicInteger pings = new AtomicInteger(0);
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
 
     assertThat(pings.get()).isEqualTo(1);
     long mtime = Files.getLastModifiedTime(stamp).toMillis();
@@ -100,10 +109,13 @@ class HeartbeatStateTest {
     AtomicInteger pings = new AtomicInteger(0);
 
     for (int i = 0; i < 5; i++) {
-      h.maybeSendHeartbeat(true, null, () -> {
-        pings.incrementAndGet();
-        return true;
-      });
+      h.maybeSendHeartbeat(
+          true,
+          null,
+          () -> {
+            pings.incrementAndGet();
+            return true;
+          });
     }
 
     assertThat(pings.get()).isEqualTo(1);
@@ -116,10 +128,13 @@ class HeartbeatStateTest {
     HeartbeatState h = new HeartbeatState(stamp);
     AtomicInteger pings = new AtomicInteger(0);
 
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
     assertThat(pings.get()).isEqualTo(1);
 
     // Backdate the cache (2h ago), the in-memory DELIVERY record (8d ago) AND the
@@ -133,10 +148,13 @@ class HeartbeatStateTest {
     h.setLastDeliveredMillisForTest(System.currentTimeMillis() - 8L * 24 * 60 * 60 * 1000L);
     Files.setLastModifiedTime(stamp, FileTime.from(Instant.now().minus(8, ChronoUnit.DAYS)));
 
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
     assertThat(pings.get()).isEqualTo(2);
   }
 
@@ -147,10 +165,13 @@ class HeartbeatStateTest {
     HeartbeatState h = new HeartbeatState(stamp);
     AtomicInteger pings = new AtomicInteger(0);
 
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
     assertThat(pings.get()).isEqualTo(1);
 
     // Disable telemetry, force gates open, snapshot mtime AFTER manipulation.
@@ -158,10 +179,13 @@ class HeartbeatStateTest {
     Files.setLastModifiedTime(stamp, FileTime.from(Instant.now().minus(8, ChronoUnit.DAYS)));
     long mtimeBefore = Files.getLastModifiedTime(stamp).toMillis();
 
-    h.maybeSendHeartbeat(false, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        false,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
 
     assertThat(pings.get()).isEqualTo(1);
     long mtimeAfter = Files.getLastModifiedTime(stamp).toMillis();
@@ -179,20 +203,29 @@ class HeartbeatStateTest {
     CountDownLatch done = new CountDownLatch(threadCount);
 
     for (int i = 0; i < threadCount; i++) {
-      new Thread(() -> {
-        try {
-          start.await();
-        } catch (InterruptedException ignored) {
-          Thread.currentThread().interrupt();
-        }
-        h.maybeSendHeartbeat(true, null, () -> {
-          // Slow ping to encourage stampede behavior.
-          try { Thread.sleep(10); } catch (InterruptedException ignored) {}
-          pings.incrementAndGet();
-          return true;
-        });
-        done.countDown();
-      }, "heartbeat-test-" + i).start();
+      new Thread(
+              () -> {
+                try {
+                  start.await();
+                } catch (InterruptedException ignored) {
+                  Thread.currentThread().interrupt();
+                }
+                h.maybeSendHeartbeat(
+                    true,
+                    null,
+                    () -> {
+                      // Slow ping to encourage stampede behavior.
+                      try {
+                        Thread.sleep(10);
+                      } catch (InterruptedException ignored) {
+                      }
+                      pings.incrementAndGet();
+                      return true;
+                    });
+                done.countDown();
+              },
+              "heartbeat-test-" + i)
+          .start();
     }
 
     start.countDown();
@@ -207,17 +240,23 @@ class HeartbeatStateTest {
     HeartbeatState h = new HeartbeatState((Path) null);
     AtomicInteger pings = new AtomicInteger(0);
 
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
     assertThat(pings.get()).isEqualTo(1);
 
     // 1h cache holds within the same process even without a stamp file.
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
     assertThat(pings.get()).isEqualTo(1);
 
     // ASSERTION INVERTED IN #3682, AND THE OLD ONE WAS THE DEFECT.
@@ -233,20 +272,26 @@ class HeartbeatStateTest {
     // The in-memory lastDeliveredMillis record is the bound. An hour after a delivery
     // the gate must now REFUSE.
     h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
     assertThat(pings.get()).isEqualTo(1);
 
     // And the other direction, so the bound cannot pass as a permanent mute: past the
     // 7-day interval it must fire again.
     h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
     h.setLastDeliveredMillisForTest(System.currentTimeMillis() - 8L * 24 * 60 * 60 * 1000L);
-    h.maybeSendHeartbeat(true, null, () -> {
-      pings.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          pings.incrementAndGet();
+          return true;
+        });
     assertThat(pings.get()).isEqualTo(2);
   }
 
@@ -266,21 +311,31 @@ class HeartbeatStateTest {
       CountDownLatch done = new CountDownLatch(clientCount);
 
       for (int i = 0; i < clientCount; i++) {
-        new Thread(() -> {
-          try {
-            start.await();
-          } catch (InterruptedException ignored) {
-            Thread.currentThread().interrupt();
-          }
-          // Each "client" calls the shared gate. The static singleton coalesces
-          // them onto a single ping per heartbeatInterval.
-          HeartbeatState.shared().maybeSendHeartbeat(true, null, () -> {
-            try { Thread.sleep(10); } catch (InterruptedException ignored) {}
-            pings.incrementAndGet();
-            return true;
-          });
-          done.countDown();
-        }, "multi-client-test-" + i).start();
+        new Thread(
+                () -> {
+                  try {
+                    start.await();
+                  } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                  }
+                  // Each "client" calls the shared gate. The static singleton coalesces
+                  // them onto a single ping per heartbeatInterval.
+                  HeartbeatState.shared()
+                      .maybeSendHeartbeat(
+                          true,
+                          null,
+                          () -> {
+                            try {
+                              Thread.sleep(10);
+                            } catch (InterruptedException ignored) {
+                            }
+                            pings.incrementAndGet();
+                            return true;
+                          });
+                  done.countDown();
+                },
+                "multi-client-test-" + i)
+            .start();
       }
 
       start.countDown();
@@ -300,20 +355,26 @@ class HeartbeatStateTest {
     AtomicInteger fails = new AtomicInteger(0);
     AtomicInteger successes = new AtomicInteger(0);
 
-    h.maybeSendHeartbeat(true, null, () -> {
-      fails.incrementAndGet();
-      return false;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          fails.incrementAndGet();
+          return false;
+        });
     assertThat(fails.get()).isEqualTo(1);
     assertThat(Files.exists(stamp)).isFalse();
 
     // Backdate cache, retry against success.
     h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
 
-    h.maybeSendHeartbeat(true, null, () -> {
-      successes.incrementAndGet();
-      return true;
-    });
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          successes.incrementAndGet();
+          return true;
+        });
     assertThat(successes.get()).isEqualTo(1);
     assertThat(Files.exists(stamp)).isTrue();
   }
@@ -373,5 +434,99 @@ class HeartbeatStateTest {
     // And it goes cold again once the guard interval has elapsed.
     h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
     assertThat(h.isGuardWarm()).isFalse();
+  }
+
+  @Test
+  @DisplayName("the backoff is enforced BY THE GATE, not just by the pure function")
+  void theBackoffIsEnforcedByTheGate(@TempDir Path tmp) {
+    // R3 round 1: guardIntervalFor was pinned only as a pure function, so THREE
+    // separate mutants left the suite green — deleting the failure-counter
+    // increment, deleting its reset on delivery, and reverting the gate's call
+    // site to the base interval. Testing the arithmetic is not testing the
+    // gate; only counting what the gate ADMITS can tell the two intervals
+    // apart.
+    //
+    // The stamp path is a real temp file so the 7-day file gate is inert (it is
+    // never written on a failed ping), leaving the guard interval as the only
+    // thing deciding each attempt.
+    HeartbeatState h = new HeartbeatState(tmp.resolve("stamp"));
+    AtomicInteger attempts = new AtomicInteger(0);
+
+    // Two consecutive failures. The first is admitted because the gate is cold;
+    // the second needs the guard re-opened, which models an hour passing.
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          attempts.incrementAndGet();
+          return false;
+        });
+    h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          attempts.incrementAndGet();
+          return false;
+        });
+    assertThat(attempts.get()).as("two attempts were made, both undelivered").isEqualTo(2);
+    assertThat(h.getConsecutiveFailuresForTest())
+        .as("MUTATION GATE: delete the increment and this is 0")
+        .isEqualTo(2);
+
+    // 90 minutes later. PAST the base 1-hour guard, INSIDE the 4-hour interval
+    // two failures earn — which is the only span that can distinguish them.
+    h.setLastCheckedMillisForTest(System.currentTimeMillis() - 90 * 60 * 1000L);
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          attempts.incrementAndGet();
+          return false;
+        });
+    assertThat(attempts.get())
+        .as(
+            "MUTATION GATE: revert the gate to HEARTBEAT_GUARD_INTERVAL_MS and this is 3. "
+                + "90 minutes is inside the widened %d ms interval two failures earn; a gate "
+                + "still using the base %d ms probes the customer's own platform hourly "
+                + "forever when egress is blocked",
+            HeartbeatState.guardIntervalFor(2), HeartbeatState.HEARTBEAT_GUARD_INTERVAL_MS)
+        .isEqualTo(2);
+
+    // FIVE hours later: past the widened interval, so it must retry. Without
+    // this the "backoff" could be a permanent mute and still pass above.
+    //
+    // Five, not three, and the arithmetic is worth stating because I got it
+    // wrong first: the interval DOUBLES, so two consecutive failures earn
+    // 1h << 2 == 4 HOURS. Three hours is still inside it and is correctly
+    // refused — a fixture using three would have failed for the right reason
+    // while appearing to test the wrong one.
+    h.setLastCheckedMillisForTest(System.currentTimeMillis() - 5 * 60 * 60 * 1000L);
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          attempts.incrementAndGet();
+          return true; // this one DELIVERS
+        });
+    assertThat(attempts.get()).as("the widened interval must re-open, not mute").isEqualTo(3);
+    assertThat(h.getConsecutiveFailuresForTest())
+        .as("MUTATION GATE: delete the reset on delivery and this is 3")
+        .isZero();
+
+    // 61 minutes after the delivery. The counter is back to 0, so the base
+    // 1-hour guard applies again — but the 7-day cadence now suppresses it,
+    // which is the correct reason and a different one from the backoff.
+    h.setLastCheckedMillisForTest(System.currentTimeMillis() - 61 * 60 * 1000L);
+    h.maybeSendHeartbeat(
+        true,
+        null,
+        () -> {
+          attempts.incrementAndGet();
+          return true;
+        });
+    assertThat(attempts.get())
+        .as("a delivered ping is bounded by the 7-day cadence, not by the (reset) backoff")
+        .isEqualTo(3);
   }
 }
