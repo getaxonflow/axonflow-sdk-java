@@ -234,10 +234,16 @@ jobs:
             # Matched with bash's own pattern test, NOT `printf ... | grep -q`. Under
             # `set -o pipefail` that pipeline is a RACE: grep -q exits at the first
             # match, printf then dies of SIGPIPE, and pipefail reports the pipeline as
-            # FAILED even though the match succeeded. With short output printf finishes
-            # first and it works; with real Maven output it does not. Measured here at
-            # 60k lines: the violation branch was skipped and a formatting failure was
-            # misreported as "not a known transient".
+            # FAILED even though the match succeeded — routing a real violation to the
+            # "not a known transient" branch and never printing the file list.
+            #
+            # HONEST SCOPE, because the first version of this comment overstated it:
+            # the race needs the output to exceed the pipe buffer (64 KiB), and this
+            # project's real `:check` output does NOT. Measured: 1,648 bytes with one
+            # non-complying file, 9,883 with all 39. So the race was LATENT here, not
+            # firing. It is removed because a correctness bug that depends on output
+            # volume is one bad day away — a noisier Maven, `-X`, or a larger tree —
+            # and because the pattern test is simpler than the pipeline it replaces.
             if [[ "$out" == *"Non complying file"* ]]; then
               echo "::error::Formatting violations found. Fix with: mvn com.spotify.fmt:fmt-maven-plugin:format"
               grep "Non complying file" <<< "$out" >&2 || true

@@ -54,23 +54,89 @@ rc_of() {  # <stub-body> -> prints exit code of the step under that stub
   printf '#!/usr/bin/env bash\n%s\n' "$1" > "$WORK/bin/mvn"
   chmod +x "$WORK/bin/mvn"
   # The transient case sleeps 30s between attempts; cap it so the harness is quick.
-  PATH="$WORK/bin:$PATH" timeout 200 bash "$WORK/step.sh" >"$WORK/out" 2>&1
+  # STDOUT AND STDERR ARE KEPT SEPARATE, and that is load bearing. The step
+  # echoes the runner's whole output on stdout, so a marker asserted against the
+  # merged stream is satisfied by that echo no matter what the step's own
+  # diagnostics did. Deleting the `grep "Non complying file" >&2` line — the one
+  # the commit message calls the only actionable output — SURVIVED an assertion
+  # written against the merged stream, because the string was still present in
+  # the echoed input. The dedicated diagnostics go to stderr; assert there.
+  PATH="$WORK/bin:$PATH" timeout 200 bash "$WORK/step.sh" >"$WORK/out" 2>"$WORK/err"
   echo $?
 }
 
 echo "=== formatting step behaviour: $LABEL"
 bad=0
-check() {  # <label> <stub> <expected-rc>
-  local got; got=$(rc_of "$2")
+# check <label> <stub> <expected-rc> <expected-message> [stub-sentinel]
+#
+# THE STUB MUST PROVE IT RAN. A stub with a syntax error prints a bash
+# diagnostic and exits nonzero, which the step then classifies as an
+# unrecognised failure and exits 1 — so every case expecting 1 PASSES, for a
+# reason that has nothing to do with the step. That is not hypothetical: the
+# first version of the 60k-line case had a nested heredoc that broke the stub,
+# and it reported a result about a step it never exercised.
+#
+# So each case names a SENTINEL its stub is supposed to emit, and the sentinel
+# must appear in what the step captured. A silent or broken stub is reported as
+# an INVALID EXPERIMENT, never as a verdict — the same refusal the mutation gate
+# makes for a mutant that was never applied.
+# THE FORBIDDEN MESSAGE IS NOT DECORATION. Asserting only that the right branch
+# fired leaves "the right branch fired AND SO DID A WRONG ONE" indistinguishable
+# from correct. Deleting the `exit 1` from the violation branch does exactly
+# that: the step prints the violation diagnostic, falls through, and exits 1 via
+# the unrecognised-failure branch — right code, right message, plus a second
+# message contradicting it. That mutant SURVIVED until this argument existed.
+check() {
+  local label="$1" stub="$2" want_rc="$3" want_msg="$4" sentinel="${5:-}" forbid="${6:-}"
+  local got; got=$(rc_of "$stub")
   local verdict="ok"
-  if [ "$got" != "$3" ]; then verdict="WRONG (expected $3)"; bad=1; fi
-  printf '  %-26s exit=%-3s %s\n' "$1" "$got" "$verdict"
+
+  if [ -n "$sentinel" ] && ! grep -qF -- "$sentinel" "$WORK/out" "$WORK/err"; then
+    printf '  %-26s INVALID — stub produced no %s; it did not run\n' "$label" "$sentinel" >&2
+    bad=1
+    return
+  fi
+  if [ "$got" != "$want_rc" ]; then
+    verdict="WRONG (expected exit $want_rc)"; bad=1
+  elif [ -n "$want_msg" ] && ! cat "$WORK/out" "$WORK/err" | grep -qF -- "$want_msg"; then
+    # The exit code is not the whole verdict. A step that fails for the WRONG
+    # stated reason sends the next reader after a phantom network problem
+    # instead of a formatting violation — which is exactly how the pipefail
+    # race hid: correct exit code, wrong branch.
+    verdict="WRONG (exit right, but did not say: $want_msg)"; bad=1
+  elif [ -n "$forbid" ] && cat "$WORK/out" "$WORK/err" | grep -qF -- "$forbid"; then
+    verdict="WRONG (also said: $forbid — a second branch fired)"; bad=1
+  fi
+  printf '  %-26s exit=%-3s %s\n' "$label" "$got" "$verdict"
 }
 
-check "clean tree"            'exit 0'                                                        0
-check "formatting violation"  'echo "[ERROR] Non complying file: /x/Foo.java"; exit 1'        1
-check "resolution failure"    'echo "[ERROR] Could not resolve dependencies"; exit 1'         1
-check "unrecognised failure"  'echo "[ERROR] something new and weird"; exit 1'                1
+check "clean tree" \
+  'echo "[INFO] BUILD SUCCESS"; exit 0' \
+  0 "Formatting check passed" "BUILD SUCCESS" "::error::"
+
+check "formatting violation" \
+  'echo "[ERROR] Non complying file: /x/Foo.java"; exit 1' \
+  1 "Formatting violations found" "Non complying file" "not a known transient"
+
+# `Could not transfer` is the string a live resolution failure actually emits.
+# `Could not resolve` is in the step's marker list but was never observed, so a
+# stub built on it would test a branch the real world does not reach.
+check "resolution failure" \
+  'echo "[ERROR] Could not transfer artifact org.x:y:jar:1.0 from central"; exit 1' \
+  1 "could not run after" "Could not transfer" "Formatting violations found"
+
+# THE RETRY PATH MUST ACTUALLY RETRY. The message above is reachable from a
+# single attempt if the loop is broken, so the attempt COUNT is asserted
+# separately: three "Attempt N:" lines, no more and no fewer.
+attempts=$(cat "$WORK/out" "$WORK/err" | grep -c "^Attempt " || true)
+if [ "$attempts" -ne 3 ]; then
+  echo "  ${LABEL}: transient failure produced ${attempts} attempts, expected 3" >&2
+  bad=1
+fi
+
+check "unrecognised failure" \
+  'echo "[ERROR] something new and weird"; exit 1' \
+  1 "not a known transient" "something new and weird" "Formatting violations found"
 
 # THE SIZE AXIS, AND IT IS NOT PADDING. The four cases above all emit a few
 # lines, and a step written with `printf ... | grep -q` under `set -o pipefail`
@@ -83,16 +149,22 @@ check "unrecognised failure"  'echo "[ERROR] something new and weird"; exit 1'  
 # harness that cannot vary an axis leaves it untested forever, so the axis is
 # varied: the marker is emitted EARLY and followed by 60k lines of noise, which
 # is what gives grep time to exit first.
+#
+# THIS IS A STRESS CASE, NOT A REPLAY OF THE REAL WORKLOAD, and saying so matters
+# because the first version of this comment implied otherwise. Real `:check`
+# output measures 1,648 bytes with one non-complying file and 9,883 with all 39
+# — both under the 64 KiB pipe buffer, so the race never fired in CI. The case
+# exists to hold the fix in place against a future where output grows, which is
+# what a regression test is for.
 check "violation, 60k lines" \
   'echo "[ERROR] Non complying file: /x/Foo.java"; i=0; while [ $i -lt 60000 ]; do echo "[INFO] padding line $i"; i=$((i+1)); done; exit 1' \
-  1
+  1 "Formatting violations found" "Non complying file" "not a known transient"
 
-# The diagnostic must survive the size axis too, not just the exit code: a step
-# that fails for the WRONG stated reason sends the next reader after a phantom
-# network problem instead of a formatting violation.
-if ! grep -q "Formatting violations found" "$WORK/out"; then
-  echo "  ${LABEL}: violation on a large stream exits nonzero but is MISREPORTED" >&2
-  grep -oE "not a known transient|could not run after" "$WORK/out" >&2 | head -1
+# The file LIST is the actionable part, and it travels a different path from the
+# headline (a herestring grep rather than a bash pattern test), so it is asserted
+# separately. Under the pipefail race this line was never printed at all.
+if ! grep -q "Non complying file: /x/Foo.java" "$WORK/err"; then
+  echo "  ${LABEL}: the non-complying file LIST was not printed to stderr" >&2
   bad=1
 fi
 
