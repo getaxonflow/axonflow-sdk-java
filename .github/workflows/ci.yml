@@ -210,18 +210,48 @@ jobs:
 
       - name: Check code formatting
         run: |
-          for i in 1 2 3; do
-            echo "Attempt $i: Checking formatting..."
-            if mvn com.spotify.fmt:fmt-maven-plugin:check -B -U; then
+          # BOTH arms of the previous loop broke on attempt 1, so this step exited 0
+          # whether the check passed or failed and a violation printed "Code formatting
+          # check skipped" under a green tick. The loop conflated two failures that need
+          # opposite handling: a dependency-resolution failure is worth retrying, a
+          # formatting violation must fail the job immediately. They are separated here.
+          set -uo pipefail
+          attempt=1
+          max=3
+          extra=""
+          while :; do
+            echo "Attempt ${attempt}: checking formatting..."
+            out=$(mvn com.spotify.fmt:fmt-maven-plugin:check -B ${extra} 2>&1) && status=0 || status=$?
+            printf '%s\n' "$out"
+
+            if [ "$status" -eq 0 ]; then
               echo "Formatting check passed"
-              break
+              exit 0
             fi
-            # If it's a formatting error (not network), don't retry
-            if [ $i -eq 1 ]; then
-              echo "Code formatting check skipped"
-              break
+
+            # A violation is a RESULT, not a flake.
+            if printf '%s' "$out" | grep -q "Non complying file"; then
+              echo "::error::Formatting violations found. Fix with: mvn com.spotify.fmt:fmt-maven-plugin:format"
+              printf '%s' "$out" | grep "Non complying file" >&2
+              exit 1
             fi
-            echo "Attempt $i failed, waiting 30 seconds..."
+
+            # Only a resolution/network failure earns another attempt. Anything
+            # unrecognised fails rather than passing, so a new failure mode cannot
+            # inherit the old step's silence.
+            if ! printf '%s' "$out" \
+              | grep -qE "Could not resolve|Could not transfer|Connection refused|Read timed out|UnknownHost"; then
+              echo "::error::Formatting check failed for a reason that is not a known transient."
+              exit 1
+            fi
+
+            if [ "${attempt}" -ge "${max}" ]; then
+              echo "::error::Formatting check could not run after ${max} attempts (dependency resolution)."
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            extra="-U"
+            echo "Transient resolution failure; retrying in 30s..."
             sleep 30
           done
 
