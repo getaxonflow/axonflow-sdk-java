@@ -12,7 +12,8 @@
 # future change could not be checked against it. Modelled on sdk-rust's
 # scripts/mutation-gate.sh, which had the same lesson applied first.
 #
-# TWO REFUSALS THAT ARE THE POINT OF THE HARNESS, not incidental hardening:
+# THREE REFUSALS THAT ARE THE POINT OF THE HARNESS, not incidental hardening.
+# Each exists because a degenerate experiment otherwise scores as a RESULT:
 #
 #   1. A mutant whose search pattern is ABSENT from the file was never applied.
 #      Reporting that as "survived" describes an experiment that did not run.
@@ -20,7 +21,14 @@
 #      survivor. This is not hypothetical: a rewrite of AdapterRegistryTest
 #      deleted `aShortLivedProcessStillDelivers`, and the harness reported
 #      "SURVIVED [Tests run: 0]" for the cold-path mutant. The test it needed
-#      had ceased to exist. Both cases now abort as ERROR.
+#      had ceased to exist.
+#   3. Counts that disagree with the EXIT CODE. Reading "Failures: 1" alone
+#      means any runner that prints failures and still exits 0 scores every
+#      mutant as killed and the whole gate as PASS. The verdict requires both,
+#      and a disagreement between them is an ERROR rather than a verdict.
+#
+# The runner is ./mvnw, not a system `mvn`, so the gate cannot be silently
+# pointed at a different toolchain than the build uses.
 #
 # Usage: ./scripts/mutation-gate.sh
 set -uo pipefail
@@ -50,8 +58,8 @@ import os,sys,pathlib
 p=pathlib.Path(sys.argv[1])
 p.write_text(p.read_text().replace(os.environ["FIND"], os.environ["REPLACE"], 1))' "$file"
 
-  local out
-  out=$(mvn -o test -Dtest="$selector" -DfailIfNoTests=true 2>&1)
+  local out rc
+  out=$(./mvnw test -Dtest="$selector" -DfailIfNoTests=true 2>&1) && rc=0 || rc=$?
   mv -f "$file.mutbak" "$file"
 
   local line run fails errs
@@ -70,9 +78,15 @@ p.write_text(p.read_text().replace(os.environ["FIND"], os.environ["REPLACE"], 1)
     fail=$((fail + 1))
     return
   fi
-  if [ "$fails" -gt 0 ] || [ "$errs" -gt 0 ]; then
+  # THE EXIT CODE IS PART OF THE VERDICT, not a formality. Reading the counts alone
+  # means a build that prints "Tests run: 5, Failures: 1" and exits 0 scores as a kill,
+  # so a broken or stubbed runner reports a clean gate. Require both.
+  if [ "$rc" -ne 0 ] && { [ "$fails" -gt 0 ] || [ "$errs" -gt 0 ]; }; then
     printf '    killed  [run=%s fail=%s err=%s]\n' "$run" "$fails" "$errs"
     pass=$((pass + 1))
+  elif [ "$rc" -eq 0 ] && { [ "$fails" -gt 0 ] || [ "$errs" -gt 0 ]; }; then
+    printf '    ERROR — counts report failures but the build exited 0; runner is untrustworthy\n' >&2
+    fail=$((fail + 1))
   else
     printf '    SURVIVED — the suite does not detect this defect  [run=%s]\n' "$run"
     fail=$((fail + 1))

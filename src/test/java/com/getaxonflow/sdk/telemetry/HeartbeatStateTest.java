@@ -413,10 +413,15 @@ class HeartbeatStateTest {
     // silently inverts into its most aggressive setting at the point it should be at its
     // most patient, and an air-gapped deployment goes back to retrying hourly forever.
     //
-    // Every other assertion in this test survives deleting that clamp. Integer.MAX_VALUE
-    // masks to 31, which shifts to a large positive value that trips the `> 7 days` cap
-    // and returns the right answer for the wrong reason. 64 is the value that exposes it,
-    // and nothing here used it until the reviewer asked what pinned the ceiling.
+    // Every other assertion in this test survives deleting that clamp, INCLUDING the
+    // Integer.MAX_VALUE one — and its reason is worth stating correctly, because the
+    // obvious reading is wrong. MAX_VALUE & 63 is 63, not 31 (63 is an int's mask; the
+    // shifted operand here is a long), and `3600000L << 63` is 0 rather than a large
+    // number: 3600000 is even, so every set bit shifts out. Unclamped, MAX_VALUE returns
+    // seven days through the `widened <= 0` OVERFLOW branch, not through the `> 7 days`
+    // cap. Right answer, wrong route — which is exactly why it cannot pin the ceiling.
+    // 64 is the value that exposes the gap, and nothing here used it until the reviewer
+    // asked what pinned the ceiling.
     assertThat(HeartbeatState.guardIntervalFor(64)).isEqualTo(sevenDays);
     assertThat(HeartbeatState.guardIntervalFor(65)).isEqualTo(sevenDays);
     assertThat(HeartbeatState.guardIntervalFor(128)).isEqualTo(sevenDays);
