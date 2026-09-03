@@ -72,6 +72,30 @@ check "formatting violation"  'echo "[ERROR] Non complying file: /x/Foo.java"; e
 check "resolution failure"    'echo "[ERROR] Could not resolve dependencies"; exit 1'         1
 check "unrecognised failure"  'echo "[ERROR] something new and weird"; exit 1'                1
 
+# THE SIZE AXIS, AND IT IS NOT PADDING. The four cases above all emit a few
+# lines, and a step written with `printf ... | grep -q` under `set -o pipefail`
+# PASSES all of them while failing on real output: grep -q exits at the first
+# match, printf dies of SIGPIPE, and pipefail marks the pipeline failed even
+# though the match succeeded. Short stubs finish printing before grep exits and
+# never trigger it.
+#
+# That defect was in this very step and these very four cases did not see it. A
+# harness that cannot vary an axis leaves it untested forever, so the axis is
+# varied: the marker is emitted EARLY and followed by 60k lines of noise, which
+# is what gives grep time to exit first.
+check "violation, 60k lines" \
+  'echo "[ERROR] Non complying file: /x/Foo.java"; i=0; while [ $i -lt 60000 ]; do echo "[INFO] padding line $i"; i=$((i+1)); done; exit 1' \
+  1
+
+# The diagnostic must survive the size axis too, not just the exit code: a step
+# that fails for the WRONG stated reason sends the next reader after a phantom
+# network problem instead of a formatting violation.
+if ! grep -q "Formatting violations found" "$WORK/out"; then
+  echo "  ${LABEL}: violation on a large stream exits nonzero but is MISREPORTED" >&2
+  grep -oE "not a known transient|could not run after" "$WORK/out" >&2 | head -1
+  bad=1
+fi
+
 if [ "$bad" -ne 0 ]; then
   echo "FAIL: the formatting step does not fail when it must" >&2
   exit 1

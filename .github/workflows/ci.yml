@@ -230,17 +230,29 @@ jobs:
             fi
 
             # A violation is a RESULT, not a flake.
-            if printf '%s' "$out" | grep -q "Non complying file"; then
+            #
+            # Matched with bash's own pattern test, NOT `printf ... | grep -q`. Under
+            # `set -o pipefail` that pipeline is a RACE: grep -q exits at the first
+            # match, printf then dies of SIGPIPE, and pipefail reports the pipeline as
+            # FAILED even though the match succeeded. With short output printf finishes
+            # first and it works; with real Maven output it does not. Measured here at
+            # 60k lines: the violation branch was skipped and a formatting failure was
+            # misreported as "not a known transient".
+            if [[ "$out" == *"Non complying file"* ]]; then
               echo "::error::Formatting violations found. Fix with: mvn com.spotify.fmt:fmt-maven-plugin:format"
-              printf '%s' "$out" | grep "Non complying file" >&2
+              grep "Non complying file" <<< "$out" >&2 || true
               exit 1
             fi
 
             # Only a resolution/network failure earns another attempt. Anything
             # unrecognised fails rather than passing, so a new failure mode cannot
             # inherit the old step's silence.
-            if ! printf '%s' "$out" \
-              | grep -qE "Could not resolve|Could not transfer|Connection refused|Read timed out|UnknownHost"; then
+            transient=0
+            for marker in "Could not resolve" "Could not transfer" "Connection refused" \
+                          "Read timed out" "UnknownHost"; do
+              if [[ "$out" == *"$marker"* ]]; then transient=1; break; fi
+            done
+            if [ "$transient" -eq 0 ]; then
               echo "::error::Formatting check failed for a reason that is not a known transient."
               exit 1
             fi
