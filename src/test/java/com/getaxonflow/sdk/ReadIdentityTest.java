@@ -9,6 +9,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.*;
 
+import com.getaxonflow.sdk.authzen.AuthZENResponse;
 import com.getaxonflow.sdk.exceptions.ReadScopeException;
 import com.getaxonflow.sdk.identity.ReadIdentity;
 import com.getaxonflow.sdk.identity.ReadScope;
@@ -543,9 +544,18 @@ class ReadIdentityTest {
     // Deliberately wider than the one spelling the fix uses: a guard is only as
     // wide as the syntax it matches, and there are several ways to write a
     // header onto an OkHttp request.
+    // `add` and `set` are Headers.Builder's spellings, and `add` is the one
+    // that does NOT replace — a second stamp written with it would put TWO
+    // X-User-Token values on the wire, which is worse than the duplicate this
+    // guard exists to catch. A census that knew only Request.Builder's two
+    // verbs would have read that as clean.
+    // The constant may be written QUALIFIED (`ReadIdentity.HEADER_USER_TOKEN`,
+    // or fully package-qualified). A pattern anchored on the bare name reads a
+    // qualified stamping site as clean — verified: it did, on a planted one.
     Pattern setter =
         Pattern.compile(
-            "\\.(header|addHeader)\\(\\s*(HEADER_USER_TOKEN|\"[Xx]-[Uu]ser-[Tt]oken\")");
+            "\\.(header|addHeader|addUnsafeNonAscii|add|set)\\(\\s*"
+                + "([A-Za-z0-9_.]*\\bHEADER_USER_TOKEN\\b|\"[Xx]-[Uu]ser-[Tt]oken\")");
     Pattern literal = Pattern.compile("\"X-User-Token\"", Pattern.CASE_INSENSITIVE);
 
     List<String> setters = new ArrayList<>();
@@ -647,6 +657,10 @@ class ReadIdentityTest {
   @Test
   @DisplayName("the AuthZEN reader refuses a coerced scalar")
   void theAuthzenReaderDoesNotCoerceScalars() throws Exception {
+    // Superseded by the two CsvSource tests below, which vary the payload
+    // rather than asserting one entry. Kept because it is the one that pins the
+    // OTHER failure direction on a well-formed body.
+
     // Without the coercion settings Jackson REPAIRS type errors: a decision
     // arriving as the string "true" was read as the boolean true, and an
     // obligation whose `mandatory` arrived as 1 was read as true — on exactly
@@ -671,6 +685,65 @@ class ReadIdentityTest {
                     "{\"decision\":false}", com.getaxonflow.sdk.authzen.AuthZENResponse.class)
                 .getDecision())
         .isFalse();
+  }
+
+  /**
+   * Every scalar shape the reader must REFUSE, one row each.
+   *
+   * <p>The single-assertion version of this test pinned {@code "decision":"true"} alone, and that
+   * was not a strictness gate: re-enabling coercion for everything except that one entry left
+   * {@code "mandatory":1}, {@code "decision":1} and {@code "quorum":"3"} accepted with the whole
+   * suite green. A guard that names one member certifies that member, not the class.
+   *
+   * <p>{@code quorum: 2.7} is the row that found a real hole: {@code
+   * ALLOW_COERCION_OF_SCALARS=false} does NOT cover Float -> Integer, so it decoded as 2 — silently
+   * discarding the fraction on a count of required approvers.
+   */
+  @ParameterizedTest(name = "refused: {0}")
+  @CsvSource({
+    "'{\"decision\":\"true\"}', a decision as a STRING",
+    "'{\"decision\":1}', a decision as an INTEGER",
+    "'{\"decision\":\"false\"}', a false decision as a STRING",
+    "'{\"context\":{\"obligations\":[{\"type\":\"log\",\"mandatory\":1}]}}', mandatory as an INTEGER",
+    "'{\"context\":{\"obligations\":[{\"type\":\"log\",\"mandatory\":\"true\"}]}}', mandatory as a STRING",
+    "'{\"context\":{\"approval\":{\"all_of\":[{\"quorum\":\"3\"}]}}}', quorum as a STRING",
+    "'{\"context\":{\"approval\":{\"all_of\":[{\"quorum\":2.7}]}}}', quorum as a FLOAT",
+    "'{\"context\":{\"approval\":{\"all_of\":[{\"quorum\":true}]}}}', quorum as a BOOLEAN"
+  })
+  void theAuthzenReaderRefusesEveryCoercibleScalarShape(String body, String description)
+      throws Exception {
+    assertThatThrownBy(() -> authzenReader().readValue(body, AuthZENResponse.class))
+        .as(
+            "%s must be REFUSED, not repaired into a reading nobody sent: these are the members"
+                + " that decide whether an unsupported obligation denies",
+            description)
+        .isInstanceOf(Exception.class);
+  }
+
+  /**
+   * The other failure direction, one row each: strictness that refuses well-formed payloads is an
+   * outage, not a guard.
+   *
+   * <p>Without this set, the refusal test above is satisfied by a reader that refuses everything.
+   */
+  @ParameterizedTest(name = "accepted: {0}")
+  @CsvSource({
+    "'{\"decision\":true}', a decision as a real boolean",
+    "'{\"decision\":false}', a false decision as a real boolean",
+    "'{\"context\":{\"obligations\":[{\"type\":\"log\",\"mandatory\":true}]}}', mandatory as a real boolean",
+    "'{\"context\":{\"approval\":{\"all_of\":[{\"quorum\":3}]}}}', quorum as a real integer"
+  })
+  void theAuthzenReaderStillAcceptsWellFormedScalars(String body, String description)
+      throws Exception {
+    assertThatCode(() -> authzenReader().readValue(body, AuthZENResponse.class))
+        .as("%s is valid and must decode", description)
+        .doesNotThrowAnyException();
+  }
+
+  private com.fasterxml.jackson.databind.ObjectMapper authzenReader() throws Exception {
+    java.lang.reflect.Field readerField = AxonFlow.class.getDeclaredField("authzenReader");
+    readerField.setAccessible(true);
+    return (com.fasterxml.jackson.databind.ObjectMapper) readerField.get(client(null));
   }
 
   @Test

@@ -142,7 +142,23 @@ public final class ReadIdentity {
   private static final java.util.List<String> CREDENTIAL_HEADERS =
       java.util.List.of("Authorization", HEADER_USER_TOKEN, "X-Client-ID", "X-Axonflow-Client");
 
-  private static boolean sameOrigin(HttpUrl a, HttpUrl b) {
+  /**
+   * Whether two URLs are the same origin: scheme, host AND port, each compared on its own.
+   *
+   * <p>Package-private rather than private so it can be tested as the pure function it is. That is
+   * not a lookalike test standing in for the real one: the two-listener redirect tests assert the
+   * ALTITUDE property — that the check is re-run per hop by a network interceptor — and they can
+   * only vary the axis a local listener can vary, which is the port. A comparison that dropped
+   * scheme and host entirely would survive both of them, and {@code https://api.example.com:8443 ->
+   * https://attacker.example:8443} would forward all four credentials with no test moving. The two
+   * kinds of test cover different things and neither substitutes for the other.
+   *
+   * <p>Subdomains are NOT trusted, deliberately: this header is an identity assertion, not a
+   * session cookie, and "close enough" is not a property an identity should have. Nor is {@code
+   * localhost} the same origin as {@code 127.0.0.1} — they resolve alike and compare unequal, and
+   * an origin check that resolved names would be making a DNS-dependent security decision.
+   */
+  static boolean sameOrigin(HttpUrl a, HttpUrl b) {
     return a.scheme().equals(b.scheme()) && a.host().equals(b.host()) && a.port() == b.port();
   }
 

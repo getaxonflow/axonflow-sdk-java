@@ -9,8 +9,10 @@ import java.util.Objects;
  * X-Axonflow-Read-Scope} response header.
  *
  * <p>A value type wrapping a string rather than an {@code enum}, for one deliberate reason: a scope
- * a newer platform names and this build does not recognise must round-trip verbatim instead of
- * failing to construct or being folded into a neighbour.
+ * a newer platform names and this build does not recognise must round-trip instead of failing to
+ * construct or being folded into a neighbour. Its VALUE is preserved — trimmed and lower-cased,
+ * like the three named ones, because the same normalisation has to apply to every value or the
+ * recognised set would depend on a proxy's header casing.
  *
  * <p>Three named values are the platform's closed set. Two states are NOT in it and are
  * deliberately distinct from each other and from the three:
@@ -20,10 +22,10 @@ import java.util.Objects;
  *       non-scoped route, or a proxy that dropped the header looks like. It means "not stated",
  *       never "none": treating an absent header as a scope of {@code none} would turn every older
  *       stack's perfectly good read into a refusal.
- *   <li>any other non-empty string — preserved verbatim so a caller can see what it was, and never
- *       a trigger for a refusal: this header is the platform's account of a decision it has ALREADY
- *       made and applied, so an unrecognised value is a reporting gap on our side, not a licence to
- *       invent an outcome.
+ *   <li>any other non-empty string — preserved (normalised as above) so a caller can see what it
+ *       was, and never a trigger for a refusal: this header is the platform's account of a decision
+ *       it has ALREADY made and applied, so an unrecognised value is a reporting gap on our side,
+ *       not a licence to invent an outcome.
  * </ul>
  */
 public final class ReadScope implements java.io.Serializable {

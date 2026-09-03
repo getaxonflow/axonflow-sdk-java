@@ -242,6 +242,15 @@ public final class AxonFlow implements Closeable {
     integers.setCoercion(
         com.fasterxml.jackson.databind.cfg.CoercionInputShape.Boolean,
         com.fasterxml.jackson.databind.cfg.CoercionAction.Fail);
+    // Float -> Integer is a THIRD shape, and it is the one that stays on after
+    // ALLOW_COERCION_OF_SCALARS=false: `"quorum": 2.7` decoded as 2, silently
+    // discarding the fraction. A quorum is a count of people, so a truncation
+    // here is not a rounding difference but a different requirement being
+    // enforced from the one the server sent. Every shape has to be named; the
+    // blanket switch does not cover this one.
+    integers.setCoercion(
+        com.fasterxml.jackson.databind.cfg.CoercionInputShape.Float,
+        com.fasterxml.jackson.databind.cfg.CoercionAction.Fail);
     this.authzenReader = strictReader;
     this.retryExecutor = new RetryExecutor(config.getRetryConfig());
     this.cache = new ResponseCache(config.getCacheConfig());
