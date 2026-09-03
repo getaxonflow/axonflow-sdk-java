@@ -26,8 +26,11 @@ import org.slf4j.LoggerFactory;
  *   7 days during SDK activity.
  * </pre>
  *
- * <p>The gate is consulted at client construction and at every public HTTP
- * request site (via the {@code executeHttp} wrapper in {@code AxonFlow}).
+ * <p>The gate is consulted at every public HTTP request site, via the {@code executeHttp}
+ * wrapper in {@code AxonFlow}. It is NOT consulted at client construction
+ * (axonflow-enterprise#3682): every framework adapter takes a client, so an adapter
+ * registering from its own constructor could never reach a constructor-time ping. A client
+ * that is constructed and never used does not ping.
  * Each gate run:
  *
  * <ol>
@@ -65,10 +68,77 @@ public class HeartbeatState {
   /** 1 hour in milliseconds — bounds how often we stat() the stamp file. */
   public static final long HEARTBEAT_GUARD_INTERVAL_MS = 60L * 60L * 1000L;
 
+  /**
+   * Ceiling on how many times the guard interval may double. 16 doublings already exceed the 7-day
+   * cap by orders of magnitude; the clamp exists so an unbounded failure counter cannot produce an
+   * absurd shift.
+   */
+  private static final int MAX_BACKOFF_DOUBLINGS = 16;
+
   private final ReentrantLock lock = new ReentrantLock();
   private long lastCheckedMillis = -1L;
   private boolean inFlight = false;
   private final Path stampPath;
+
+  /**
+   * Consecutive attempts that did NOT deliver. Widens the re-check interval so a deployment that can
+   * never reach the checkpoint stops probing its own platform every hour forever. Reset on delivery.
+   *
+   * <p>Without it there is no backoff at all, and two deliberate design choices combine into a
+   * defect: the 7-day stamp only advances on DELIVERY, and the gate is re-evaluated on every
+   * request. In a deployment where egress to the checkpoint is blocked — the normal state of the
+   * air-gapped and in-VPC self-hosted topologies this SDK supports — every process would issue a
+   * {@code /health} GET against the CUSTOMER'S OWN platform once an hour, indefinitely.
+   */
+  private int consecutiveFailures = 0;
+
+  /**
+   * When this PROCESS last DELIVERED a ping.
+   *
+   * <p>The stamp file is the cross-restart record of that, but it is not always available: {@link
+   * #resolveStampPath} returns null where there is no usable cache dir (distroless and scratch
+   * containers, Lambda custom runtimes), and {@link #writeStampAtomic} fails on a read-only root
+   * filesystem — ordinary Kubernetes hardening. In both, {@link #readStampMtimeMillis} returns -1
+   * forever.
+   *
+   * <p>The failure backoff cannot bound that case, because it resets on delivery and these
+   * deliveries SUCCEED: the gate re-opens every hour, the ping lands, the stamp cannot be written,
+   * and the next hour repeats it — 168x the "at most one ping per machine every 7 days" this SDK
+   * discloses, in exactly the environments least able to notice.
+   */
+  private long lastDeliveredMillis = -1L;
+
+  /**
+   * How long the gate waits before re-consulting, given how many attempts in a row failed to
+   * deliver: {@link #HEARTBEAT_GUARD_INTERVAL_MS} doubled per failure, capped at {@link
+   * #HEARTBEAT_INTERVAL_MS}.
+   *
+   * <p>Backing off loses no ping: the stamp is still untouched, so the first attempt after the
+   * widened interval sends normally.
+   */
+  static long guardIntervalFor(int consecutiveFailures) {
+    int doublings = Math.min(Math.max(consecutiveFailures, 0), MAX_BACKOFF_DOUBLINGS);
+    long widened = HEARTBEAT_GUARD_INTERVAL_MS << doublings;
+    // Compared defensively rather than trusting the shift: a large base plus a large shift
+    // can overflow into a negative value.
+    if (widened <= 0 || widened > HEARTBEAT_INTERVAL_MS) {
+      return HEARTBEAT_INTERVAL_MS;
+    }
+    return widened;
+  }
+
+  /**
+   * Whether the in-memory guard is still warm, WITHOUT taking the lock.
+   *
+   * <p>Used by the request hot path to decide between a cheap skip and entering the gate. It reads
+   * the base interval rather than the widened one because reading the failure counter needs the
+   * lock; erring toward entering the gate is safe, because the gate then declines under the widened
+   * interval.
+   */
+  public boolean isGuardWarm() {
+    long last = lastCheckedMillis;
+    return last >= 0 && (System.currentTimeMillis() - last) < HEARTBEAT_GUARD_INTERVAL_MS;
+  }
 
   /**
    * Default constructor: stamp path resolved via the OS-native cache dir.
@@ -191,7 +261,7 @@ public class HeartbeatState {
 
   /**
    * Central gate for telemetry pings. Called from {@code AxonFlow}'s
-   * constructor and {@code executeHttp} wrapper. Implements the
+   * {@code executeHttp} wrapper — NOT its constructor. Implements the
    * delivered-heartbeat contract documented at the top of this class.
    *
    * <p>Never throws — heartbeat failures must not surface to the caller.
@@ -228,10 +298,17 @@ public class HeartbeatState {
       if (inFlight) {
         return;
       }
-      if (lastCheckedMillis >= 0 && (now - lastCheckedMillis) < HEARTBEAT_GUARD_INTERVAL_MS) {
+      if (lastCheckedMillis >= 0 && (now - lastCheckedMillis) < guardIntervalFor(consecutiveFailures)) {
         return;
       }
       lastCheckedMillis = now;
+
+      // The 7-day cadence enforced IN MEMORY, before the stamp is consulted. Where the
+      // stamp cannot be persisted this is the only thing standing between a delivered ping
+      // and an hourly one — see lastDeliveredMillis.
+      if (lastDeliveredMillis >= 0 && (now - lastDeliveredMillis) < HEARTBEAT_INTERVAL_MS) {
+        return;
+      }
 
       long mtime = readStampMtimeMillis();
       if (mtime > 0 && (now - mtime) < HEARTBEAT_INTERVAL_MS) {
@@ -264,6 +341,16 @@ public class HeartbeatState {
     lock.lock();
     try {
       inFlight = false;
+      // Recorded for EVERY attempt: the failure counter drives the widened guard, and the
+      // delivery instant bounds the success cadence when the stamp file is unavailable. A
+      // pass that stopped at a fresh stamp never reaches here, and must not — a suppressed
+      // pass is the gate working, not an attempt that failed.
+      if (ok) {
+        consecutiveFailures = 0;
+        lastDeliveredMillis = System.currentTimeMillis();
+      } else {
+        consecutiveFailures++;
+      }
     } finally {
       lock.unlock();
     }
@@ -273,6 +360,26 @@ public class HeartbeatState {
   }
 
   // ---- test helpers ----
+
+  /** Test-only: read the consecutive-failure counter. */
+  int getConsecutiveFailuresForTest() {
+    lock.lock();
+    try {
+      return consecutiveFailures;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Test-only: force {@code lastDeliveredMillis}. */
+  void setLastDeliveredMillisForTest(long value) {
+    lock.lock();
+    try {
+      lastDeliveredMillis = value;
+    } finally {
+      lock.unlock();
+    }
+  }
 
   /** Test-only: force {@code lastCheckedMillis}. */
   void setLastCheckedMillisForTest(long value) {

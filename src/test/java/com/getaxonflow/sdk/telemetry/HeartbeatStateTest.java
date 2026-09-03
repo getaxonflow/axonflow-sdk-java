@@ -122,8 +122,15 @@ class HeartbeatStateTest {
     });
     assertThat(pings.get()).isEqualTo(1);
 
-    // Backdate cache (2h ago) AND stamp file (8d ago).
+    // Backdate the cache (2h ago), the in-memory DELIVERY record (8d ago) AND the
+    // stamp file (8d ago).
+    //
+    // lastDeliveredMillis joined this list with the in-memory 7-day cadence
+    // (axonflow-enterprise#3682). It is not an extra knob for the test's convenience:
+    // "eight days have passed" is a statement about all three records, and a fixture
+    // that moved only two of them was modelling a state the process cannot be in.
     h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
+    h.setLastDeliveredMillisForTest(System.currentTimeMillis() - 8L * 24 * 60 * 60 * 1000L);
     Files.setLastModifiedTime(stamp, FileTime.from(Instant.now().minus(8, ChronoUnit.DAYS)));
 
     h.maybeSendHeartbeat(true, null, () -> {
@@ -195,7 +202,7 @@ class HeartbeatStateTest {
   }
 
   @Test
-  @DisplayName("Case 8: no cache dir (stampPath=null) → ping per process, no crash")
+  @DisplayName("Case 8: no cache dir (stampPath=null) → ping ONCE, then bounded in memory")
   void noCacheDir_pingsButNoStamp() {
     HeartbeatState h = new HeartbeatState((Path) null);
     AtomicInteger pings = new AtomicInteger(0);
@@ -213,8 +220,29 @@ class HeartbeatStateTest {
     });
     assertThat(pings.get()).isEqualTo(1);
 
-    // Backdate cache, call again — fires because no stamp gate exists.
+    // ASSERTION INVERTED IN #3682, AND THE OLD ONE WAS THE DEFECT.
+    //
+    // This block used to backdate the cache and assert a SECOND ping "because no stamp
+    // gate exists". That is precisely the bug: in a runtime with no usable cache dir —
+    // distroless and scratch containers, Lambda custom runtimes, a read-only root
+    // filesystem — the stamp can never be written, so nothing bounded the cadence and a
+    // SUCCESSFUL ping recurred every hour, forever. 168 pings a week against a contract
+    // that discloses one, in exactly the environments least able to notice, and the
+    // failure backoff cannot help because these deliveries succeed.
+    //
+    // The in-memory lastDeliveredMillis record is the bound. An hour after a delivery
+    // the gate must now REFUSE.
     h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
+    h.maybeSendHeartbeat(true, null, () -> {
+      pings.incrementAndGet();
+      return true;
+    });
+    assertThat(pings.get()).isEqualTo(1);
+
+    // And the other direction, so the bound cannot pass as a permanent mute: past the
+    // 7-day interval it must fire again.
+    h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
+    h.setLastDeliveredMillisForTest(System.currentTimeMillis() - 8L * 24 * 60 * 60 * 1000L);
     h.maybeSendHeartbeat(true, null, () -> {
       pings.incrementAndGet();
       return true;
@@ -288,5 +316,62 @@ class HeartbeatStateTest {
     });
     assertThat(successes.get()).isEqualTo(1);
     assertThat(Files.exists(stamp)).isTrue();
+  }
+
+  @Test
+  @DisplayName("the failure backoff doubles and caps at the 7-day interval")
+  void guardIntervalDoublesAndCaps() {
+    // NO TEST COVERED THIS AT ALL until the mutation run said so: removing the doubling
+    // entirely left the whole suite green. A backoff nothing asserts is a backoff that
+    // can be deleted in a refactor.
+    //
+    // Literals rather than the constants, for the same reason: comparing
+    // guardIntervalFor(1) against 2 * HEARTBEAT_GUARD_INTERVAL_MS moves both sides under
+    // a mutant of the constant.
+    long hour = 60L * 60L * 1000L;
+    long sevenDays = 7L * 24L * 60L * 60L * 1000L;
+
+    assertThat(HeartbeatState.HEARTBEAT_GUARD_INTERVAL_MS).isEqualTo(hour);
+    assertThat(HeartbeatState.HEARTBEAT_INTERVAL_MS).isEqualTo(sevenDays);
+
+    assertThat(HeartbeatState.guardIntervalFor(0)).isEqualTo(hour);
+    assertThat(HeartbeatState.guardIntervalFor(1)).isEqualTo(2 * hour);
+    assertThat(HeartbeatState.guardIntervalFor(2)).isEqualTo(4 * hour);
+    assertThat(HeartbeatState.guardIntervalFor(7)).isEqualTo(128 * hour);
+    // 256h would exceed 7 days, so it caps.
+    assertThat(HeartbeatState.guardIntervalFor(8)).isEqualTo(sevenDays);
+    // An unbounded counter must cap rather than shift into an absurd or negative value.
+    assertThat(HeartbeatState.guardIntervalFor(Integer.MAX_VALUE)).isEqualTo(sevenDays);
+    // A negative counter cannot produce a negative interval either.
+    assertThat(HeartbeatState.guardIntervalFor(-5)).isEqualTo(hour);
+  }
+
+  @Test
+  @DisplayName("the guard-warm probe is what routes a cold call to the SYNCHRONOUS path")
+  void guardWarmProbe(@TempDir Path tmp) throws IOException {
+    // The heartbeat moved from the constructor to the first outbound request
+    // (axonflow-enterprise#3682). The constructor's ping was SYNCHRONOUS on purpose — a
+    // JVM that exits promptly would otherwise drop a POST left on the daemon executor —
+    // so AxonFlow.invokeHeartbeatOnRequest keeps that property by running the gate
+    // synchronously when it is COLD and dispatching only when WARM.
+    //
+    // isGuardWarm is the predicate that routes between them, so it is pinned here: a
+    // predicate that always returned true would silently put every first request back on
+    // the async path and re-open the short-lived-process drop.
+    HeartbeatState h = new HeartbeatState(tmp.resolve("stamp"));
+
+    assertThat(h.isGuardWarm())
+        .as("a fresh gate is COLD, so the first request runs the heartbeat synchronously")
+        .isFalse();
+
+    h.maybeSendHeartbeat(true, null, () -> true);
+
+    assertThat(h.isGuardWarm())
+        .as("after a gate run the guard is warm, so later requests dispatch asynchronously")
+        .isTrue();
+
+    // And it goes cold again once the guard interval has elapsed.
+    h.setLastCheckedMillisForTest(System.currentTimeMillis() - 2 * 60 * 60 * 1000L);
+    assertThat(h.isGuardWarm()).isFalse();
   }
 }

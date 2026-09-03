@@ -260,14 +260,19 @@ public final class AxonFlow implements Closeable {
     logger.info("AxonFlow client initialized for {}", config.getEndpoint());
 
     // Heartbeat gate — at most one anonymous ping per machine per 7 days,
-    // gated by SDK activity. The constructor runs the gate synchronously
-    // so a fresh install on a short-lived JVM (CLI binaries, AWS Lambda
-    // cold-starts, quickstart scripts) still delivers the first ping
-    // before main() returns. Subsequent gate runs (from executeHttp) are
-    // dispatched ASYNCHRONOUSLY through a shared single-threaded daemon
-    // executor so a 3-second telemetry POST never delays a user request.
-    // See HeartbeatState for the full algorithm.
-    invokeHeartbeat();
+    // gated by SDK activity. See HeartbeatState for the full algorithm and
+    // invokeHeartbeatOnRequest for where it now fires.
+    // NO HEARTBEAT HERE ANY MORE (axonflow-enterprise#3682). It fires on this
+    // client's FIRST OUTBOUND REQUEST instead — see invokeHeartbeatOnRequest.
+    //
+    // Why: every framework adapter takes a client, so an adapter cannot exist
+    // until this constructor has returned. Pinging here meant an adapter
+    // registering from its own constructor could never reach the first ping,
+    // and the 7-day stamp then suppressed the next one for a week — so a
+    // short-lived process using an adapter reported it never.
+    //
+    // A client that is constructed and never used therefore no longer pings.
+    // That is deliberate and disclosed: a heartbeat is a claim about usage.
   }
 
   /**
@@ -415,10 +420,10 @@ public final class AxonFlow implements Closeable {
    * practice.
    *
    * <p>Daemon thread choice: long-running services have stable JVMs so the executor completes the
-   * POST normally. Short-lived processes (Lambda cold start, CLI binaries) deliver the boot ping
-   * via the synchronous {@link #invokeHeartbeat} call from the constructor, so the async
-   * request-path heartbeat is "extra" — its loss to JVM exit is acceptable and only matters across
-   * the 7-day boundary.
+   * POST normally. Short-lived processes (Lambda cold start, CLI binaries) are covered by {@link
+   * #invokeHeartbeatOnRequest}, which runs the gate SYNCHRONOUSLY when it is cold — so this async
+   * variant only ever handles the warm case, where the gate fast-paths out and there is nothing to
+   * lose to JVM exit.
    */
   private void invokeHeartbeatAsync() {
     try {
@@ -431,6 +436,35 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
+   * The SINGLE trigger for the telemetry heartbeat, called by {@link #executeHttp}, which wraps
+   * every public-API request path.
+   *
+   * <p>IT MOVED HERE FROM THE CONSTRUCTOR (axonflow-enterprise#3682). The boot ping used to fire
+   * synchronously inside the constructor, before it returned. Every framework adapter takes a
+   * client, so an adapter could not possibly exist yet — which meant an adapter registering from
+   * its own constructor could NEVER reach the first ping, and the 7-day stamp then suppressed the
+   * next one for a week. For a short-lived process (a CLI, a Lambda, a CI job) the adapter was
+   * never reported at all: precisely the population the registry exists to measure.
+   *
+   * <p>THE SYNC/ASYNC SPLIT PRESERVES SHORT-LIVED DELIVERY. The constructor's ping was synchronous
+   * on purpose: a JVM that exits promptly would otherwise drop a POST left on the daemon executor.
+   * So when the gate is COLD — meaning this call might actually send — the heartbeat runs
+   * SYNCHRONOUSLY on the caller's thread, exactly as the constructor used to, and the JVM cannot
+   * exit underneath it. When warm, it dispatches to the executor and returns.
+   *
+   * <p>The latency that costs is bounded and rare: the cold branch is reachable at most once per
+   * guard interval per process, and on it the only blocking work is a stamp-file stat unless a ping
+   * is genuinely DUE, which the 7-day stamp limits to once per machine per week.
+   */
+  private void invokeHeartbeatOnRequest() {
+    if (HeartbeatState.shared().isGuardWarm()) {
+      invokeHeartbeatAsync();
+      return;
+    }
+    invokeHeartbeat();
+  }
+
+  /**
    * Single HTTP wrapper used by every public-API request path. Invokes the heartbeat gate as a side
    * effect, ASYNCHRONOUSLY so the user's API call is never delayed by telemetry.
    *
@@ -439,7 +473,7 @@ public final class AxonFlow implements Closeable {
    * OkHttpClient} instances to avoid any recursive heartbeat triggering.
    */
   private Response executeHttp(OkHttpClient client, Request request) throws java.io.IOException {
-    invokeHeartbeatAsync();
+    invokeHeartbeatOnRequest();
     return client.newCall(request).execute();
   }
 
