@@ -4209,7 +4209,11 @@ public final class AxonFlow implements Closeable {
   // ========================================================================
 
   /** The AuthZEN evaluation endpoint. */
-  public static final String AUTHZEN_PATH = "/api/v1/access/evaluation";
+  // GENERATED value (AuthZENContract.PATH): the route used to be a literal here, the SDK's own
+  // copy of a string the platform also wrote by hand, and nothing compared the copies
+  // (axonflow-enterprise#3603). The artifact carries it now, so a platform rename is a
+  // regenerate-and-diff failure rather than a runtime 404.
+  public static final String AUTHZEN_PATH = com.getaxonflow.sdk.authzen.AuthZENContract.PATH;
 
   /**
    * The mapper this surface DECODES with: the shared one, with unknown members made fatal.
@@ -4238,7 +4242,8 @@ public final class AxonFlow implements Closeable {
    * server returns only to a caller that asked for it by version. This SDK understands the profile,
    * so there is no reason to ask for less than it can read.
    */
-  public static final String AUTHZEN_PROFILE_HEADER = "X-Axonflow-AuthZEN-Profile";
+  public static final String AUTHZEN_PROFILE_HEADER =
+      com.getaxonflow.sdk.authzen.AuthZENContract.PROFILE_HEADER; // GENERATED, see AUTHZEN_PATH
 
   /**
    * Asks whether one subject may perform one action on one resource.

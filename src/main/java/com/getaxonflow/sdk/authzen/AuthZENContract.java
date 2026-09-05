@@ -5,7 +5,7 @@
  *   artifact:        axonflow-authzen-surface v1
  *   profile:         axonflow-authzen-profile-2026-08-29
  *   contract schema: 2026-08-29
- *   schema digest:   sha256:647e16f769766f0ee8cf4913aaf5ac5c4567660fd2903da6766eead5db279efe
+ *   schema digest:   sha256:04f63f4d97215faa9fbf2b6a5152630f7310edbe47440b975d0f66ad63df811f
  *
  * Regenerate with:
  *
@@ -38,4 +38,17 @@ public final class AuthZENContract {
    * {@code AuthZENResponseContext.schemaVersion}.
    */
   public static final String SCHEMA_VERSION = "2026-08-29";
+
+  /**
+   * The one route the AuthZEN surface is served on, and the request header the profile is
+   * negotiated with.
+   *
+   * <p>Both are generated from the platform's contract through the artifact, not written here: a
+   * rename on the platform is a regenerate-and-diff failure in this SDK, not a 404 in production
+   * (axonflow-enterprise#3603).
+   */
+  public static final String PATH = "/api/v1/access/evaluation";
+
+  /** The request header the AuthZEN profile is negotiated with; see {@link #PATH}. */
+  public static final String PROFILE_HEADER = "X-Axonflow-AuthZEN-Profile";
 }

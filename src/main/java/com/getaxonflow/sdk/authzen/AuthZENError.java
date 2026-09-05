@@ -5,7 +5,7 @@
  *   artifact:        axonflow-authzen-surface v1
  *   profile:         axonflow-authzen-profile-2026-08-29
  *   contract schema: 2026-08-29
- *   schema digest:   sha256:647e16f769766f0ee8cf4913aaf5ac5c4567660fd2903da6766eead5db279efe
+ *   schema digest:   sha256:04f63f4d97215faa9fbf2b6a5152630f7310edbe47440b975d0f66ad63df811f
  *
  * Regenerate with:
  *

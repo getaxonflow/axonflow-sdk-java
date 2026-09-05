@@ -222,6 +222,28 @@ public final class Emitter {
             "  ",
             "public static final String SCHEMA_VERSION",
             "\"" + s.contractSchemaVersion + "\""));
+    b.append("\n");
+    b.append(
+        Layout.javadoc(
+            "  ",
+            Arrays.asList(
+                "The one route the AuthZEN surface is served on, and the request header the profile"
+                    + " is negotiated with.",
+                "<p>Both are generated from the platform's contract through the artifact, not"
+                    + " written here: a rename on the platform is a regenerate-and-diff failure in"
+                    + " this SDK, not a 404 in production (axonflow-enterprise#3603)."),
+            Collections.<String>emptyList()));
+    b.append(assignment("  ", "public static final String PATH", "\"" + s.route.path + "\""));
+    b.append("\n");
+    b.append(
+        Layout.javadoc(
+            "  ",
+            Collections.singletonList(
+                "The request header the AuthZEN profile is negotiated with; see {@link #PATH}."),
+            Collections.<String>emptyList()));
+    b.append(
+        assignment(
+            "  ", "public static final String PROFILE_HEADER", "\"" + s.profileHeader + "\""));
     b.append("}\n");
     return b.toString();
   }
