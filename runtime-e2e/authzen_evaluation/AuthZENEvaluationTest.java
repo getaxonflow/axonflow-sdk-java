@@ -72,7 +72,7 @@ import okhttp3.Response;
 
 public class AuthZENEvaluationTest {
 
-  static final int EXPECTED_ASSERTIONS = 14;
+  static final int EXPECTED_ASSERTIONS = 16;
 
   /** A query the default community policy set permits. */
   static final String ALLOWED_QUERY = "what is our refund policy?";
@@ -320,7 +320,44 @@ public class AuthZENEvaluationTest {
         "an un-negotiated request really does come back with NO profile payload",
         AuthZENEvaluationTest::rawUnnegotiatedHasNoContext);
 
-    // --- 12: an auth failure stays observable -----------------------------
+    // --- 12 / 13: the served route and header NAME are the generated ones ---
+    //
+    // AxonFlow.AUTHZEN_PATH and AxonFlow.AUTHZEN_PROFILE_HEADER come from the
+    // platform's surface artifact (axonflow-enterprise#3603), not from a literal
+    // here. A raw request puts both on the wire: with the generated header name
+    // the server returns the negotiated profile context; with the name altered
+    // by one character it must NOT - the bare boolean is the proof that the NAME
+    // is what the handler reads, and that this SDK's constant is that name. Leg
+    // 11 sends NO header; this pair proves the header's identity, not its
+    // presence.
+    check(
+        "the generated route and header name negotiate the profile on the live wire",
+        () -> {
+          JsonNode node = rawEvaluate(AxonFlow.AUTHZEN_PROFILE_HEADER);
+          require(
+              AuthZENContract.PROFILE_V1.equals(node.path("context").path("profile").asText("")),
+              "POST "
+                  + AxonFlow.AUTHZEN_PATH
+                  + " with "
+                  + AxonFlow.AUTHZEN_PROFILE_HEADER
+                  + " returned "
+                  + node);
+        });
+
+    check(
+        "a header name one character off is not read, so the constant is the name",
+        () -> {
+          String offByOne =
+              AxonFlow.AUTHZEN_PROFILE_HEADER.substring(
+                  0, AxonFlow.AUTHZEN_PROFILE_HEADER.length() - 1);
+          JsonNode node = rawEvaluate(offByOne);
+          require(
+              !node.has("context"),
+              "header " + offByOne + " still negotiated a context: " + node);
+          require(node.has("decision"), "header " + offByOne + " returned no decision at all");
+        });
+
+    // --- 14: an auth failure stays observable -----------------------------
     //
     // Needs a deployment that actually refuses an unregistered caller. Plain
     // community mode treats any client id as its own tenant and answers 200, so
@@ -571,6 +608,36 @@ public class AuthZENEvaluationTest {
   }
 
   /** A request that does NOT negotiate the profile gets the bare boolean. */
+  /**
+   * POST the evaluable envelope to the GENERATED path with the given profile header NAME.
+   *
+   * <p>Bypasses the SDK client on purpose: legs 12 and 13 prove that the constants this SDK
+   * generated are the ones the server reads, and the client would use the same constants, so
+   * sending through it would prove nothing.
+   */
+  static JsonNode rawEvaluate(String headerName) throws Exception {
+    String envelope =
+        "{\"evaluation\":{\"subject\":{\"type\":\"gateway\",\"id\":\"llm-gateway-01\"},"
+            + "\"action\":{\"name\":\"llm.completion\"},"
+            + "\"resource\":{\"type\":\"llm\",\"id\":\"llm\"},"
+            + "\"context\":{\"args\":{\"query\":\""
+            + ALLOWED_QUERY
+            + "\"}}}}";
+    Request request =
+        new Request.Builder()
+            .url(agent + AxonFlow.AUTHZEN_PATH)
+            .header("Authorization", "Basic " + basic())
+            .header("X-Client-ID", clientId)
+            .header(headerName, AuthZENContract.PROFILE_V1)
+            .post(RequestBody.create(envelope, JSON))
+            .build();
+    try (Response response = RAW.newCall(request).execute()) {
+      String text = response.body() == null ? "" : response.body().string();
+      require(response.isSuccessful(), "HTTP " + response.code() + ": " + text);
+      return MAPPER.readTree(text);
+    }
+  }
+
   static void rawUnnegotiatedHasNoContext() throws Exception {
     String envelope =
         "{\"evaluation\":{\"subject\":{\"type\":\"gateway\",\"id\":\"llm-gateway-01\"},"
