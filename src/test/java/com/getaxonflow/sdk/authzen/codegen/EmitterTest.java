@@ -30,6 +30,8 @@ class EmitterTest {
               "{"
                   + "\"artifact\":\"axonflow-authzen-surface\","
                   + "\"artifact_version\":1,"
+                  + "\"profile_header\":\"X-Axonflow-AuthZEN-Profile\","
+                  + "\"route\":{\"method\":\"POST\",\"path\":\"/api/v1/access/evaluation\"},"
                   + "\"profile\":\"axonflow-authzen-profile-2026-08-29\","
                   + "\"contract_schema_version\":\"2026-08-29\","
                   + "\"source_schema_id\":\"https://example.invalid/schema.json\","

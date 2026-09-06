@@ -37,6 +37,17 @@ public final class Surface {
   @JsonProperty("profile")
   public String profile;
 
+  /**
+   * The request header the profile is negotiated with and the one route the surface is served on,
+   * both from the platform's contract constants through the artifact, so this SDK generates the
+   * path and header it calls rather than transcribing them (axonflow-enterprise#3603).
+   */
+  @JsonProperty("profile_header")
+  public String profileHeader;
+
+  @JsonProperty("route")
+  public Route route;
+
   @JsonProperty("contract_schema_version")
   public String contractSchemaVersion;
 
@@ -53,6 +64,16 @@ public final class Surface {
   public List<TypeDecl> types = new ArrayList<>();
 
   /** A closed set of string values. */
+  /** The HTTP method and path of the surface's single route. */
+  @JsonIgnoreProperties(ignoreUnknown = false)
+  public static final class Route {
+    @JsonProperty("method")
+    public String method;
+
+    @JsonProperty("path")
+    public String path;
+  }
+
   @JsonIgnoreProperties(ignoreUnknown = false)
   public static final class EnumDecl {
     @JsonProperty("name")
@@ -166,6 +187,24 @@ public final class Surface {
     }
 
     Set<String> typeNames = new HashSet<>();
+    // The route and header are what the generated client CALLS. An artifact without them
+    // would generate a client with nowhere to send a request, so they are required, not
+    // defaulted (axonflow-enterprise#3603).
+    if (s.route == null
+        || !"POST".equals(s.route.method)
+        || s.route.path == null
+        || !s.route.path.startsWith("/")
+        || s.route.path.endsWith("/")) {
+      throw fail(
+          "the artifact's route is "
+              + (s.route == null ? "absent" : s.route.method + " " + s.route.path)
+              + "; want POST and an absolute path with no trailing slash");
+    }
+    if (s.profileHeader == null
+        || s.profileHeader.isEmpty()
+        || s.profileHeader.matches(".*[\\s:].*")) {
+      throw fail("the artifact's profile_header \"" + s.profileHeader + "\" is not a header name");
+    }
     for (TypeDecl t : s.types) {
       if (!typeNames.add(t.name)) {
         throw fail("the artifact declares the type \"" + t.name + "\" twice");
