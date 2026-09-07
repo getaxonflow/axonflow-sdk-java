@@ -46,8 +46,15 @@
         <!-- Project Settings -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <!-- `release`, NOT `source`/`target`. Those two set the language level
+             and the class-file version but leave javac linking against the
+             RUNNING JDK's class library, so a Java 12+ API compiles clean on a
+             newer JDK and only fails on a JDK 11 lane. The PR matrix is [17]
+             and only push-to-main runs [11, 17, 21] (see ci.yml), so that gap
+             is invisible until after merge — which is exactly how four
+             `Stream.toList()` (Java 16+) calls reached main. `release` pins the
+             API surface to 11 on every JDK, so the PR board catches it. -->
+        <maven.compiler.release>11</maven.compiler.release>
 
         <!-- Dependency Versions -->
         <okhttp.version>4.12.0</okhttp.version>
@@ -206,8 +213,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
-                    <source>${maven.compiler.source}</source>
-                    <target>${maven.compiler.target}</target>
+                    <release>${maven.compiler.release}</release>
                     <compilerArgs>
                         <arg>-Xlint:all</arg>
                         <arg>-Xlint:-processing</arg>
@@ -330,7 +336,7 @@
                 <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
                     <doclint>none</doclint>
-                    <source>${maven.compiler.source}</source>
+                    <source>${maven.compiler.release}</source>
                 </configuration>
                 <executions>
                     <execution>
