@@ -506,7 +506,10 @@ class AdapterRegistryTest {
     java.nio.file.Path srcRoot = java.nio.file.Paths.get("src/main/java");
     java.util.Set<String> found = new java.util.TreeSet<>();
     try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.walk(srcRoot)) {
-      for (java.nio.file.Path f : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+      for (java.nio.file.Path f :
+          files
+              .filter(f -> f.toString().endsWith(".java"))
+              .collect(java.util.stream.Collectors.toList())) {
         for (String line : java.nio.file.Files.readAllLines(f)) {
           if (isRequestCapability(line)) {
             found.add(f.getFileName().toString());
@@ -685,7 +688,7 @@ class AdapterRegistryTest {
     }
     return appender.list.stream()
         .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
-        .toList();
+        .collect(java.util.stream.Collectors.toList());
   }
 
   @Test
