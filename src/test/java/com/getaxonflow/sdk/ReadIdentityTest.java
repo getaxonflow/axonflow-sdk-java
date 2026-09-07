@@ -580,7 +580,7 @@ class ReadIdentityTest {
                     r.getHeader(ReadIdentity.HEADER_USER_TOKEN) == null
                         ? "NO IDENTITY"
                         : r.getHeader(ReadIdentity.HEADER_USER_TOKEN))
-            .toList();
+            .collect(java.util.stream.Collectors.toList());
 
     assertThat(seen)
         .as(
@@ -643,7 +643,10 @@ class ReadIdentityTest {
     List<String> setters = new ArrayList<>();
     List<String> literals = new ArrayList<>();
     try (Stream<Path> paths = Files.walk(Path.of("src", "main", "java"))) {
-      for (Path path : paths.filter(p -> p.toString().endsWith(".java")).toList()) {
+      for (Path path :
+          paths
+              .filter(p -> p.toString().endsWith(".java"))
+              .collect(java.util.stream.Collectors.toList())) {
         // Flattened rather than scanned per LINE. google-java-format wraps a
         // long call across lines, so `.header(` and the constant naming the
         // header land on different lines and no single line carries both — a
