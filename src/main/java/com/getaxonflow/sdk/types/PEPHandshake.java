@@ -17,8 +17,9 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * A PEP capability declaration (platform v11.0.0): the exact obligation types and schema versions
- * an enforcement point can discharge, sent on each governed call as the {@value #HEADER} header.
+ * A PEP capability declaration (read by the platform from v10.4.0): the exact obligation types and
+ * schema versions an enforcement point can discharge, sent on each governed call as the {@value
+ * #HEADER} header.
  *
  * <p>The header carries the unpadded base64url encoding of the JSON document {@code
  * {"profile_version":1,"pep_id":...,"audience":...,"capabilities":[{"type":...,"version":...}]}}.
@@ -35,11 +36,12 @@ import java.util.regex.Pattern;
  * pre-check ({@code getPolicyApprovedContext}, {@code preCheck}). No other route reads it, and the
  * client never sends it anywhere else.
  *
- * <p><b>Absent is not empty.</b> A client with no declaration sends no header, and the platform
- * behaves as it did before the handshake existed; there is no default, because only the caller
- * knows what its enforcement point can discharge. An empty capability list declares that it
- * discharges nothing, which on Enterprise turns every allow carrying a mandatory obligation into a
- * deny.
+ * <p><b>Absent is not empty.</b> A client with no declaration sends no header; there is no default,
+ * because only the caller knows what its enforcement point can discharge. The platform reads the
+ * handshake from v10.4.0, and from v11.0.0, on both editions, a decide under an organization's
+ * redact override refuses a caller that does not declare redaction. An empty capability list
+ * declares that it discharges nothing, which on Enterprise turns every allow carrying a mandatory
+ * obligation into a deny.
  *
  * <p>Built only through {@link #of}, which applies the platform's own rules (its {@code
  * DecodePEPHandshake}) and computes the header once. An instance is therefore always a declaration

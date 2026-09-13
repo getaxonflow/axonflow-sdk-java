@@ -1,0 +1,186 @@
+// Copyright 2026 AxonFlow
+// SPDX-License-Identifier: MIT
+package com.getaxonflow.examples;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.getaxonflow.sdk.AxonFlow;
+import com.getaxonflow.sdk.AxonFlowConfig;
+import com.getaxonflow.sdk.exceptions.TypedPolicyRefusalException;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.ActiveTypedPolicy;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.AuthoringFinding;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedAuthoringEdition;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedPolicyPublication;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedPolicyValidation;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+/**
+ * Typed policy authoring against a running AxonFlow v11 platform.
+ *
+ * <p>A v11 platform authors policy as a typed document: validated, published as a signed artifact
+ * pinned by its digest, and promoted to active. This example reads what the deployment may author,
+ * validates a document and prints every finding, and shows the document in force. It publishes and
+ * activates only when {@code AXONFLOW_TYPED_POLICY_PUBLISH=1}, because that changes the
+ * organization's active policy; a refusal prints the platform's reason and findings.
+ *
+ * <p>After a document with an organization-scope constraint is activated, a decide that does not
+ * supply the attribute the constraint conditions on is denied fail-closed with reasons
+ * ["unknown_constraint"]; supply the attribute or run this example on a fresh stack. The default
+ * document is such a document, so run the pep-handshake example first.
+ *
+ * <p>{@code AXONFLOW_TYPED_POLICY_BODY} names a JSON file holding {@code {"document": ...,
+ * "fixtures": [...]}}; the default is {@code tests/fixtures/typed_policy_publish_body.json}, read
+ * from the directory Maven runs in. On an edition with separation of duties, see the README's Typed
+ * policy authoring section for how a publication is approved.
+ *
+ * <pre>
+ * mvn -q -DskipTests -DskipUnitTests=true install   # from the repository root: the SDK on the local classpath
+ * AXONFLOW_AGENT_URL=http://localhost:8080 AXONFLOW_TYPED_POLICY_PUBLISH=1 \
+ *   mvn -q -f examples/typed-policies/pom.xml compile exec:java
+ * </pre>
+ *
+ * <p>Exits non-zero if a step fails, so it is usable as a smoke test.
+ */
+public final class TypedPolicies {
+
+  private static int failures;
+
+  private TypedPolicies() {}
+
+  @FunctionalInterface
+  private interface Step {
+    void run() throws Exception;
+  }
+
+  private static void step(String name, Step body) {
+    System.out.println("\n=== " + name + " ===");
+    try {
+      body.run();
+      System.out.println("ok");
+    } catch (Exception e) {
+      System.out.println("FAILED: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+      failures++;
+    }
+  }
+
+  private static void print(List<AuthoringFinding> findings) {
+    if (findings == null) {
+      return;
+    }
+    for (AuthoringFinding f : findings) {
+      System.out.println(
+          "  "
+              + f.getSeverity()
+              + " "
+              + f.getCode()
+              + " "
+              + f.getPolicyId()
+              + ": "
+              + f.getDetail());
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    String endpoint = System.getenv().getOrDefault("AXONFLOW_AGENT_URL", "http://localhost:8080");
+    String bodyPath =
+        System.getenv()
+            .getOrDefault(
+                "AXONFLOW_TYPED_POLICY_BODY", "tests/fixtures/typed_policy_publish_body.json");
+    Map<String, Object> body =
+        new ObjectMapper()
+            .readValue(
+                Files.readAllBytes(Paths.get(bodyPath)),
+                new TypeReference<Map<String, Object>>() {});
+    @SuppressWarnings("unchecked")
+    Map<String, Object> document = (Map<String, Object>) body.get("document");
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> fixtures = (List<Map<String, Object>>) body.get("fixtures");
+
+    AxonFlowConfig.Builder config = AxonFlowConfig.builder().endpoint(endpoint);
+    String clientId = System.getenv("AXONFLOW_CLIENT_ID");
+    if (clientId != null && !clientId.isEmpty()) {
+      config.clientId(clientId).clientSecret(System.getenv("AXONFLOW_CLIENT_SECRET"));
+    }
+    try (AxonFlow client = AxonFlow.create(config.build())) {
+      AxonFlow.TypedPoliciesNamespace typed = client.typedPolicies();
+
+      // What this deployment may author: consult it before publishing rather than learning the
+      // edition's boundary from a refusal.
+      step(
+          "what this deployment may author",
+          () -> {
+            TypedAuthoringEdition edition = typed.edition();
+            System.out.println(
+                "root="
+                    + edition.getRoot()
+                    + " max_documents="
+                    + edition.getMaxDocuments()
+                    + " persistence="
+                    + edition.getPersistence());
+          });
+
+      // Validation reports every finding. A refused document is still a successful validation: read
+      // isSuccess() and the findings, do not expect an exception.
+      step(
+          "validate the document",
+          () -> {
+            TypedPolicyValidation validation = typed.validate(document, fixtures);
+            System.out.println("success=" + validation.isSuccess());
+            print(validation.getFindings());
+          });
+
+      if ("1".equals(System.getenv("AXONFLOW_TYPED_POLICY_PUBLISH"))) {
+        step(
+            "publish and activate",
+            () -> {
+              try {
+                TypedPolicyPublication published = typed.publish(document, fixtures);
+                System.out.println(
+                    "published "
+                        + published.getDigest()
+                        + " (version "
+                        + published.getVersion()
+                        + ")");
+                typed.activate(published.getDigest(), "examples/typed-policies");
+                System.out.println("activated");
+              } catch (TypedPolicyRefusalException refusal) {
+                // A refusal carries the platform's reason and, for a refused document, the findings
+                // that refused it.
+                System.out.println(
+                    "refused: HTTP "
+                        + refusal.getStatus()
+                        + " "
+                        + refusal.getReason()
+                        + ": "
+                        + refusal.getMessage());
+                print(refusal.getFindings());
+                throw refusal; // publishing was asked for, so a refusal fails the step
+              }
+            });
+      }
+
+      // The document in force is returned as the exact bytes that were signed.
+      step(
+          "the document in force",
+          () -> {
+            Optional<ActiveTypedPolicy> active = typed.active();
+            if (!active.isPresent()) {
+              System.out.println("nothing is active");
+              return;
+            }
+            Object metadata = active.get().getDocument().get("metadata");
+            System.out.println(
+                active.get().getSource().length() + " signed characters; metadata=" + metadata);
+          });
+    }
+
+    if (failures > 0) {
+      System.out.println("\n" + failures + " step(s) failed");
+      System.exit(1);
+    }
+  }
+}

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.getaxonflow.examples</groupId>
+    <artifactId>pep-handshake</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>AxonFlow Java SDK — PEP Capability Handshake Example</name>
+    <description>
+        Declares an enforcement point's capabilities with the PEP capability handshake and
+        decides with it against a running AxonFlow agent. Run mvn install on the SDK first to
+        put the local artifact on the classpath.
+    </description>
+
+    <properties>
+        <!-- release, not source/target: pins the API surface to 11 on every JDK. -->
+        <maven.compiler.release>11</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.getaxonflow</groupId>
+            <artifactId>axonflow-sdk</artifactId>
+            <version>9.3.0</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>com.getaxonflow.examples.PepHandshake</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
