@@ -7,7 +7,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
-mvn -q -DskipTests -Dfmt.skip=true package
+# This pom sets surefire's skipTests from its own skipUnitTests property, which overrides a
+# command-line -DskipTests, so -DskipTests alone still runs the whole unit suite.
+mvn -q -DskipTests -DskipUnitTests=true -Dfmt.skip=true package
 mvn -q -DskipTests dependency:build-classpath -Dmdep.outputFile=target/v11-provenance-cp.txt
 SDK_JAR=$(ls target/axonflow-sdk-*.jar | grep -v sources | grep -v javadoc | head -1)
 # A binding so the SDK's WARN fallback would be visible: the SDK depends on slf4j-api alone, which
