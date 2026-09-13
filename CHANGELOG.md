@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from `Link: <...>; rel="successor-version"`), the SDK reports it once per route: to this
   listener when it is set, otherwise to the log at WARN. From v11.0.0 the legacy static- and
   dynamic-policy reads carry it.
+- **The v11.0.0 PEP capability handshake (axonflow-enterprise#3746).** An enforcement point
+  declares the obligation types and schema versions it can discharge with `PEPHandshake.of(...)`
+  and `PEPCapability.of(...)`, presented as `X-Axonflow-PEP-Handshake` on every call to a plane
+  that reads it: `decide` (and `decideAndFulfill` and `fulfillRequest`'s engine round-trip),
+  `evaluate` and `evaluateAll`, the MCP check methods, and the gateway pre-check, async forms
+  included. Set `AxonFlowConfig.Builder.pepHandshake(...)` for the client, or derive a client
+  presenting another with `AxonFlow.withPEPHandshake(...)`. It is never sent to any other route,
+  and a client with no declaration sends none. The encoding matches the platform's reference
+  encoder byte for byte, and a declaration the platform would refuse throws
+  `PEPHandshakeException` naming the member where it is built.
 
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the MIT licence
 

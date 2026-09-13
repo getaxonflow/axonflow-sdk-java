@@ -837,6 +837,7 @@
     "MediaGovernanceStatus",
     "ModelPricing",
     "ObligationFulfillment",
+    "PEPHandshake",
     "PaginationMeta",
     "PendingApproval",
     "PendingApprovalsResponse",
