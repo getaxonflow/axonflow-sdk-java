@@ -10,7 +10,8 @@ import java.util.Objects;
 
 /**
  * One obligation type, at one schema version, that an enforcement point can discharge: a member of
- * a {@link PEPHandshake} (platform v11.0.0). The platform matches both members exactly.
+ * a {@link PEPHandshake} (read by the platform from v10.4.0). The platform matches both members
+ * exactly.
  *
  * <p>Built only through {@link #of}, which admits the obligation types the SDK's AuthZEN contract
  * declares ({@link AuthZENObligationType#KNOWN_WIRE_VALUES}) at a positive version. The platform

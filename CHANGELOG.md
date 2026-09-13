@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The first Java SDK release carrying these entries sends the PEP capability handshake, which a
+platform reads from v10.4.0, and reaches /api/v1/typed-policies, which needs a v11.0.0 platform;
+against an older platform it works unchanged. Upgrade the SDK before the platform: from v11.0.0,
+Decide under an organization's redact override refuses a caller that does not declare redaction,
+and only a release that sends the handshake can declare it.
+
 ### Added
 
 - **v11.0.0 decision provenance on every governed response (axonflow-enterprise#3746).**
@@ -31,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reported once, as its template (`GET /api/v1/static-policies/{id}`), not once per id. From
   v11.0.0 the legacy policy routes carry it: the static- and dynamic-policy routes and the policy
   simulation routes.
-- **The v11.0.0 PEP capability handshake (axonflow-enterprise#3746).** An enforcement point
+- **The PEP capability handshake, which a platform reads from v10.4.0
+  (axonflow-enterprise#3746).** An enforcement point
   declares the obligation types and schema versions it can discharge with `PEPHandshake.of(...)`
   and `PEPCapability.of(...)`, presented as `X-Axonflow-PEP-Handshake` on every call to a plane
   that reads it: `decide` (and `decideAndFulfill` and `fulfillRequest`'s engine round-trip),
@@ -50,6 +57,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Retry-After`; `active()` is empty when nothing is active. A client derived with `asUser` has
   its own namespace. Rolling back and withdrawing are customer portal operations the agent does
   not proxy, so the SDK has no method for either.
+- **Two runnable examples for the v11 platform (axonflow-enterprise#3746).** `examples/pep-handshake` declares an enforcement
+  point's capabilities and decides with them, printing each verdict and its reasons;
+  `examples/typed-policies` reads what the deployment may author, validates a document and, with
+  `AXONFLOW_TYPED_POLICY_PUBLISH=1`, publishes and activates it. Run the handshake example first:
+  after a document with an organization-scope constraint is activated, a decide that does not
+  supply the attribute the constraint conditions on is denied fail-closed with reasons
+  `["unknown_constraint"]`.
 
 ### Deprecated
 

@@ -5,7 +5,7 @@ package com.getaxonflow.sdk.exceptions;
 import com.getaxonflow.sdk.types.PEPHandshake;
 
 /**
- * A PEP capability declaration the platform would refuse (platform v11.0.0).
+ * A PEP capability declaration the platform would refuse (read by the platform from v10.4.0).
  *
  * <p>{@link PEPHandshake#of} and {@link com.getaxonflow.sdk.types.PEPCapability#of} apply the
  * platform's own rules, so a declaration its decoder would answer with a 400 fails where it is

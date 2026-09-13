@@ -366,9 +366,9 @@ This surface does **not** go through the client's `RetryConfig`. That executor i
 
 The rest of the package is hand-written and is meant to be edited: `Attribute`, `AttributeValue`, `AttributeMap`, `AuthZENDecision`, `AuthZENEvaluation`, `AuthZENRefusals`, and the six exception types (`AuthZENEvaluationException` and its five subclasses).
 
-### PEP capability handshake
+### PEP capability handshake (v10.4.0+)
 
-A v11 platform lets an enforcement point declare, on each call, the exact obligation types and schema versions it can discharge. Build the declaration once and give it to the client:
+A platform from v10.4.0 lets an enforcement point declare, on each call, the exact obligation types and schema versions it can discharge. Build the declaration once and give it to the client:
 
 ```java
 PEPHandshake declared =
@@ -393,9 +393,23 @@ The client sends it on every call to a plane that reads it: `decide`, the engine
 
 One process can be two enforcement points: a request path and a response path that discharge different obligations. `client.withPEPHandshake(other)` derives a client presenting `other` in place of the client's declaration. Like `asUser`, it shares the parent's connection pool, so never close a derived client.
 
-- **There is no default.** A client given no declaration sends no header, and the platform behaves as it did before the handshake existed. `List.of()` declares that the enforcement point discharges nothing; a null list is refused.
+- **There is no default.** A client given no declaration sends no header. From v11.0.0 an absent declaration has a consequence: on both editions, a decide under an organization's redact override refuses a caller that does not declare redaction, so declare what your enforcement point discharges. `List.of()` declares that the enforcement point discharges nothing; a null list is refused.
 - **What a declaration changes.** On an Enterprise deployment, an allow verdict carrying a mandatory obligation the declared set cannot discharge becomes a deny, so declare every obligation your enforcement point carries out, and only those. A Community deployment records the declaration without denying on it, and drops any capability in a family it does not issue.
 - **Refused before it is sent.** `PEPHandshake.of` and `PEPCapability.of` apply the platform's own rules and throw `PEPHandshakeException` naming the member at fault (`getPointer()` is `/pep_id`, `/audience` or `/capabilities`), instead of the first governed call coming back `400`. A `PEPHandshake` is immutable and computes its header once, so every request carries exactly the value that was validated.
+
+## The v11.0.0 platform
+
+What each part of this SDK needs from the platform:
+
+| Chapter | Platform minimum |
+|---|---|
+| [PEP capability handshake](#pep-capability-handshake-v1040) (`pepHandshake`, `withPEPHandshake`) | v10.4.0: every plane that reads the header records it; an older platform ignores it |
+| [Typed policy authoring](#typed-policy-authoring-v1100) (`typedPolicies()`) | v11.0.0 |
+| Decision provenance (`getEngine()`, `getSubjectType()`, `getPolicyBundle()`, `getPolicyIdentities()` and the rest) | v11.0.0; against an older platform they read null or empty |
+| Route deprecation reports (`onRouteDeprecation`) | v11.0.0 stamps the legacy policy routes |
+| The legacy policy write freeze (`LegacyPolicyWriteFrozenException`) | v11.0.0 |
+
+Upgrade the SDK before the platform: from v11.0.0, a decide under an organization's redact override refuses a caller that does not declare redaction, and only a release that sends the handshake can declare it. Against an older platform the SDK works unchanged.
 
 ## Typed policy authoring (v11.0.0+)
 
@@ -415,6 +429,7 @@ TypedPolicySystemCorpus system = typed.system(); // the platform's own controls
 - **The organization and the author are the ones your credentials resolve to.** The agent stamps both, and the platform overwrites any author named inside the document. A client derived with `asUser` has its own namespace, and its user token is the caller.
 - **Refusals are typed.** Every refusal is a `TypedPolicyRefusalException` with the HTTP status, the platform's reason (such as `publication_refused`, `activation_refused` or `tier_limit`), any findings, and `getRetryAfter()` when the refusal is retryable; a 401 is the client's `AuthenticationException`. On an edition with separation of duties, publishing refuses with the finding code `APPROVER_IS_AUTHOR`: the route names no approver, and such a deployment approves in the customer portal.
 - **The document is the authoring model itself,** a `Map<String, Object>` rather than Java types, so a field the policy vocabulary gains is authorable without an SDK release. A null fixtures list sends none; an empty one sends `[]`. `validate` answers identically on every edition; the edition's boundary is applied when you publish.
+- **System controls are changed in the document, not per policy.** A v11.0.0 platform retires per-policy overrides: `createPolicyOverride` and `deletePolicyOverride` answer 409 `LEGACY_POLICY_WRITE_FROZEN` (agent-api's `PerPolicyOverrideRetired` response), and a system control is enabled, disabled or re-actioned in the organization's typed document, in its `system_controls` section.
 
 ## v11.0.0 deprecations
 
@@ -725,10 +740,16 @@ Complete working examples for all features are available in the [examples folder
 Runnable in this repository, against a live agent:
 
 ```bash
-mvn -q -DskipTests install                     # put the SDK on the local classpath
+mvn -q -DskipTests -DskipUnitTests=true install  # put the SDK on the local classpath
 AXONFLOW_AGENT_URL=http://localhost:8080 \
   mvn -q -f examples/authzen/pom.xml compile exec:java  # AuthZEN: 9 steps, 4 of them refusals
+AXONFLOW_AGENT_URL=http://localhost:8080 \
+  mvn -q -f examples/pep-handshake/pom.xml compile exec:java  # the PEP capability handshake
+AXONFLOW_AGENT_URL=http://localhost:8080 AXONFLOW_TYPED_POLICY_PUBLISH=1 \
+  mvn -q -f examples/typed-policies/pom.xml compile exec:java  # validate, publish, activate
 ```
+
+Run `pep-handshake` before `typed-policies`. After a document with an organization-scope constraint is activated, a decide that does not supply the attribute the constraint conditions on is denied fail-closed with reasons ["unknown_constraint"]; supply the attribute or run the example on a fresh stack. On Enterprise the client id is the organization id and the secret its license key; a Community deployment accepts any credentials.
 
 ### Community Features
 
