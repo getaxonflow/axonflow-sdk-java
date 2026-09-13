@@ -507,6 +507,24 @@ public final class AxonFlow implements Closeable {
     return response;
   }
 
+  /**
+   * The route a request was built for, with its path parameters as placeholders. The once-per-route
+   * deprecation record keys on it, so a stamped route that carries an id is reported once, as its
+   * template, rather than once per id.
+   */
+  private static final class RouteTemplate {
+    private final String path;
+
+    private RouteTemplate(String path) {
+      this.path = path;
+    }
+  }
+
+  /** Tags a request with the route template it was built for. */
+  private static Request withRoute(Request request, String template) {
+    return request.newBuilder().tag(RouteTemplate.class, new RouteTemplate(template)).build();
+  }
+
   private static final Pattern SUCCESSOR_LINK =
       Pattern.compile("<([^>]*)>\\s*;\\s*rel=\"?successor-version\"?", Pattern.CASE_INSENSITIVE);
 
@@ -522,7 +540,9 @@ public final class AxonFlow implements Closeable {
     if (deprecation == null && removedIn == null) {
       return;
     }
-    String route = request.method() + " " + request.url().encodedPath();
+    RouteTemplate template = request.tag(RouteTemplate.class);
+    String route =
+        request.method() + " " + (template != null ? template.path : request.url().encodedPath());
     if (!reportedRouteDeprecations.add(route)) {
       return;
     }
@@ -1608,7 +1628,16 @@ public final class AxonFlow implements Closeable {
    * @return the simulation result
    * @throws NullPointerException if request is null
    * @throws AxonFlowException if the request fails
+   * @deprecated A v11.0.0 platform deprecates {@code POST /api/v1/policies/simulate} and removes it
+   *     in v11.1. Every response carries {@code X-AxonFlow-Removed-In: v11.1} and a successor
+   *     {@code Link} naming {@code /api/v1/typed-policies}, plus an RFC 9745 {@code Deprecation}
+   *     header once v11.0.0 is tagged, and the client reports the route once through {@link
+   *     AxonFlowConfig.Builder#onRouteDeprecation}. Policy is authored and tested through the typed
+   *     policy methods ({@link #typedPolicies()}). It keeps answering until v11.1; on a v11.0.0
+   *     platform its result comes from the legacy engine, which no longer decides, so it does not
+   *     predict what the platform enforces.
    */
+  @Deprecated
   public SimulatePoliciesResponse simulatePolicies(SimulatePoliciesRequest request) {
     Objects.requireNonNull(request, "request cannot be null");
 
@@ -1632,7 +1661,10 @@ public final class AxonFlow implements Closeable {
    *
    * @param request the simulation request
    * @return a future containing the simulation result
+   * @deprecated Reaches the deprecated {@code POST /api/v1/policies/simulate}; see {@link
+   *     #simulatePolicies(SimulatePoliciesRequest)}.
    */
+  @Deprecated
   public CompletableFuture<SimulatePoliciesResponse> simulatePoliciesAsync(
       SimulatePoliciesRequest request) {
     return CompletableFuture.supplyAsync(() -> simulatePolicies(request), asyncExecutor);
@@ -1663,7 +1695,16 @@ public final class AxonFlow implements Closeable {
    * @return the impact report
    * @throws NullPointerException if request is null
    * @throws AxonFlowException if the request fails
+   * @deprecated A v11.0.0 platform deprecates {@code POST /api/v1/policies/impact-report} and
+   *     removes it in v11.1. Every response carries {@code X-AxonFlow-Removed-In: v11.1} and a
+   *     successor {@code Link} naming {@code /api/v1/typed-policies}, plus an RFC 9745 {@code
+   *     Deprecation} header once v11.0.0 is tagged, and the client reports the route once through
+   *     {@link AxonFlowConfig.Builder#onRouteDeprecation}. Policy is authored and tested through
+   *     the typed policy methods ({@link #typedPolicies()}). It keeps answering until v11.1; on a
+   *     v11.0.0 platform its result comes from the legacy engine, which no longer decides, so it
+   *     does not predict what the platform enforces.
    */
+  @Deprecated
   public ImpactReportResponse getPolicyImpactReport(ImpactReportRequest request) {
     Objects.requireNonNull(request, "request cannot be null");
 
@@ -1687,7 +1728,10 @@ public final class AxonFlow implements Closeable {
    *
    * @param request the impact report request
    * @return a future containing the impact report
+   * @deprecated Reaches the deprecated {@code POST /api/v1/policies/impact-report}; see {@link
+   *     #getPolicyImpactReport(ImpactReportRequest)}.
    */
+  @Deprecated
   public CompletableFuture<ImpactReportResponse> getPolicyImpactReportAsync(
       ImpactReportRequest request) {
     return CompletableFuture.supplyAsync(() -> getPolicyImpactReport(request), asyncExecutor);
@@ -1710,7 +1754,10 @@ public final class AxonFlow implements Closeable {
    *
    * @return the conflict detection result
    * @throws AxonFlowException if the request fails
+   * @deprecated Reaches the deprecated {@code POST /api/v1/policies/conflicts}; see {@link
+   *     #detectPolicyConflicts(String)}.
    */
+  @Deprecated
   public PolicyConflictResponse detectPolicyConflicts() {
     return detectPolicyConflicts(null);
   }
@@ -1735,7 +1782,16 @@ public final class AxonFlow implements Closeable {
    * @return the conflict detection result
    * @throws IllegalArgumentException if policyId is non-null and empty
    * @throws AxonFlowException if the request fails
+   * @deprecated A v11.0.0 platform deprecates {@code POST /api/v1/policies/conflicts} and removes
+   *     it in v11.1. Every response carries {@code X-AxonFlow-Removed-In: v11.1} and a successor
+   *     {@code Link} naming {@code /api/v1/typed-policies}, plus an RFC 9745 {@code Deprecation}
+   *     header once v11.0.0 is tagged, and the client reports the route once through {@link
+   *     AxonFlowConfig.Builder#onRouteDeprecation}. Policy is authored and tested through the typed
+   *     policy methods ({@link #typedPolicies()}). It keeps answering until v11.1; on a v11.0.0
+   *     platform its result comes from the legacy engine, which no longer decides, so it does not
+   *     predict what the platform enforces.
    */
+  @Deprecated
   public PolicyConflictResponse detectPolicyConflicts(String policyId) {
     if (policyId != null && policyId.isEmpty()) {
       throw new IllegalArgumentException("policyId cannot be empty");
@@ -1766,7 +1822,10 @@ public final class AxonFlow implements Closeable {
    * Asynchronously scans all active policies for conflicts.
    *
    * @return a future containing the conflict detection result
+   * @deprecated Reaches the deprecated {@code POST /api/v1/policies/conflicts}; see {@link
+   *     #detectPolicyConflicts(String)}.
    */
+  @Deprecated
   public CompletableFuture<PolicyConflictResponse> detectPolicyConflictsAsync() {
     return CompletableFuture.supplyAsync(() -> detectPolicyConflicts(), asyncExecutor);
   }
@@ -1776,7 +1835,10 @@ public final class AxonFlow implements Closeable {
    *
    * @param policyId the policy ID to check for conflicts, or null to scan all policies
    * @return a future containing the conflict detection result
+   * @deprecated Reaches the deprecated {@code POST /api/v1/policies/conflicts}; see {@link
+   *     #detectPolicyConflicts(String)}.
    */
+  @Deprecated
   public CompletableFuture<PolicyConflictResponse> detectPolicyConflictsAsync(String policyId) {
     return CompletableFuture.supplyAsync(() -> detectPolicyConflicts(policyId), asyncExecutor);
   }
@@ -3496,7 +3558,10 @@ public final class AxonFlow implements Closeable {
 
     return retryExecutor.execute(
         () -> {
-          Request httpRequest = buildRequest("GET", "/api/v1/static-policies/" + policyId, null);
+          Request httpRequest =
+              withRoute(
+                  buildRequest("GET", "/api/v1/static-policies/" + policyId, null),
+                  "/api/v1/static-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, StaticPolicy.class);
           }
@@ -3536,7 +3601,10 @@ public final class AxonFlow implements Closeable {
 
     return retryExecutor.execute(
         () -> {
-          Request httpRequest = buildRequest("PUT", "/api/v1/static-policies/" + policyId, request);
+          Request httpRequest =
+              withRoute(
+                  buildRequest("PUT", "/api/v1/static-policies/" + policyId, request),
+                  "/api/v1/static-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, StaticPolicy.class);
           }
@@ -3554,7 +3622,10 @@ public final class AxonFlow implements Closeable {
 
     retryExecutor.execute(
         () -> {
-          Request httpRequest = buildRequest("DELETE", "/api/v1/static-policies/" + policyId, null);
+          Request httpRequest =
+              withRoute(
+                  buildRequest("DELETE", "/api/v1/static-policies/" + policyId, null),
+                  "/api/v1/static-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
@@ -3578,7 +3649,10 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Map<String, Object> body = Map.of("enabled", enabled);
-          Request httpRequest = buildPatchRequest("/api/v1/static-policies/" + policyId, body);
+          Request httpRequest =
+              withRoute(
+                  buildPatchRequest("/api/v1/static-policies/" + policyId, body),
+                  "/api/v1/static-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, StaticPolicy.class);
           }
@@ -3679,7 +3753,9 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildRequest("GET", "/api/v1/static-policies/" + policyId + "/versions", null);
+              withRoute(
+                  buildRequest("GET", "/api/v1/static-policies/" + policyId + "/versions", null),
+                  "/api/v1/static-policies/{id}/versions");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             Map<String, Object> wrapper =
                 parseResponse(response, new TypeReference<Map<String, Object>>() {});
@@ -3707,9 +3783,23 @@ public final class AxonFlow implements Closeable {
   /**
    * Creates a policy override.
    *
+   * <p>A v11.0.0 platform retires per-policy overrides of system controls and refuses this write
+   * with {@code 409 LEGACY_POLICY_WRITE_FROZEN}, thrown as a {@link
+   * LegacyPolicyWriteFrozenException} whose message names the typed policy route ({@code
+   * /api/v1/typed-policies}), where a system control is changed in the organization's typed
+   * document. An older platform still creates the override.
+   *
+   * <p>The platform documents this refusal as agent-api's {@code PerPolicyOverrideRetired}
+   * response. Its body, as a v11.0.0 platform sends it:
+   *
+   * <pre>{@code
+   * {"error":{"code":"LEGACY_POLICY_WRITE_FROZEN","message":"Per-policy overrides of system controls are retired in v11: a system control is enabled, disabled or re-actioned in the organization's typed document, in its system_controls section, through the typed authoring route at /api/v1/typed-policies. Session break-glass overrides (ADR-044) are unaffected, and reads on this endpoint are unaffected."}}
+   * }</pre>
+   *
    * @param policyId the policy ID
    * @param request the override request
    * @return the created override
+   * @throws LegacyPolicyWriteFrozenException when a v11.0.0 platform refuses the retired write
    */
   public PolicyOverride createPolicyOverride(String policyId, CreatePolicyOverrideRequest request) {
     Objects.requireNonNull(policyId, "policyId cannot be null");
@@ -3718,7 +3808,10 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildRequest("POST", "/api/v1/static-policies/" + policyId + "/override", request);
+              withRoute(
+                  buildRequest(
+                      "POST", "/api/v1/static-policies/" + policyId + "/override", request),
+                  "/api/v1/static-policies/{id}/override");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, PolicyOverride.class);
           }
@@ -3729,7 +3822,15 @@ public final class AxonFlow implements Closeable {
   /**
    * Deletes a policy override.
    *
+   * <p>A v11.0.0 platform retires per-policy overrides of system controls and refuses this write
+   * with {@code 409 LEGACY_POLICY_WRITE_FROZEN}, thrown as a {@link
+   * LegacyPolicyWriteFrozenException} whose message names the typed policy route ({@code
+   * /api/v1/typed-policies}), where a system control is changed in the organization's typed
+   * document. An older platform still deletes the override. The refusal's body is the one quoted on
+   * {@link #createPolicyOverride}.
+   *
    * @param policyId the policy ID
+   * @throws LegacyPolicyWriteFrozenException when a v11.0.0 platform refuses the retired write
    */
   public void deletePolicyOverride(String policyId) {
     Objects.requireNonNull(policyId, "policyId cannot be null");
@@ -3737,7 +3838,9 @@ public final class AxonFlow implements Closeable {
     retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildRequest("DELETE", "/api/v1/static-policies/" + policyId + "/override", null);
+              withRoute(
+                  buildRequest("DELETE", "/api/v1/static-policies/" + policyId + "/override", null),
+                  "/api/v1/static-policies/{id}/override");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
@@ -3825,7 +3928,9 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildOrchestratorRequest("GET", "/api/v1/dynamic-policies/" + policyId, null);
+              withRoute(
+                  buildOrchestratorRequest("GET", "/api/v1/dynamic-policies/" + policyId, null),
+                  "/api/v1/dynamic-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
@@ -3871,7 +3976,9 @@ public final class AxonFlow implements Closeable {
     return retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, request);
+              withRoute(
+                  buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, request),
+                  "/api/v1/dynamic-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);
@@ -3892,7 +3999,9 @@ public final class AxonFlow implements Closeable {
     retryExecutor.execute(
         () -> {
           Request httpRequest =
-              buildOrchestratorRequest("DELETE", "/api/v1/dynamic-policies/" + policyId, null);
+              withRoute(
+                  buildOrchestratorRequest("DELETE", "/api/v1/dynamic-policies/" + policyId, null),
+                  "/api/v1/dynamic-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             if (!response.isSuccessful() && response.code() != 204) {
               handleErrorResponse(response);
@@ -3917,7 +4026,9 @@ public final class AxonFlow implements Closeable {
         () -> {
           Map<String, Object> body = Map.of("enabled", enabled);
           Request httpRequest =
-              buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, body);
+              withRoute(
+                  buildOrchestratorRequest("PUT", "/api/v1/dynamic-policies/" + policyId, body),
+                  "/api/v1/dynamic-policies/{id}");
           try (Response response = executeHttp(httpClient, httpRequest)) {
             // Agent proxy (Issue #886) returns {"policy": {...}} wrapper
             DynamicPolicyResponse wrapper = parseResponse(response, DynamicPolicyResponse.class);

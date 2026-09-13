@@ -27,8 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AxonFlowConfig.Builder.onRouteDeprecation(...)`.** When the platform marks a route a call used
   as deprecated (`X-AxonFlow-Removed-In` or an RFC 9745 `Deprecation` header, with the successor
   from `Link: <...>; rel="successor-version"`), the SDK reports it once per route: to this
-  listener when it is set, otherwise to the log at WARN. From v11.0.0 the legacy static- and
-  dynamic-policy reads carry it.
+  listener when it is set, otherwise to the log at WARN. A route whose path carries an id is
+  reported once, as its template (`GET /api/v1/static-policies/{id}`), not once per id. From
+  v11.0.0 the legacy policy routes carry it: the static- and dynamic-policy routes and the policy
+  simulation routes.
 - **The v11.0.0 PEP capability handshake (axonflow-enterprise#3746).** An enforcement point
   declares the obligation types and schema versions it can discharge with `PEPHandshake.of(...)`
   and `PEPCapability.of(...)`, presented as `X-Axonflow-PEP-Handshake` on every call to a plane
@@ -48,6 +50,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Retry-After`; `active()` is empty when nothing is active. A client derived with `asUser` has
   its own namespace. Rolling back and withdrawing are customer portal operations the agent does
   not proxy, so the SDK has no method for either.
+
+### Deprecated
+
+- **The v11.0.0 policy simulation routes (axonflow-enterprise#3746).** `simulatePolicies`,
+  `getPolicyImpactReport` and `detectPolicyConflicts`, and their `Async` forms, are deprecated: a
+  v11.0.0 platform deprecates `/api/v1/policies/simulate`, `/impact-report` and `/conflicts` and
+  removes them in v11.1, and stamps every response with `X-AxonFlow-Removed-In: v11.1` and a
+  successor `Link` naming `/api/v1/typed-policies` (plus an RFC 9745 `Deprecation` header once
+  v11.0.0 is tagged), which `AxonFlowConfig.Builder.onRouteDeprecation` reports once per route.
+  They keep answering until then, but on a v11.0.0 platform their results
+  come from the legacy engine, which no longer decides, so they do not predict what the platform
+  enforces. `createPolicyOverride` and `deletePolicyOverride` now document that
+  a v11.0.0 platform retires per-policy overrides and refuses both with
+  `LegacyPolicyWriteFrozenException`.
 
 ### Fixed
 

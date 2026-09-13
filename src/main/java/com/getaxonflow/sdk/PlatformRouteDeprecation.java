@@ -23,7 +23,9 @@ public final class PlatformRouteDeprecation {
   /**
    * Creates a route deprecation.
    *
-   * @param route the method and path, e.g. {@code GET /api/v1/static-policies}
+   * @param route the method and the route: its path, or its template when the path carries an id,
+   *     e.g. {@code GET /api/v1/static-policies} or {@code POST
+   *     /api/v1/static-policies/{id}/override}
    * @param successor the route that replaces it, or null when the platform names none
    * @param removedIn the release that removes it, e.g. {@code v11.1}, or null
    * @param deprecation the RFC 9745 {@code Deprecation} value, or null when not sent
@@ -36,7 +38,11 @@ public final class PlatformRouteDeprecation {
     this.deprecation = deprecation;
   }
 
-  /** Returns the method and path, e.g. {@code GET /api/v1/static-policies}. */
+  /**
+   * Returns the method and the route: its path, or its template when the path carries an id (a path
+   * parameter reads {@code {id}}), e.g. {@code GET /api/v1/static-policies} or {@code POST
+   * /api/v1/static-policies/{id}/override}.
+   */
   public String getRoute() {
     return route;
   }
