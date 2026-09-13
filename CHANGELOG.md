@@ -5,6 +5,31 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **v11.0.0 decision provenance on every governed response (axonflow-enterprise#3746).**
+  `ClientResponse` (`proxyLLMCall`), `ConnectorResponse` (`queryConnector` copies it from the
+  `/api/request` response; `mcpQuery` reads it off the wire), `MCPCheckOutputResponse`,
+  `DecideResponse` and the pre-check's `PolicyApprovalResult` carry `getEngine()`,
+  `getSubjectType()`, `getPolicyBundle()` and `getLegacyValidators()`: which engine and policy set
+  decided, the type of principal it decided for, and any checksum validator that acted before the
+  engine. `DecideResponse` adds `getPolicyIdentities()` (naming each entry of
+  `getEvaluatedPolicies()` in order), `getPolicyPacks()` and `getDocumentVersion()`, and
+  `PolicyApprovalResult` adds `getDecisionId()` and `getVerdict()` (`allow` or `deny`). Every
+  field is null or empty on an older platform. The pre-v11 constructors remain and leave the new
+  fields unset.
+- **`LegacyPolicyWriteFrozenException`.** A v11.0.0 platform answers a write to its static- or
+  dynamic-policy routes with `409 LEGACY_POLICY_WRITE_FROZEN`. The SDK throws this typed
+  exception, whose message names the typed policy route (`/api/v1/typed-policies`), instead of the
+  generic `VERSION_CONFLICT` it used for every 409. Every other error keeps its existing form.
+- **`AxonFlowConfig.Builder.onRouteDeprecation(...)`.** When the platform marks a route a call used
+  as deprecated (`X-AxonFlow-Removed-In` or an RFC 9745 `Deprecation` header, with the successor
+  from `Link: <...>; rel="successor-version"`), the SDK reports it once per route: to this
+  listener when it is set, otherwise to the log at WARN. From v11.0.0 the legacy static- and
+  dynamic-policy reads carry it.
+
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the MIT licence
 
 ### Added

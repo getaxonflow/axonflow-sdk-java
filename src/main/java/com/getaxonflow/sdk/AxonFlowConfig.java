@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 /**
  * Configuration for the AxonFlow client.
@@ -112,6 +113,9 @@ public final class AxonFlowConfig {
   private final String userAgent;
   private final boolean tryMode;
 
+  /** Receives the deprecations the platform declares; see {@link Builder#onRouteDeprecation}. */
+  private final Consumer<PlatformRouteDeprecation> onRouteDeprecation;
+
   private AxonFlowConfig(Builder builder) {
     this.tryMode = "1".equals(System.getenv("AXONFLOW_TRY"));
     this.endpoint =
@@ -130,6 +134,7 @@ public final class AxonFlowConfig {
     this.cacheConfig = builder.cacheConfig != null ? builder.cacheConfig : CacheConfig.defaults();
     this.userAgent =
         builder.userAgent != null ? builder.userAgent : "axonflow-sdk-java/" + SDK_VERSION;
+    this.onRouteDeprecation = builder.onRouteDeprecation;
 
     validate();
   }
@@ -305,6 +310,16 @@ public final class AxonFlowConfig {
   }
 
   /**
+   * Returns the listener that receives the deprecations the platform declares, or null when the SDK
+   * logs them instead.
+   *
+   * @return the route-deprecation listener, or null
+   */
+  public Consumer<PlatformRouteDeprecation> getOnRouteDeprecation() {
+    return onRouteDeprecation;
+  }
+
+  /**
    * Returns the X-Axonflow-Client header value identifying this SDK + version.
    *
    * <p>Per ADR-050 §4, every governed request to the agent carries this header so the agent can
@@ -362,6 +377,7 @@ public final class AxonFlowConfig {
     builder.retryConfig = this.retryConfig;
     builder.cacheConfig = this.cacheConfig;
     builder.userAgent = this.userAgent;
+    builder.onRouteDeprecation = this.onRouteDeprecation;
     return builder;
   }
 
@@ -397,6 +413,7 @@ public final class AxonFlowConfig {
     private RetryConfig retryConfig;
     private CacheConfig cacheConfig;
     private String userAgent;
+    private Consumer<PlatformRouteDeprecation> onRouteDeprecation;
 
     private Builder() {}
 
@@ -579,6 +596,24 @@ public final class AxonFlowConfig {
      */
     public Builder userAgent(String userAgent) {
       this.userAgent = userAgent;
+      return this;
+    }
+
+    /**
+     * Sets the listener that receives the deprecations the platform declares on a route this client
+     * called.
+     *
+     * <p>From v11.0.0 the legacy static- and dynamic-policy routes carry {@code
+     * X-AxonFlow-Removed-In} and a successor {@code Link}, and an RFC 9745 {@code Deprecation}
+     * header once the deprecating release is tagged. The listener is called once per route per
+     * client (a client {@code asUser} derives shares the record), on the thread that made the call.
+     * When unset, the SDK logs each deprecated route once at WARN.
+     *
+     * @param listener the listener, or null to log instead
+     * @return this builder
+     */
+    public Builder onRouteDeprecation(Consumer<PlatformRouteDeprecation> listener) {
+      this.onRouteDeprecation = listener;
       return this;
     }
 
