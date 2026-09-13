@@ -5,6 +5,8 @@ package com.getaxonflow.sdk.types;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -60,6 +62,19 @@ public final class MCPCheckOutputResponse {
   @JsonProperty("redaction_evaluated")
   private final boolean redactionEvaluated;
 
+  @JsonProperty("engine")
+  private final String engine;
+
+  @JsonProperty("subject_type")
+  private final String subjectType;
+
+  @JsonProperty("policy_bundle")
+  private final String policyBundle;
+
+  @JsonProperty("legacy_validators")
+  private final List<LegacyValidatorAction> legacyValidators;
+
+  /** Creates a check-output response, as Jackson reads it from the wire (v11.0.0 shape). */
   @JsonCreator
   public MCPCheckOutputResponse(
       @JsonProperty("allowed") boolean allowed,
@@ -71,7 +86,11 @@ public final class MCPCheckOutputResponse {
       @JsonProperty("policy_info") ConnectorPolicyInfo policyInfo,
       @JsonProperty("decision_id") String decisionId,
       @JsonProperty("policy_matches") List<ExplainPolicy> policyMatches,
-      @JsonProperty("redaction_evaluated") boolean redactionEvaluated) {
+      @JsonProperty("redaction_evaluated") boolean redactionEvaluated,
+      @JsonProperty("engine") String engine,
+      @JsonProperty("subject_type") String subjectType,
+      @JsonProperty("policy_bundle") String policyBundle,
+      @JsonProperty("legacy_validators") List<LegacyValidatorAction> legacyValidators) {
     this.allowed = allowed;
     this.blockReason = blockReason;
     this.redactedData = redactedData;
@@ -82,6 +101,45 @@ public final class MCPCheckOutputResponse {
     this.decisionId = decisionId;
     this.policyMatches = policyMatches;
     this.redactionEvaluated = redactionEvaluated;
+    this.engine = engine;
+    this.subjectType = subjectType;
+    this.policyBundle = policyBundle;
+    this.legacyValidators =
+        legacyValidators != null
+            ? Collections.unmodifiableList(new ArrayList<>(legacyValidators))
+            : Collections.emptyList();
+  }
+
+  /**
+   * Source-compat overload preserving the v8 10-argument shape; the v11.0.0 provenance fields are
+   * unset.
+   */
+  public MCPCheckOutputResponse(
+      boolean allowed,
+      String blockReason,
+      Object redactedData,
+      String redactedMessage,
+      int policiesEvaluated,
+      ExfiltrationCheckInfo exfiltrationInfo,
+      ConnectorPolicyInfo policyInfo,
+      String decisionId,
+      List<ExplainPolicy> policyMatches,
+      boolean redactionEvaluated) {
+    this(
+        allowed,
+        blockReason,
+        redactedData,
+        redactedMessage,
+        policiesEvaluated,
+        exfiltrationInfo,
+        policyInfo,
+        decisionId,
+        policyMatches,
+        redactionEvaluated,
+        null,
+        null,
+        null,
+        null);
   }
 
   /**
@@ -202,6 +260,29 @@ public final class MCPCheckOutputResponse {
     return redactionEvaluated;
   }
 
+  /**
+   * Returns the policy engine that authored this verdict: {@code anchored}, the v11 decision plane
+   * (PRD v11 §1.1). Null on a platform older than v11.0.0.
+   */
+  public String getEngine() {
+    return engine;
+  }
+
+  /** Returns the type of principal the verdict was decided for, or null when not reported. */
+  public String getSubjectType() {
+    return subjectType;
+  }
+
+  /** Returns the digest of the policy set that decided, or null when not reported. */
+  public String getPolicyBundle() {
+    return policyBundle;
+  }
+
+  /** Returns the validators that acted before the engine decided; empty when none did. */
+  public List<LegacyValidatorAction> getLegacyValidators() {
+    return legacyValidators;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -216,7 +297,11 @@ public final class MCPCheckOutputResponse {
         && Objects.equals(exfiltrationInfo, that.exfiltrationInfo)
         && Objects.equals(policyInfo, that.policyInfo)
         && Objects.equals(decisionId, that.decisionId)
-        && Objects.equals(policyMatches, that.policyMatches);
+        && Objects.equals(policyMatches, that.policyMatches)
+        && Objects.equals(engine, that.engine)
+        && Objects.equals(subjectType, that.subjectType)
+        && Objects.equals(policyBundle, that.policyBundle)
+        && Objects.equals(legacyValidators, that.legacyValidators);
   }
 
   @Override
@@ -231,7 +316,11 @@ public final class MCPCheckOutputResponse {
         policyInfo,
         decisionId,
         policyMatches,
-        redactionEvaluated);
+        redactionEvaluated,
+        engine,
+        subjectType,
+        policyBundle,
+        legacyValidators);
   }
 
   @Override
@@ -255,6 +344,17 @@ public final class MCPCheckOutputResponse {
         + policyMatches
         + ", redactionEvaluated="
         + redactionEvaluated
+        + ", engine='"
+        + engine
+        + '\''
+        + ", subjectType='"
+        + subjectType
+        + '\''
+        + ", policyBundle='"
+        + policyBundle
+        + '\''
+        + ", legacyValidators="
+        + legacyValidators
         + '}';
   }
 }

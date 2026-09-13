@@ -49,13 +49,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import okhttp3.*;
 import okhttp3.OkHttpClient;
 import org.slf4j.Logger;
@@ -170,10 +174,15 @@ public final class AxonFlow implements Closeable {
   private final ResponseCache cache;
   private final Executor asyncExecutor;
   private volatile String sessionCookie; // Session cookie for Customer Portal authentication
+
+  // Routes whose platform deprecation this client has reported. Shared with the clients asUser
+  // derives, so each route is reported once per client family.
+  private final Set<String> reportedRouteDeprecations;
   private final MASFEATNamespace masfeatNamespace;
 
   private AxonFlow(AxonFlowConfig config) {
     this.config = Objects.requireNonNull(config, "config cannot be null");
+    this.reportedRouteDeprecations = ConcurrentHashMap.newKeySet();
 
     // Reject clientSecret without clientId — licensed mode must specify tenant
     if (config.getClientSecret() != null
@@ -317,6 +326,7 @@ public final class AxonFlow implements Closeable {
    */
   private AxonFlow(AxonFlow parent, AxonFlowConfig derivedConfig) {
     this.config = derivedConfig;
+    this.reportedRouteDeprecations = parent.reportedRouteDeprecations;
 
     // Same pool and dispatcher (newBuilder()'s contract), and every proxy,
     // timeout and TLS setting carried across — but the identity interceptor is
@@ -461,7 +471,43 @@ public final class AxonFlow implements Closeable {
    */
   private Response executeHttp(OkHttpClient client, Request request) throws java.io.IOException {
     invokeHeartbeatOnRequest();
-    return client.newCall(request).execute();
+    Response response = client.newCall(request).execute();
+    noteRouteDeprecation(request, response);
+    return response;
+  }
+
+  private static final Pattern SUCCESSOR_LINK =
+      Pattern.compile("<([^>]*)>\\s*;\\s*rel=\"?successor-version\"?", Pattern.CASE_INSENSITIVE);
+
+  /**
+   * Reports the deprecation a response declares for its route, once per route: to {@link
+   * AxonFlowConfig#getOnRouteDeprecation()} when it is set, otherwise to the log at WARN. A v11.0.0
+   * platform marks a route with {@code X-AxonFlow-Removed-In} or an RFC 9745 {@code Deprecation}
+   * header, and names its successor in {@code Link: <...>; rel="successor-version"}.
+   */
+  private void noteRouteDeprecation(Request request, Response response) {
+    String deprecation = response.header("Deprecation");
+    String removedIn = response.header("X-AxonFlow-Removed-In");
+    if (deprecation == null && removedIn == null) {
+      return;
+    }
+    String route = request.method() + " " + request.url().encodedPath();
+    if (!reportedRouteDeprecations.add(route)) {
+      return;
+    }
+    String successor = null;
+    Matcher link = SUCCESSOR_LINK.matcher(String.join(", ", response.headers("Link")));
+    if (link.find()) {
+      successor = link.group(1);
+    }
+    PlatformRouteDeprecation reported =
+        new PlatformRouteDeprecation(route, successor, removedIn, deprecation);
+    Consumer<PlatformRouteDeprecation> listener = config.getOnRouteDeprecation();
+    if (listener != null) {
+      listener.accept(reported);
+    } else {
+      logger.warn("{}", reported);
+    }
   }
 
   // MIRROR NOTE: wire-shape Gate 5's introspection probe
@@ -2580,8 +2626,11 @@ public final class AxonFlow implements Closeable {
                     null, // processingTime not available from ClientResponse
                     false, // redacted - not available from this endpoint
                     null, // redactedFields - not available from this endpoint
-                    null // policyInfo - not available from this endpoint
-                    );
+                    null, // policyInfo - not available from this endpoint
+                    clientResponse.getEngine(),
+                    clientResponse.getSubjectType(),
+                    clientResponse.getPolicyBundle(),
+                    clientResponse.getLegacyValidators());
 
             if (!result.isSuccess()) {
               throw new ConnectorException(
@@ -4752,6 +4801,14 @@ public final class AxonFlow implements Closeable {
     // Try to extract error message from JSON body
     String errorMessage = extractErrorMessage(body, message);
 
+    // v11.0.0: a legacy policy write is refused with its own code, which is not a version conflict.
+    if (code == 409) {
+      String frozen = legacyPolicyWriteFrozenMessage(body);
+      if (frozen != null) {
+        throw new LegacyPolicyWriteFrozenException(frozen);
+      }
+    }
+
     switch (code) {
       case 401:
         throw new AuthenticationException(errorMessage);
@@ -4804,6 +4861,26 @@ public final class AxonFlow implements Closeable {
       // Not JSON — fall through to the phrase heuristic.
     }
     return body.contains("policy") || body.contains("block_reason");
+  }
+
+  /**
+   * Returns the message of a v11.0.0 legacy policy write refusal, {@code {"error": {"code":
+   * "LEGACY_POLICY_WRITE_FROZEN", "message": ...}}}, or null when the body is anything else.
+   */
+  private String legacyPolicyWriteFrozenMessage(String body) {
+    if (body == null || body.isEmpty()) {
+      return null;
+    }
+    try {
+      JsonNode error = objectMapper.readTree(body).path("error");
+      if (!LegacyPolicyWriteFrozenException.CODE.equals(error.path("code").asText(null))) {
+        return null;
+      }
+      String frozenMessage = error.path("message").asText("");
+      return frozenMessage.isEmpty() ? "legacy policy write frozen" : frozenMessage;
+    } catch (JsonProcessingException e) {
+      return null;
+    }
   }
 
   private String extractErrorMessage(String body, String defaultMessage) {

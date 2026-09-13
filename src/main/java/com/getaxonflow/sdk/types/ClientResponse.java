@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: MIT
 package com.getaxonflow.sdk.types;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -50,6 +54,20 @@ public final class ClientResponse {
   @JsonProperty("media_analysis")
   private final MediaAnalysisResponse mediaAnalysis;
 
+  @JsonProperty("engine")
+  private final String engine;
+
+  @JsonProperty("subject_type")
+  private final String subjectType;
+
+  @JsonProperty("policy_bundle")
+  private final String policyBundle;
+
+  @JsonProperty("legacy_validators")
+  private final List<LegacyValidatorAction> legacyValidators;
+
+  /** Creates a client response, as Jackson reads it from the wire (v11.0.0 shape). */
+  @JsonCreator
   public ClientResponse(
       @JsonProperty("success") boolean success,
       @JsonProperty("data") Object data,
@@ -60,7 +78,11 @@ public final class ClientResponse {
       @JsonProperty("policy_info") PolicyInfo policyInfo,
       @JsonProperty("error") String error,
       @JsonProperty("budget_info") BudgetInfo budgetInfo,
-      @JsonProperty("media_analysis") MediaAnalysisResponse mediaAnalysis) {
+      @JsonProperty("media_analysis") MediaAnalysisResponse mediaAnalysis,
+      @JsonProperty("engine") String engine,
+      @JsonProperty("subject_type") String subjectType,
+      @JsonProperty("policy_bundle") String policyBundle,
+      @JsonProperty("legacy_validators") List<LegacyValidatorAction> legacyValidators) {
     this.success = success;
     this.data = data;
     this.result = result;
@@ -71,6 +93,42 @@ public final class ClientResponse {
     this.error = error;
     this.budgetInfo = budgetInfo;
     this.mediaAnalysis = mediaAnalysis;
+    this.engine = engine;
+    this.subjectType = subjectType;
+    this.policyBundle = policyBundle;
+    this.legacyValidators =
+        legacyValidators != null
+            ? Collections.unmodifiableList(new ArrayList<>(legacyValidators))
+            : Collections.emptyList();
+  }
+
+  /** Source-compat overload preserving the pre-v11 shape; the provenance fields are unset. */
+  public ClientResponse(
+      boolean success,
+      Object data,
+      String result,
+      String planId,
+      boolean blocked,
+      String blockReason,
+      PolicyInfo policyInfo,
+      String error,
+      BudgetInfo budgetInfo,
+      MediaAnalysisResponse mediaAnalysis) {
+    this(
+        success,
+        data,
+        result,
+        planId,
+        blocked,
+        blockReason,
+        policyInfo,
+        error,
+        budgetInfo,
+        mediaAnalysis,
+        null,
+        null,
+        null,
+        null);
   }
 
   /**
@@ -194,6 +252,30 @@ public final class ClientResponse {
     return mediaAnalysis;
   }
 
+  /**
+   * Returns the policy engine that authored this verdict: {@code anchored}, the v11 decision plane
+   * (PRD v11 §1.1), or {@code legacy}, the proxy's tier engine. Null on a platform older than
+   * v11.0.0.
+   */
+  public String getEngine() {
+    return engine;
+  }
+
+  /** Returns the type of principal the verdict was decided for, or null when not reported. */
+  public String getSubjectType() {
+    return subjectType;
+  }
+
+  /** Returns the digest of the policy set that decided, or null when not reported. */
+  public String getPolicyBundle() {
+    return policyBundle;
+  }
+
+  /** Returns the validators that acted before the engine decided; empty when none did. */
+  public List<LegacyValidatorAction> getLegacyValidators() {
+    return legacyValidators;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -208,7 +290,11 @@ public final class ClientResponse {
         && Objects.equals(policyInfo, that.policyInfo)
         && Objects.equals(error, that.error)
         && Objects.equals(budgetInfo, that.budgetInfo)
-        && Objects.equals(mediaAnalysis, that.mediaAnalysis);
+        && Objects.equals(mediaAnalysis, that.mediaAnalysis)
+        && Objects.equals(engine, that.engine)
+        && Objects.equals(subjectType, that.subjectType)
+        && Objects.equals(policyBundle, that.policyBundle)
+        && Objects.equals(legacyValidators, that.legacyValidators);
   }
 
   @Override
@@ -223,7 +309,11 @@ public final class ClientResponse {
         policyInfo,
         error,
         budgetInfo,
-        mediaAnalysis);
+        mediaAnalysis,
+        engine,
+        subjectType,
+        policyBundle,
+        legacyValidators);
   }
 
   @Override
@@ -245,6 +335,17 @@ public final class ClientResponse {
         + budgetInfo
         + ", mediaAnalysis="
         + mediaAnalysis
+        + ", engine='"
+        + engine
+        + '\''
+        + ", subjectType='"
+        + subjectType
+        + '\''
+        + ", policyBundle='"
+        + policyBundle
+        + '\''
+        + ", legacyValidators="
+        + legacyValidators
         + '}';
   }
 }

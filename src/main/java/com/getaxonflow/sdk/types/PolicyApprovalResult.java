@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: MIT
 package com.getaxonflow.sdk.types;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -64,6 +66,26 @@ public final class PolicyApprovalResult {
   @JsonProperty("processing_time")
   private final String processingTime;
 
+  @JsonProperty("decision_id")
+  private final String decisionId;
+
+  @JsonProperty("verdict")
+  private final String verdict;
+
+  @JsonProperty("engine")
+  private final String engine;
+
+  @JsonProperty("subject_type")
+  private final String subjectType;
+
+  @JsonProperty("policy_bundle")
+  private final String policyBundle;
+
+  @JsonProperty("legacy_validators")
+  private final List<LegacyValidatorAction> legacyValidators;
+
+  /** Creates a pre-check result, as Jackson reads it from the wire (v11.0.0 shape). */
+  @JsonCreator
   public PolicyApprovalResult(
       @JsonProperty("context_id") String contextId,
       @JsonProperty("approved") boolean approved,
@@ -73,7 +95,13 @@ public final class PolicyApprovalResult {
       @JsonProperty("expires_at") Instant expiresAt,
       @JsonProperty("block_reason") String blockReason,
       @JsonProperty("rate_limit_info") RateLimitInfo rateLimitInfo,
-      @JsonProperty("processing_time") String processingTime) {
+      @JsonProperty("processing_time") String processingTime,
+      @JsonProperty("decision_id") String decisionId,
+      @JsonProperty("verdict") String verdict,
+      @JsonProperty("engine") String engine,
+      @JsonProperty("subject_type") String subjectType,
+      @JsonProperty("policy_bundle") String policyBundle,
+      @JsonProperty("legacy_validators") List<LegacyValidatorAction> legacyValidators) {
     this.contextId = contextId;
     this.approved = approved;
     this.requiresRedaction = requiresRedaction;
@@ -85,6 +113,44 @@ public final class PolicyApprovalResult {
     this.blockReason = blockReason;
     this.rateLimitInfo = rateLimitInfo;
     this.processingTime = processingTime;
+    this.decisionId = decisionId;
+    this.verdict = verdict;
+    this.engine = engine;
+    this.subjectType = subjectType;
+    this.policyBundle = policyBundle;
+    this.legacyValidators =
+        legacyValidators != null
+            ? Collections.unmodifiableList(new ArrayList<>(legacyValidators))
+            : Collections.emptyList();
+  }
+
+  /** Source-compat overload preserving the pre-v11 shape; the v11.0.0 fields are unset. */
+  public PolicyApprovalResult(
+      String contextId,
+      boolean approved,
+      boolean requiresRedaction,
+      Map<String, Object> approvedData,
+      List<String> policies,
+      Instant expiresAt,
+      String blockReason,
+      RateLimitInfo rateLimitInfo,
+      String processingTime) {
+    this(
+        contextId,
+        approved,
+        requiresRedaction,
+        approvedData,
+        policies,
+        expiresAt,
+        blockReason,
+        rateLimitInfo,
+        processingTime,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
   }
 
   /**
@@ -213,6 +279,43 @@ public final class PolicyApprovalResult {
     return processingTime;
   }
 
+  /** Returns the decision's identifier, the name every decision plane uses for it (v11.0.0). */
+  public String getDecisionId() {
+    return decisionId;
+  }
+
+  /**
+   * Returns the canonical answer, {@code allow} or {@code deny}, in the vocabulary {@code decide}
+   * returns; read it rather than {@link #isApproved()} in new integrations (v11.0.0). Null on an
+   * older platform.
+   */
+  public String getVerdict() {
+    return verdict;
+  }
+
+  /**
+   * Returns the policy engine that authored this verdict: {@code anchored}, the v11 decision plane
+   * (PRD v11 §1.1). Null on a platform older than v11.0.0.
+   */
+  public String getEngine() {
+    return engine;
+  }
+
+  /** Returns the type of principal the verdict was decided for, or null when not reported. */
+  public String getSubjectType() {
+    return subjectType;
+  }
+
+  /** Returns the digest of the policy set that decided, or null when not reported. */
+  public String getPolicyBundle() {
+    return policyBundle;
+  }
+
+  /** Returns the validators that acted before the engine decided; empty when none did. */
+  public List<LegacyValidatorAction> getLegacyValidators() {
+    return legacyValidators;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -226,7 +329,13 @@ public final class PolicyApprovalResult {
         && Objects.equals(expiresAt, that.expiresAt)
         && Objects.equals(blockReason, that.blockReason)
         && Objects.equals(rateLimitInfo, that.rateLimitInfo)
-        && Objects.equals(processingTime, that.processingTime);
+        && Objects.equals(processingTime, that.processingTime)
+        && Objects.equals(decisionId, that.decisionId)
+        && Objects.equals(verdict, that.verdict)
+        && Objects.equals(engine, that.engine)
+        && Objects.equals(subjectType, that.subjectType)
+        && Objects.equals(policyBundle, that.policyBundle)
+        && Objects.equals(legacyValidators, that.legacyValidators);
   }
 
   @Override
@@ -240,7 +349,13 @@ public final class PolicyApprovalResult {
         expiresAt,
         blockReason,
         rateLimitInfo,
-        processingTime);
+        processingTime,
+        decisionId,
+        verdict,
+        engine,
+        subjectType,
+        policyBundle,
+        legacyValidators);
   }
 
   @Override
@@ -263,6 +378,23 @@ public final class PolicyApprovalResult {
         + ", processingTime='"
         + processingTime
         + '\''
+        + ", decisionId='"
+        + decisionId
+        + '\''
+        + ", verdict='"
+        + verdict
+        + '\''
+        + ", engine='"
+        + engine
+        + '\''
+        + ", subjectType='"
+        + subjectType
+        + '\''
+        + ", policyBundle='"
+        + policyBundle
+        + '\''
+        + ", legacyValidators="
+        + legacyValidators
         + '}';
   }
 }

@@ -49,8 +49,29 @@ public final class DecideResponse {
   @JsonProperty("error")
   private final String error;
 
+  @JsonProperty("engine")
+  private final String engine;
+
+  @JsonProperty("subject_type")
+  private final String subjectType;
+
+  @JsonProperty("policy_bundle")
+  private final String policyBundle;
+
+  @JsonProperty("legacy_validators")
+  private final List<LegacyValidatorAction> legacyValidators;
+
+  @JsonProperty("policy_identities")
+  private final List<PolicyIdentity> policyIdentities;
+
+  @JsonProperty("policy_packs")
+  private final List<String> policyPacks;
+
+  @JsonProperty("document_version")
+  private final Integer documentVersion;
+
   /**
-   * Creates a decide response.
+   * Creates a decide response, as Jackson reads it from the wire (v11.0.0 shape).
    *
    * @param verdict the verdict: {@code allow}, {@code deny}, or {@code needs_approval}
    * @param decisionId the audit correlator for this decision
@@ -61,6 +82,16 @@ public final class DecideResponse {
    * @param stage the echoed decision stage, or null
    * @param expiresAt the verdict expiry, or null
    * @param error the error message on the malformed-deny path, or null
+   * @param engine the engine that authored the verdict, or null on an older platform
+   * @param subjectType the type of principal the verdict was decided for, or null
+   * @param policyBundle the digest of the policy set that decided, or null
+   * @param legacyValidators the validators that acted before the engine; null is normalized to an
+   *     empty list
+   * @param policyIdentities each evaluated policy named, in order; null is normalized to an empty
+   *     list
+   * @param policyPacks the add-on packs that composed into the bundle; null is normalized to an
+   *     empty list
+   * @param documentVersion the organization document's published version, or null
    */
   @JsonCreator
   public DecideResponse(
@@ -72,7 +103,14 @@ public final class DecideResponse {
       @JsonProperty("evaluated_policies") List<String> evaluatedPolicies,
       @JsonProperty("stage") String stage,
       @JsonProperty("expires_at") Instant expiresAt,
-      @JsonProperty("error") String error) {
+      @JsonProperty("error") String error,
+      @JsonProperty("engine") String engine,
+      @JsonProperty("subject_type") String subjectType,
+      @JsonProperty("policy_bundle") String policyBundle,
+      @JsonProperty("legacy_validators") List<LegacyValidatorAction> legacyValidators,
+      @JsonProperty("policy_identities") List<PolicyIdentity> policyIdentities,
+      @JsonProperty("policy_packs") List<String> policyPacks,
+      @JsonProperty("document_version") Integer documentVersion) {
     this.verdict = verdict;
     this.decisionId = decisionId;
     this.traceId = traceId;
@@ -89,6 +127,64 @@ public final class DecideResponse {
     this.stage = stage;
     this.expiresAt = expiresAt;
     this.error = error;
+    this.engine = engine;
+    this.subjectType = subjectType;
+    this.policyBundle = policyBundle;
+    this.legacyValidators =
+        legacyValidators != null
+            ? Collections.unmodifiableList(new ArrayList<>(legacyValidators))
+            : Collections.emptyList();
+    this.policyIdentities =
+        policyIdentities != null
+            ? Collections.unmodifiableList(new ArrayList<>(policyIdentities))
+            : Collections.emptyList();
+    this.policyPacks =
+        policyPacks != null
+            ? Collections.unmodifiableList(new ArrayList<>(policyPacks))
+            : Collections.emptyList();
+    this.documentVersion = documentVersion;
+  }
+
+  /**
+   * Source-compat overload preserving the pre-v11 shape; the v11.0.0 provenance fields are unset.
+   *
+   * @param verdict the verdict: {@code allow}, {@code deny}, or {@code needs_approval}
+   * @param decisionId the audit correlator for this decision
+   * @param traceId the W3C trace id (32 lowercase hex chars)
+   * @param reasons human-readable reasons, or null
+   * @param obligations engine-fulfillable obligations; null is normalized to an empty list
+   * @param evaluatedPolicies the policies evaluated; null is normalized to an empty list
+   * @param stage the echoed decision stage, or null
+   * @param expiresAt the verdict expiry, or null
+   * @param error the error message on the malformed-deny path, or null
+   */
+  public DecideResponse(
+      String verdict,
+      String decisionId,
+      String traceId,
+      List<String> reasons,
+      List<Obligation> obligations,
+      List<String> evaluatedPolicies,
+      String stage,
+      Instant expiresAt,
+      String error) {
+    this(
+        verdict,
+        decisionId,
+        traceId,
+        reasons,
+        obligations,
+        evaluatedPolicies,
+        stage,
+        expiresAt,
+        error,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
   }
 
   /** Returns the verdict: {@code allow}, {@code deny}, or {@code needs_approval}. */
@@ -136,6 +232,53 @@ public final class DecideResponse {
     return error;
   }
 
+  /**
+   * Returns the policy engine that authored this verdict: {@code anchored}, the v11 decision plane
+   * (PRD v11 §1.1). Null on a platform older than v11.0.0.
+   */
+  public String getEngine() {
+    return engine;
+  }
+
+  /** Returns the type of principal the verdict was decided for, or null when not reported. */
+  public String getSubjectType() {
+    return subjectType;
+  }
+
+  /** Returns the digest of the policy set that decided, or null when not reported. */
+  public String getPolicyBundle() {
+    return policyBundle;
+  }
+
+  /** Returns the validators that acted before the engine decided; empty when none did. */
+  public List<LegacyValidatorAction> getLegacyValidators() {
+    return legacyValidators;
+  }
+
+  /**
+   * Returns each entry of {@link #getEvaluatedPolicies()} named, in the same order (PRD v11 §1.14);
+   * empty on an older platform.
+   */
+  public List<PolicyIdentity> getPolicyIdentities() {
+    return policyIdentities;
+  }
+
+  /**
+   * Returns the add-on policy packs that composed into the bundle, each as {@code <pack
+   * id>@<digest>}, sorted; empty when none did.
+   */
+  public List<String> getPolicyPacks() {
+    return policyPacks;
+  }
+
+  /**
+   * Returns the published version of the organization's active typed document, or null while it has
+   * published nothing.
+   */
+  public Integer getDocumentVersion() {
+    return documentVersion;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -149,7 +292,14 @@ public final class DecideResponse {
         && Objects.equals(evaluatedPolicies, that.evaluatedPolicies)
         && Objects.equals(stage, that.stage)
         && Objects.equals(expiresAt, that.expiresAt)
-        && Objects.equals(error, that.error);
+        && Objects.equals(error, that.error)
+        && Objects.equals(engine, that.engine)
+        && Objects.equals(subjectType, that.subjectType)
+        && Objects.equals(policyBundle, that.policyBundle)
+        && Objects.equals(legacyValidators, that.legacyValidators)
+        && Objects.equals(policyIdentities, that.policyIdentities)
+        && Objects.equals(policyPacks, that.policyPacks)
+        && Objects.equals(documentVersion, that.documentVersion);
   }
 
   @Override
@@ -163,7 +313,14 @@ public final class DecideResponse {
         evaluatedPolicies,
         stage,
         expiresAt,
-        error);
+        error,
+        engine,
+        subjectType,
+        policyBundle,
+        legacyValidators,
+        policyIdentities,
+        policyPacks,
+        documentVersion);
   }
 
   @Override
@@ -192,6 +349,23 @@ public final class DecideResponse {
         + ", error='"
         + error
         + '\''
+        + ", engine='"
+        + engine
+        + '\''
+        + ", subjectType='"
+        + subjectType
+        + '\''
+        + ", policyBundle='"
+        + policyBundle
+        + '\''
+        + ", legacyValidators="
+        + legacyValidators
+        + ", policyIdentities="
+        + policyIdentities
+        + ", policyPacks="
+        + policyPacks
+        + ", documentVersion="
+        + documentVersion
         + '}';
   }
 }
