@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: MIT
 package com.getaxonflow.sdk.types.policies;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** Policy CRUD types for the Unified Policy Architecture v2.0.0. */
 public final class PolicyTypes {
@@ -33,11 +35,19 @@ public final class PolicyTypes {
   // Enums
   // ========================================================================
 
-  /** Policy categories for organization and filtering. */
+  /**
+   * Policy categories for organization and filtering.
+   *
+   * <p>The platform ships and extends its categories as data, so a static-policy read keeps a
+   * category this enum does not name yet: {@link StaticPolicy#getCategoryValue()} returns it and
+   * {@link StaticPolicy#getCategory()} is {@code null}. The constants cover every category the
+   * platform's shipped posture uses.
+   */
   public enum PolicyCategory {
     // Static policy categories - Security
     SECURITY_SQLI("security-sqli"),
     SECURITY_ADMIN("security-admin"),
+    SECURITY_DANGEROUS("security-dangerous"),
 
     // Static policy categories - PII Detection
     PII_GLOBAL("pii-global"),
@@ -54,6 +64,12 @@ public final class PolicyTypes {
 
     // Sensitive data category
     SENSITIVE_DATA("sensitive-data"),
+
+    // Organization template categories, as the platform's shipped posture names them
+    COMPLIANCE_EUAIACT("compliance-euaiact"),
+    DANGEROUS_QUERIES("dangerous_queries"),
+    PII_DETECTION("pii_detection"),
+    SQL_INJECTION("sql_injection"),
 
     // Media governance categories
     MEDIA_SAFETY("media-safety"),
@@ -77,6 +93,22 @@ public final class PolicyTypes {
     @JsonValue
     public String getValue() {
       return value;
+    }
+
+    /**
+     * Returns the category whose wire value is {@code value}, or empty when this SDK does not know
+     * it.
+     *
+     * @param value the category's wire value
+     * @return the category, or empty for a value this SDK does not know
+     */
+    public static Optional<PolicyCategory> lookup(String value) {
+      for (PolicyCategory category : values()) {
+        if (category.value.equals(value)) {
+          return Optional.of(category);
+        }
+      }
+      return Optional.empty();
     }
   }
 
@@ -188,7 +220,11 @@ public final class PolicyTypes {
     private String id;
     private String name;
     private String description;
-    private PolicyCategory category;
+
+    // The platform's string, so a category this SDK does not name yet cannot fail the read.
+    @JsonProperty("category")
+    private String category;
+
     private PolicyTier tier;
     private String pattern;
     private PolicySeverity severity;
@@ -239,11 +275,40 @@ public final class PolicyTypes {
       this.description = description;
     }
 
+    /**
+     * Returns the category as a {@link PolicyCategory}, or {@code null} when the platform sent one
+     * this SDK does not know yet. {@link #getCategoryValue()} returns the platform's string either
+     * way.
+     *
+     * @return the category, or {@code null} for one this SDK does not know
+     */
+    @JsonIgnore
     public PolicyCategory getCategory() {
+      return PolicyCategory.lookup(category).orElse(null);
+    }
+
+    @JsonIgnore
+    public void setCategory(PolicyCategory category) {
+      this.category = category == null ? null : category.getValue();
+    }
+
+    /**
+     * Returns the category exactly as the platform sent it, including one this SDK does not know.
+     *
+     * @return the platform's category string
+     */
+    @JsonIgnore
+    public String getCategoryValue() {
       return category;
     }
 
-    public void setCategory(PolicyCategory category) {
+    /**
+     * Sets the category by its wire value, including one this SDK does not name yet.
+     *
+     * @param category the category's wire value
+     */
+    @JsonIgnore
+    public void setCategoryValue(String category) {
       this.category = category;
     }
 
@@ -426,7 +491,7 @@ public final class PolicyTypes {
 
   /** Options for listing static policies. */
   public static class ListStaticPoliciesOptions {
-    private PolicyCategory category;
+    private String category;
     private PolicyTier tier;
     private String organizationId;
     private Boolean enabled;
@@ -440,7 +505,22 @@ public final class PolicyTypes {
       return new Builder();
     }
 
+    /**
+     * Returns the category filter as a {@link PolicyCategory}, or {@code null} when none is set or
+     * it is one this SDK does not know.
+     *
+     * @return the category filter
+     */
     public PolicyCategory getCategory() {
+      return PolicyCategory.lookup(category).orElse(null);
+    }
+
+    /**
+     * Returns the category filter exactly as it is sent.
+     *
+     * @return the category's wire value, or {@code null} when none is set
+     */
+    public String getCategoryValue() {
       return category;
     }
 
@@ -480,6 +560,17 @@ public final class PolicyTypes {
       private final ListStaticPoliciesOptions options = new ListStaticPoliciesOptions();
 
       public Builder category(PolicyCategory category) {
+        options.category = category == null ? null : category.getValue();
+        return this;
+      }
+
+      /**
+       * Sets the category by its wire value, for one this SDK does not name yet.
+       *
+       * @param category the category's wire value
+       * @return this builder
+       */
+      public Builder categoryValue(String category) {
         options.category = category;
         return this;
       }
@@ -540,7 +631,11 @@ public final class PolicyTypes {
   public static class CreateStaticPolicyRequest {
     private String name;
     private String description;
-    private PolicyCategory category;
+
+    // Sent as its wire value, so a category this SDK does not name yet can be used.
+    @JsonProperty("category")
+    private String category;
+
     private PolicyTier tier = PolicyTier.TENANT;
 
     @JsonProperty("organization_id")
@@ -563,7 +658,24 @@ public final class PolicyTypes {
       return description;
     }
 
+    /**
+     * Returns the category as a {@link PolicyCategory}, or {@code null} when none is set or it is
+     * one this SDK does not know.
+     *
+     * @return the category
+     */
+    @JsonIgnore
     public PolicyCategory getCategory() {
+      return PolicyCategory.lookup(category).orElse(null);
+    }
+
+    /**
+     * Returns the category exactly as it is sent.
+     *
+     * @return the category's wire value, or {@code null} when none is set
+     */
+    @JsonIgnore
+    public String getCategoryValue() {
       return category;
     }
 
@@ -605,6 +717,17 @@ public final class PolicyTypes {
       }
 
       public Builder category(PolicyCategory category) {
+        request.category = category == null ? null : category.getValue();
+        return this;
+      }
+
+      /**
+       * Sets the category by its wire value, for one this SDK does not name yet.
+       *
+       * @param category the category's wire value
+       * @return this builder
+       */
+      public Builder categoryValue(String category) {
         request.category = category;
         return this;
       }
@@ -655,7 +778,11 @@ public final class PolicyTypes {
   public static class UpdateStaticPolicyRequest {
     private String name;
     private String description;
-    private PolicyCategory category;
+
+    // Sent as its wire value, so a category this SDK does not name yet can be used.
+    @JsonProperty("category")
+    private String category;
+
     private String pattern;
     private PolicySeverity severity;
     private Boolean enabled;
@@ -673,7 +800,24 @@ public final class PolicyTypes {
       return description;
     }
 
+    /**
+     * Returns the category as a {@link PolicyCategory}, or {@code null} when none is set or it is
+     * one this SDK does not know.
+     *
+     * @return the category
+     */
+    @JsonIgnore
     public PolicyCategory getCategory() {
+      return PolicyCategory.lookup(category).orElse(null);
+    }
+
+    /**
+     * Returns the category exactly as it is sent.
+     *
+     * @return the category's wire value, or {@code null} when none is set
+     */
+    @JsonIgnore
+    public String getCategoryValue() {
       return category;
     }
 
@@ -707,6 +851,17 @@ public final class PolicyTypes {
       }
 
       public Builder category(PolicyCategory category) {
+        request.category = category == null ? null : category.getValue();
+        return this;
+      }
+
+      /**
+       * Sets the category by its wire value, for one this SDK does not name yet.
+       *
+       * @param category the category's wire value
+       * @return this builder
+       */
+      public Builder categoryValue(String category) {
         request.category = category;
         return this;
       }
@@ -1606,9 +1761,17 @@ public final class PolicyTypes {
     }
   }
 
-  /** Options for getting effective policies. */
+  /**
+   * Options for getting effective policies.
+   *
+   * <p>The agent's {@code GET /api/v1/static-policies/effective} declares no query parameter, and
+   * the platform applies none of these options: the read returns the whole tier-effective set. To
+   * narrow it by category, filter the returned policies on {@link StaticPolicy#getCategoryValue()},
+   * or list with {@link ListStaticPoliciesOptions}, whose route applies the category filter but
+   * lists the stored policies, not the effective set.
+   */
   public static class EffectivePoliciesOptions {
-    private PolicyCategory category;
+    private String category;
     private boolean includeDisabled;
     private boolean includeOverridden;
 
@@ -1616,7 +1779,22 @@ public final class PolicyTypes {
       return new Builder();
     }
 
+    /**
+     * Returns the category filter as a {@link PolicyCategory}, or {@code null} when none is set or
+     * it is one this SDK does not know.
+     *
+     * @return the category filter
+     */
     public PolicyCategory getCategory() {
+      return PolicyCategory.lookup(category).orElse(null);
+    }
+
+    /**
+     * Returns the category filter exactly as it is sent.
+     *
+     * @return the category's wire value, or {@code null} when none is set
+     */
+    public String getCategoryValue() {
       return category;
     }
 
@@ -1632,6 +1810,17 @@ public final class PolicyTypes {
       private final EffectivePoliciesOptions options = new EffectivePoliciesOptions();
 
       public Builder category(PolicyCategory category) {
+        options.category = category == null ? null : category.getValue();
+        return this;
+      }
+
+      /**
+       * Sets the category by its wire value, for one this SDK does not name yet.
+       *
+       * @param category the category's wire value
+       * @return this builder
+       */
+      public Builder categoryValue(String category) {
         options.category = category;
         return this;
       }

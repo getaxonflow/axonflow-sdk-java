@@ -3596,7 +3596,12 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
-   * Gets effective static policies filtered by category.
+   * Gets effective static policies, sending {@code category} as a filter.
+   *
+   * <p>The platform's effective route declares no query parameter and applies none, so this returns
+   * the same set as {@link #getEffectiveStaticPolicies()}: filter the result on {@link
+   * StaticPolicy#getCategoryValue()}, or call {@link #listStaticPolicies(PolicyCategory)}, whose
+   * route applies the category but returns the stored policies, not the effective set.
    *
    * @param category the policy category
    * @return list of effective policies
@@ -3609,7 +3614,8 @@ public final class AxonFlow implements Closeable {
   /**
    * Gets effective static policies with options.
    *
-   * @param options filtering options
+   * @param options the options, which the effective route does not apply (see {@link
+   *     EffectivePoliciesOptions})
    * @return list of effective policies
    */
   public List<StaticPolicy> getEffectiveStaticPolicies(EffectivePoliciesOptions options) {
@@ -4654,8 +4660,8 @@ public final class AxonFlow implements Closeable {
     StringBuilder path = new StringBuilder(basePath);
     StringBuilder query = new StringBuilder();
 
-    if (options.getCategory() != null) {
-      appendQueryParam(query, "category", options.getCategory().getValue());
+    if (options.getCategoryValue() != null) {
+      appendQueryParam(query, "category", options.getCategoryValue());
     }
     if (options.getTier() != null) {
       appendQueryParam(query, "tier", options.getTier().getValue());
@@ -4734,8 +4740,8 @@ public final class AxonFlow implements Closeable {
   private String buildEffectivePoliciesQuery(EffectivePoliciesOptions options) {
     StringBuilder query = new StringBuilder();
 
-    if (options.getCategory() != null) {
-      appendQueryParam(query, "category", options.getCategory().getValue());
+    if (options.getCategoryValue() != null) {
+      appendQueryParam(query, "category", options.getCategoryValue());
     }
     if (options.isIncludeDisabled()) {
       appendQueryParam(query, "include_disabled", "true");

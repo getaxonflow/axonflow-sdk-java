@@ -49,6 +49,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its own namespace. Rolling back and withdrawing are customer portal operations the agent does
   not proxy, so the SDK has no method for either.
 
+### Fixed
+
+- **A static-policy read no longer fails on a category the SDK does not know
+  (axonflow-enterprise#4224).** A v11 platform returns categories the `PolicyCategory` enum did not
+  name (`security-dangerous` on `getEffectiveStaticPolicies()`), and the strict enum failed the
+  whole read. `StaticPolicy` now keeps the platform's string: `getCategory()` returns the
+  `PolicyCategory`, or `null` for a category this SDK does not know yet, and the new
+  `getCategoryValue()` returns the string either way. `PolicyCategory` gains `SECURITY_DANGEROUS`,
+  `COMPLIANCE_EUAIACT`, `DANGEROUS_QUERIES`, `PII_DETECTION` and `SQL_INJECTION`, the categories
+  the platform's shipped posture uses that it lacked, and `PolicyCategory.lookup(String)`. The list,
+  create and update builders gain `categoryValue(String)`, to filter by or write a category the
+  enum does not name, and `EffectivePoliciesOptions` gains it too for symmetry; each of those types
+  gains `getCategoryValue()`, and `StaticPolicy` gains `setCategoryValue(String)`.
+  `EffectivePoliciesOptions` and `getEffectiveStaticPolicies` now say what the platform does with
+  them: the effective route declares no query parameter and applies none of their options, so
+  filter the returned policies instead.
+
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the MIT licence
 
 ### Added
