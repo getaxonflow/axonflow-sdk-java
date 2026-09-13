@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Regenerate tests/fixtures/wire-shape-baseline.json from a local
-checkout of getaxonflow/axonflow's docs/api directory.
+"""Regenerate tests/fixtures/wire-shape-baseline.json from a specs
+directory: the committed snapshot, tests/fixtures/openapi (see its
+README), or a checkout of the platform's docs/api.
 
 Usage:
     python3 scripts/wire_shape/refresh.py <specs_dir> [--sha <SHA>]
 
-When --sha is omitted, the script tries `git -C <specs_dir>
-rev-parse HEAD` to pin the commit. If neither is available, it
-exits non-zero rather than write a baseline with an empty
-openapi_specs_sha (the next CI run would fail at bootstrap).
+For the snapshot, the pinned commit is the one its generated headers
+name, and a --sha that disagrees with them is refused. A directory
+without those headers (a platform checkout) needs --sha. There is no
+fallback to `git rev-parse HEAD`: inside this repository that names
+the SDK's own commit, which would pin the baseline to a revision the
+specs never had. Without a commit the script exits non-zero rather
+than write a baseline with an empty openapi_specs_sha (the next CI
+run would fail at bootstrap).
 
 The baseline is written atomically (temp-file + rename) so a
 mid-encode crash can't leave a truncated file behind.
@@ -16,7 +21,6 @@ mid-encode crash can't leave a truncated file behind.
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 
@@ -27,19 +31,36 @@ from lib import (  # noqa: E402
     difference,
     discover_sdk_types,
     load_all_schemas,
+    snapshot_source_commit,
     write_baseline,
 )
 
 
-def _git_head_sha(directory: Path) -> str:
-    try:
-        out = subprocess.check_output(
-            ["git", "-C", str(directory), "rev-parse", "HEAD"],
-            stderr=subprocess.DEVNULL,
+def _pinned_sha(specs_dir: Path, explicit_sha: str | None) -> str:
+    """Return the platform commit to pin, or "" after saying why there is none."""
+    header_sha = snapshot_source_commit(specs_dir)
+    if header_sha is None:
+        sha = (explicit_sha or "").strip()
+        if not sha:
+            print(
+                f"error: {specs_dir} is not a generated snapshot (no file carries\n"
+                "  the header naming its platform commit), so pass --sha <commit-sha>\n"
+                "  for the platform checkout it came from. An empty SHA would poison\n"
+                "  tests/fixtures/wire-shape-baseline.json and break the next CI\n"
+                "  wire-shape-contract run at bootstrap.",
+                file=sys.stderr,
+            )
+        return sha
+    if explicit_sha is not None and explicit_sha.strip() != header_sha:
+        print(
+            f"error: --sha {explicit_sha.strip()} disagrees with the snapshot in\n"
+            f"  {specs_dir}, whose generated headers name platform commit\n"
+            f"  {header_sha}. The baseline must pin the revision the snapshot\n"
+            "  holds: regenerate the snapshot at the commit you mean, or drop --sha.",
+            file=sys.stderr,
         )
-        return out.decode().strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
         return ""
+    return header_sha
 
 
 def main() -> int:
@@ -67,17 +88,8 @@ def main() -> int:
         print(f"error: {specs_dir} is not a directory", file=sys.stderr)
         return 2
 
-    sha = (explicit_sha if explicit_sha is not None else _git_head_sha(specs_dir)).strip()
+    sha = _pinned_sha(specs_dir, explicit_sha)
     if not sha:
-        print(
-            "error: could not determine OpenAPI specs commit SHA.\n"
-            "  Either run this script against a specs_dir that sits inside a git\n"
-            "  checkout of the getaxonflow/axonflow community mirror, or pass\n"
-            "  --sha <commit-sha> explicitly. An empty SHA would poison\n"
-            "  tests/fixtures/wire-shape-baseline.json and break the next CI\n"
-            "  wire-shape-contract run at bootstrap.",
-            file=sys.stderr,
-        )
         return 2
 
     merged, cross_spec, intra_file = load_all_schemas(specs_dir)

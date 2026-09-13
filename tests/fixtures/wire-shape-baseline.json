@@ -174,7 +174,7 @@
     }
   },
   "intra_file_duplicates": {},
-  "openapi_specs_sha": "df027c788b60c18d044278c45aa4bce3a1ac8717",
+  "openapi_specs_sha": "36e0e96b7e5c16626d394272b727b533f2b94a04",
   "per_type_drift": {
     "AISystemRegistry": {
       "sdk_only": [
@@ -252,7 +252,12 @@
     "ClientResponse": {
       "sdk_only": [],
       "spec_only": [
-        "metadata"
+        "approval_request_id",
+        "engine",
+        "legacy_validators",
+        "metadata",
+        "policy_bundle",
+        "subject_type"
       ]
     },
     "ConfigureKillSwitchRequest": {
@@ -290,7 +295,9 @@
       ]
     },
     "CreateStaticPolicyRequest": {
-      "sdk_only": [],
+      "sdk_only": [
+        "organization_id"
+      ],
       "spec_only": [
         "priority",
         "tags"
@@ -302,11 +309,25 @@
         "started_at"
       ]
     },
+    "DecideRequest": {
+      "sdk_only": [],
+      "spec_only": [
+        "fulfillment_capabilities"
+      ]
+    },
     "DecideResponse": {
       "sdk_only": [
         "error"
       ],
-      "spec_only": []
+      "spec_only": [
+        "document_version",
+        "engine",
+        "legacy_validators",
+        "policy_bundle",
+        "policy_identities",
+        "policy_packs",
+        "subject_type"
+      ]
     },
     "DecisionExplanation": {
       "sdk_only": [
@@ -331,6 +352,12 @@
       "spec_only": [
         "server"
       ]
+    },
+    "DynamicPolicy": {
+      "sdk_only": [
+        "organization_id"
+      ],
+      "spec_only": []
     },
     "DynamicPolicyMatch": {
       "sdk_only": [
@@ -496,7 +523,12 @@
         "policy_matches",
         "redacted_message"
       ],
-      "spec_only": []
+      "spec_only": [
+        "engine",
+        "legacy_validators",
+        "policy_bundle",
+        "subject_type"
+      ]
     },
     "PaginationMeta": {
       "sdk_only": [
@@ -549,6 +581,22 @@
         "type"
       ]
     },
+    "PolicyEvaluationResult": {
+      "sdk_only": [],
+      "spec_only": [
+        "allowed_providers",
+        "applied_policies_detail",
+        "evaluation_error",
+        "override_applied",
+        "override_id",
+        "override_reason",
+        "preferred_provider",
+        "routing_reason",
+        "segments_resolved",
+        "severity",
+        "severity_policy_id"
+      ]
+    },
     "PolicyInfo": {
       "sdk_only": [
         "code_artifact",
@@ -574,7 +622,6 @@
       "spec_only": [
         "enabled_override",
         "id",
-        "organization_id",
         "policy_type",
         "tenant_id",
         "updated_at",
@@ -621,7 +668,9 @@
       ]
     },
     "StaticPolicy": {
-      "sdk_only": [],
+      "sdk_only": [
+        "organization_id"
+      ],
       "spec_only": [
         "policy_id",
         "priority"
@@ -638,6 +687,8 @@
     "StepGateResponse": {
       "sdk_only": [],
       "spec_only": [
+        "approval_enqueue",
+        "approval_id",
         "decision_id"
       ]
     },
@@ -732,11 +783,25 @@
     }
   },
   "registered_types": [
+    "AISystemRegistry",
     "AuditLogEntry",
     "AuditSearchRequest",
     "AuditSearchResponse",
     "AuditToolCallRequest",
     "AuditToolCallResponse",
+    "AuthZENAction",
+    "AuthZENApprovalClause",
+    "AuthZENApprovalRequirement",
+    "AuthZENBulk",
+    "AuthZENEnvelope",
+    "AuthZENError",
+    "AuthZENIdentifier",
+    "AuthZENObligation",
+    "AuthZENRequest",
+    "AuthZENResource",
+    "AuthZENResponse",
+    "AuthZENResponseContext",
+    "AuthZENSubject",
     "Budget",
     "BudgetAlert",
     "BudgetCheckRequest",
@@ -747,7 +812,9 @@
     "CircuitBreakerConfigUpdate",
     "ClientRequest",
     "ClientResponse",
+    "ConfigureKillSwitchRequest",
     "ConnectorInfo",
+    "CreateAssessmentRequest",
     "CreateStaticPolicyRequest",
     "CreateWebhookRequest",
     "CreateWorkflowRequest",
@@ -766,12 +833,15 @@
     "ExfiltrationCheckInfo",
     "ExplainPolicy",
     "ExplainRule",
+    "FEATAssessment",
+    "Finding",
     "HITLApprovalRequest",
     "HITLReviewInput",
     "ImpactReportInput",
     "ImpactReportRequest",
     "ImpactReportResponse",
     "ImpactReportResult",
+    "KillSwitch",
     "LLMProviderListResponse",
     "ListWorkflowsResponse",
     "MCPCheckInputRequest",
@@ -804,6 +874,9 @@
     "PolicyVersion",
     "PricingInfo",
     "RateLimitInfo",
+    "RegistrySummary",
+    "RejectAssessmentRequest",
+    "RestoreKillSwitchRequest",
     "ResumeFromCheckpointResponse",
     "ResumePlanResponse",
     "RetryContext",
@@ -817,7 +890,9 @@
     "TimelineEntry",
     "TokenUsage",
     "ToolContext",
+    "TriggerKillSwitchRequest",
     "UnifiedStepStatus",
+    "UpdateAssessmentRequest",
     "UpdatePlanRequest",
     "UpdatePlanResponse",
     "UpdateStaticPolicyRequest",
