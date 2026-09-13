@@ -24,6 +24,7 @@ import com.getaxonflow.sdk.authzen.AuthZENUnreadableProfileException;
 import com.getaxonflow.sdk.authzen.AuthZENUnresolvedException;
 import com.getaxonflow.sdk.authzen.AuthZENUnusableResponseException;
 import com.getaxonflow.sdk.exceptions.*;
+import com.getaxonflow.sdk.exceptions.TypedPolicyRefusalException;
 import com.getaxonflow.sdk.identity.ReadIdentity;
 import com.getaxonflow.sdk.masfeat.MASFEATTypes.*;
 import com.getaxonflow.sdk.simulation.*;
@@ -35,6 +36,14 @@ import com.getaxonflow.sdk.types.costcontrols.CostControlTypes.*;
 import com.getaxonflow.sdk.types.executionreplay.ExecutionReplayTypes.*;
 import com.getaxonflow.sdk.types.hitl.HITLTypes.*;
 import com.getaxonflow.sdk.types.policies.PolicyTypes.*;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.ActiveTypedPolicy;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.AuthoringFinding;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedAuthoringDocumentRequest;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedAuthoringEdition;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedPolicyActivation;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedPolicyPublication;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedPolicySystemCorpus;
+import com.getaxonflow.sdk.types.policies.TypedPolicyTypes.TypedPolicyValidation;
 import com.getaxonflow.sdk.types.webhook.WebhookTypes.*;
 import com.getaxonflow.sdk.util.*;
 import java.io.BufferedReader;
@@ -46,9 +55,11 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -179,6 +190,7 @@ public final class AxonFlow implements Closeable {
   // derives, so each route is reported once per client family.
   private final Set<String> reportedRouteDeprecations;
   private final MASFEATNamespace masfeatNamespace;
+  private final TypedPoliciesNamespace typedPoliciesNamespace;
 
   private AxonFlow(AxonFlowConfig config) {
     this.config = Objects.requireNonNull(config, "config cannot be null");
@@ -252,6 +264,7 @@ public final class AxonFlow implements Closeable {
     this.cache = new ResponseCache(config.getCacheConfig());
     this.asyncExecutor = ForkJoinPool.commonPool();
     this.masfeatNamespace = new MASFEATNamespace();
+    this.typedPoliciesNamespace = new TypedPoliciesNamespace();
 
     logger.info("AxonFlow client initialized for {}", config.getEndpoint());
 
@@ -387,6 +400,7 @@ public final class AxonFlow implements Closeable {
     // nothing checked it, which is the same shape as a claim with no test.
     // ReadIdentityTest#aDerivedClientRebuildsEveryClientBoundMember now does.
     this.masfeatNamespace = new MASFEATNamespace();
+    this.typedPoliciesNamespace = new TypedPoliciesNamespace();
 
     // No heartbeat here: the gate is process-global and the parent already ran
     // it. Firing one per derived client would turn a per-request derivation
@@ -697,6 +711,17 @@ public final class AxonFlow implements Closeable {
    */
   public MASFEATNamespace masfeat() {
     return masfeatNamespace;
+  }
+
+  /**
+   * Typed policy authoring (platform v11.0.0): the six routes the agent proxies under {@value
+   * #TYPED_POLICIES_PATH}. A client derived with {@link #asUser} has its own namespace, bound to
+   * the derived client.
+   *
+   * @return the typed policies namespace
+   */
+  public TypedPoliciesNamespace typedPolicies() {
+    return typedPoliciesNamespace;
   }
 
   /**
@@ -7485,6 +7510,241 @@ public final class AxonFlow implements Closeable {
    */
   public CompletableFuture<HITLStats> getHITLStatsAsync() {
     return CompletableFuture.supplyAsync(this::getHITLStats, asyncExecutor);
+  }
+
+  // ========================================================================
+  // Typed Policies Namespace Inner Class
+  // ========================================================================
+
+  /** The prefix of the six typed policy routes. */
+  public static final String TYPED_POLICIES_PATH = "/api/v1/typed-policies";
+
+  /**
+   * Typed policy authoring (platform v11.0.0), the successor to the legacy policy routes.
+   *
+   * <p>A v11 platform authors policy as a typed document: validated, published as a signed artifact
+   * pinned by its digest, and promoted to active. The agent proxies the six routes with this
+   * client's credentials, and stamps the organization and the author itself; neither can be named
+   * in a request.
+   *
+   * <p>Activation PROMOTES: a digest whose version does not advance past the active one is refused.
+   * Rolling back to an earlier document and withdrawing the active one are operations of the
+   * customer portal, behind its session; the agent does not proxy them, so this namespace has no
+   * method for either. On an edition with separation of duties, {@link #publish} refuses every
+   * publication with the finding code {@code APPROVER_IS_AUTHOR}: publishing through this route
+   * names no approver, and such a deployment approves in the customer portal.
+   *
+   * <p>Every refusal is a {@link TypedPolicyRefusalException} carrying the HTTP status, the
+   * platform's reason and, where there are any, the findings. A 401 is an {@link
+   * AuthenticationException}, as on every other route. These routes are not retried: a publication
+   * is not idempotent.
+   */
+  public final class TypedPoliciesNamespace {
+
+    private TypedPoliciesNamespace() {}
+
+    /**
+     * What this deployment may author: its construct boundary and document ceiling, consulted
+     * BEFORE a publication rather than learned from a refusal.
+     *
+     * @return the edition report
+     */
+    public TypedAuthoringEdition edition() {
+      return typedPolicyJson("GET", "/edition", null, TypedAuthoringEdition.class);
+    }
+
+    /**
+     * Every finding for a candidate document, ordered and complete. A refused document is still a
+     * successful validation: read {@code isSuccess()} and the findings rather than expecting an
+     * exception.
+     *
+     * @param document the authoring document, as a JSON object
+     * @param fixtures the author-declared cases, or null to send none
+     * @return the validation
+     */
+    public TypedPolicyValidation validate(
+        Map<String, Object> document, List<Map<String, Object>> fixtures) {
+      Objects.requireNonNull(document, "document cannot be null");
+      return typedPolicyJson(
+          "POST",
+          "/validate",
+          new TypedAuthoringDocumentRequest(document, fixtures),
+          TypedPolicyValidation.class);
+    }
+
+    /**
+     * Publishes a document as a signed artifact, pinned by its digest. A publication without
+     * fixtures is refused, since no policy in the document has then been shown to do anything.
+     *
+     * @param document the authoring document, as a JSON object
+     * @param fixtures the author-declared cases the publication gauntlet runs
+     * @return the publication
+     * @throws TypedPolicyRefusalException 422 with the findings ({@code publication_refused} or
+     *     {@code document_refused}), 402 {@code tier_limit}, 429 {@code artifact_cap}, or 400 for a
+     *     malformed request
+     */
+    public TypedPolicyPublication publish(
+        Map<String, Object> document, List<Map<String, Object>> fixtures) {
+      Objects.requireNonNull(document, "document cannot be null");
+      return typedPolicyJson(
+          "POST",
+          "/publish",
+          new TypedAuthoringDocumentRequest(document, fixtures),
+          TypedPolicyPublication.class);
+    }
+
+    /**
+     * Promotes a published digest to active. The activation is audited and names the caller.
+     *
+     * @param digest the published digest
+     * @param reason recorded with the activation, or null to send none
+     * @return the activation record
+     * @throws TypedPolicyRefusalException 409 {@code activation_refused} when the digest is not
+     *     admitted, its version does not advance, its parent is not the active digest, or the
+     *     caller may not activate it
+     */
+    public TypedPolicyActivation activate(String digest, String reason) {
+      Objects.requireNonNull(digest, "digest cannot be null");
+      Map<String, Object> body = new LinkedHashMap<>();
+      body.put("digest", digest);
+      if (reason != null) {
+        body.put("reason", reason);
+      }
+      return typedPolicyJson("POST", "/activate", body, TypedPolicyActivation.class);
+    }
+
+    /**
+     * The document in force, as the exact bytes that were signed, or empty when nothing is active
+     * (the platform's 404).
+     *
+     * @return the active document, if any
+     */
+    public Optional<ActiveTypedPolicy> active() {
+      TypedPolicyAnswer answer = sendTypedPolicy("GET", "/active", null);
+      if (answer.status == 404) {
+        return Optional.empty();
+      }
+      JsonNode node = typedPolicyObject(answer, "/active");
+      @SuppressWarnings("unchecked")
+      Map<String, Object> document = objectMapper.convertValue(node, Map.class);
+      return Optional.of(new ActiveTypedPolicy(answer.body, document));
+    }
+
+    /**
+     * The platform's own controls, read-only: the shipped system corpus.
+     *
+     * @return the system corpus; empty when the answer carries none
+     */
+    public TypedPolicySystemCorpus system() {
+      JsonNode node = typedPolicyObject(sendTypedPolicy("GET", "/system", null), "/system");
+      JsonNode system = node.get("system");
+      if (system == null || !system.isObject()) {
+        return TypedPolicySystemCorpus.empty();
+      }
+      return decodeTypedPolicy(system, "/system", TypedPolicySystemCorpus.class);
+    }
+  }
+
+  /** One typed policy answer, its body read. */
+  private static final class TypedPolicyAnswer {
+    final int status;
+    final String body;
+    final String retryAfter;
+
+    TypedPolicyAnswer(int status, String body, String retryAfter) {
+      this.status = status;
+      this.body = body;
+      this.retryAfter = retryAfter;
+    }
+  }
+
+  private TypedPolicyAnswer sendTypedPolicy(String method, String route, Object payload) {
+    Request request = buildRequest(method, TYPED_POLICIES_PATH + route, payload);
+    try (Response response = executeHttp(httpClient, request)) {
+      ResponseBody body = response.body();
+      return new TypedPolicyAnswer(
+          response.code(), body == null ? "" : body.string(), response.header("Retry-After"));
+    } catch (IOException e) {
+      throw new ConnectionException(
+          "Typed policy request failed: " + method + " " + TYPED_POLICIES_PATH + route, e);
+    }
+  }
+
+  /**
+   * Returns a 2xx answer's body as a JSON object; throws the client's usual error for a 401, a
+   * {@link TypedPolicyRefusalException} for every other refusal, and an error for a body that is
+   * not an object.
+   */
+  private JsonNode typedPolicyObject(TypedPolicyAnswer answer, String route) {
+    JsonNode node;
+    try {
+      node = objectMapper.readTree(answer.body);
+    } catch (JsonProcessingException e) {
+      node = null;
+    }
+    if (answer.status >= 400) {
+      throw typedPolicyRefusal(answer, node, route);
+    }
+    if (node == null || !node.isObject()) {
+      throw new AxonFlowException(
+          TYPED_POLICIES_PATH
+              + route
+              + " answered "
+              + answer.status
+              + " with a body that is not an object");
+    }
+    return node;
+  }
+
+  private AxonFlowException typedPolicyRefusal(
+      TypedPolicyAnswer answer, JsonNode body, String route) {
+    JsonNode error = body == null ? null : body.get("error");
+    String message =
+        error != null && error.isTextual() && !error.asText().isEmpty()
+            ? error.asText()
+            : "HTTP " + answer.status + " from " + route;
+    if (answer.status == 401) {
+      return new AuthenticationException(message);
+    }
+    List<AuthoringFinding> findings = new ArrayList<>();
+    JsonNode declared = body == null ? null : body.get("findings");
+    if (declared != null && declared.isArray()) {
+      for (JsonNode finding : declared) {
+        if (finding.isObject()) {
+          findings.add(objectMapper.convertValue(finding, AuthoringFinding.class));
+        }
+      }
+    }
+    Integer retryAfter = null;
+    if (answer.retryAfter != null && answer.retryAfter.matches("[0-9]{1,9}")) {
+      retryAfter = Integer.valueOf(answer.retryAfter);
+    }
+    return new TypedPolicyRefusalException(
+        message,
+        answer.status,
+        textMember(body, "reason"),
+        textMember(body, "code"),
+        findings,
+        retryAfter);
+  }
+
+  private static String textMember(JsonNode body, String member) {
+    JsonNode value = body == null ? null : body.get(member);
+    return value != null && value.isTextual() ? value.asText() : null;
+  }
+
+  private <T> T typedPolicyJson(String method, String route, Object payload, Class<T> type) {
+    return decodeTypedPolicy(
+        typedPolicyObject(sendTypedPolicy(method, route, payload), route), route, type);
+  }
+
+  private <T> T decodeTypedPolicy(JsonNode node, String route, Class<T> type) {
+    try {
+      return objectMapper.treeToValue(node, type);
+    } catch (JsonProcessingException e) {
+      throw new AxonFlowException(
+          "Failed to decode the " + TYPED_POLICIES_PATH + route + " answer", e);
+    }
   }
 
   // ========================================================================

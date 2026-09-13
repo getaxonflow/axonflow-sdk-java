@@ -397,6 +397,25 @@ One process can be two enforcement points: a request path and a response path th
 - **What a declaration changes.** On an Enterprise deployment, an allow verdict carrying a mandatory obligation the declared set cannot discharge becomes a deny, so declare every obligation your enforcement point carries out, and only those. A Community deployment records the declaration without denying on it, and drops any capability in a family it does not issue.
 - **Refused before it is sent.** `PEPHandshake.of` and `PEPCapability.of` apply the platform's own rules and throw `PEPHandshakeException` naming the member at fault (`getPointer()` is `/pep_id`, `/audience` or `/capabilities`), instead of the first governed call coming back `400`. A `PEPHandshake` is immutable and computes its header once, so every request carries exactly the value that was validated.
 
+## Typed policy authoring (v11.0.0+)
+
+A v11 platform authors policy as a typed document: validated, published as a signed artifact pinned by its digest, and promoted to active. `client.typedPolicies()` reaches the six routes the agent proxies under `/api/v1/typed-policies`:
+
+```java
+AxonFlow.TypedPoliciesNamespace typed = client.typedPolicies();
+TypedAuthoringEdition edition = typed.edition(); // what this deployment may author
+TypedPolicyValidation validation = typed.validate(document, fixtures); // every finding
+TypedPolicyPublication published = typed.publish(document, fixtures); // signed, pinned by digest
+typed.activate(published.getDigest(), null); // promote to active
+Optional<ActiveTypedPolicy> active = typed.active(); // the signed source in force, if any
+TypedPolicySystemCorpus system = typed.system(); // the platform's own controls
+```
+
+- **Activation promotes.** A digest whose version does not advance past the active one is refused. Rolling back to an earlier document, and withdrawing the active one, are operations of the customer portal behind its session; the agent does not proxy them, so the SDK has no method for either.
+- **The organization and the author are the ones your credentials resolve to.** The agent stamps both, and the platform overwrites any author named inside the document. A client derived with `asUser` has its own namespace, and its user token is the caller.
+- **Refusals are typed.** Every refusal is a `TypedPolicyRefusalException` with the HTTP status, the platform's reason (such as `publication_refused`, `activation_refused` or `tier_limit`), any findings, and `getRetryAfter()` when the refusal is retryable; a 401 is the client's `AuthenticationException`. On an edition with separation of duties, publishing refuses with the finding code `APPROVER_IS_AUTHOR`: the route names no approver, and such a deployment approves in the customer portal.
+- **The document is the authoring model itself,** a `Map<String, Object>` rather than Java types, so a field the policy vocabulary gains is authorable without an SDK release. A null fixtures list sends none; an empty one sends `[]`. `validate` answers identically on every edition; the edition's boundary is applied when you publish.
+
 ## Reading decisions: who is asking decides what comes back
 
 `explainDecision` and `listDecisions` — and the audit reads — are scoped to the
