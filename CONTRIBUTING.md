@@ -38,7 +38,7 @@ A DCO check runs automatically on every PR opened in the `getaxonflow` org. **PR
 ./mvnw verify
 ```
 
-Tests run under JUnit 5. The wire-shape contract gate (under `scripts/wire_shape/`) runs in CI when a PR touches Java sources, the wire-shape baseline, or the gate scripts themselves — see `.github/workflows/wire-shape-contract.yml` for the exact path filter.
+Tests run under JUnit 5. The wire-shape contract gate (under `scripts/wire_shape/`) runs in CI when a PR touches Java sources, the wire-shape baseline, the spec snapshot under `tests/fixtures/openapi/`, or the gate scripts themselves — see `.github/workflows/wire-shape-contract.yml` for the exact path filter. The snapshot's README explains how the specs are pinned and how to move the pin.
 
 ## Pull request guidelines
 
@@ -53,7 +53,7 @@ The wire-shape contract gate uses a baseline file (`tests/fixtures/wire-shape-ba
 
 When your PR touches a type listed in the baseline, do one of:
 
-- **Burn it down.** Realign the POJO with the OpenAPI spec in this PR, regenerate the baseline via `scripts/wire_shape/refresh.py`, and note "burndown: `<entry>`" in the PR description.
+- **Burn it down.** Realign the POJO with the OpenAPI spec in this PR, regenerate the baseline with `python3 scripts/wire_shape/refresh.py tests/fixtures/openapi`, and note "burndown: `<entry>`" in the PR description.
 - **Justify it.** If the drift can't be resolved in this PR (different scope, blocked on a platform spec change, etc.), say so in the PR description in one line.
 
 CI does not block PRs that touch a baselined type without addressing it, but reviewers will ask the burndown-or-justify question.

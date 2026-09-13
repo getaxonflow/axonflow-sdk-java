@@ -59,12 +59,15 @@ Five gates:
    -Dmdep.outputFile=target/wire-shape-cp.txt` first):
    target/classes and target/wire-shape-cp.txt.
 
-Specs dir is passed via AXONFLOW_OPENAPI_SPECS_DIR. Without it, the
-script exits 0 after a skip message so `mvn test` and local work
-don't require a specs checkout.
+Specs dir is passed via AXONFLOW_OPENAPI_SPECS_DIR: CI points it at
+the committed snapshot, tests/fixtures/openapi (see its README).
+Without it, the script exits 0 after a skip message so `mvn test`
+and local work don't require it. When the specs dir is a generated
+snapshot, the platform commit its headers name must equal the
+baseline's openapi_specs_sha, or the gate fails.
 
 Usage:
-    AXONFLOW_OPENAPI_SPECS_DIR=/path/to/docs/api \\
+    AXONFLOW_OPENAPI_SPECS_DIR=tests/fixtures/openapi \\
       python3 scripts/wire_shape/validate.py
 """
 
@@ -84,6 +87,7 @@ from lib import (  # noqa: E402
     discover_sdk_types,
     load_all_schemas,
     load_baseline,
+    snapshot_source_commit,
 )
 
 # Gate 5 (audit-surface binding, #3254): the audit + masfeat surfaces are
@@ -274,24 +278,23 @@ def main() -> int:
             "⏭️  AXONFLOW_OPENAPI_SPECS_DIR not set; wire-shape gate skipped."
         )
         print(
-            "    The dedicated CI job clones getaxonflow/axonflow at the "
-            "pinned SHA and exports this variable before running the "
-            "validator."
+            "    The dedicated CI job points it at the committed snapshot, "
+            "tests/fixtures/openapi, before running the validator."
         )
         return 0
     specs = Path(env)
     if not specs.is_dir():
-        # Env set but path is bogus. CI probably failed to check out the
-        # specs at the pinned SHA; treating that as a skip would let a
+        # Env set but path is bogus: the workflow points at a snapshot
+        # directory that is not there. Treating that as a skip would let a
         # broken pipeline produce a green check. Fail loudly instead.
         print(
             f"❌ AXONFLOW_OPENAPI_SPECS_DIR={env} is not a directory.",
             file=sys.stderr,
         )
         print(
-            "   The wire-shape job's specs-checkout step must run before "
-            "this validator. A misconfigured path silently disables the "
-            "gate, which we refuse to do.",
+            "   The wire-shape job must point this at the committed "
+            "snapshot, tests/fixtures/openapi. A misconfigured path "
+            "silently disables the gate, which we refuse to do.",
             file=sys.stderr,
         )
         return 1
@@ -308,6 +311,30 @@ def main() -> int:
     sdk = discover_sdk_types()
     baseline = load_baseline()
     errors = 0
+
+    # The pin: a generated snapshot names the platform commit it was
+    # derived from, and the baseline must pin that same revision, or
+    # every gate below compares the SDK against specs the baseline does
+    # not describe.
+    snapshot_sha = snapshot_source_commit(specs)
+    pinned_sha = (baseline.get("openapi_specs_sha") or "").strip()
+    if snapshot_sha is None:
+        print(
+            f"ℹ️  {specs} is not a generated snapshot; the baseline's pin "
+            f"({pinned_sha or 'none'}) is not checked against it.\n"
+        )
+    elif snapshot_sha != pinned_sha:
+        print(
+            f"❌ The snapshot in {specs} was derived at platform commit "
+            f"{snapshot_sha}, but tests/fixtures/wire-shape-baseline.json "
+            f"pins {pinned_sha or 'nothing'}.\n"
+            "   Regenerate the baseline against the snapshot: python3 "
+            "scripts/wire_shape/refresh.py tests/fixtures/openapi\n",
+            file=sys.stderr,
+        )
+        errors += 1
+    else:
+        print(f"📌 The snapshot and the baseline both pin platform commit {pinned_sha}.\n")
 
     # Gate 1: cross-spec divergence.
     baselined_cross = baseline["cross_spec_duplicates"]
