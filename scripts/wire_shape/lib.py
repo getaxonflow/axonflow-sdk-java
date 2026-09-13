@@ -82,6 +82,22 @@ _FIELD_DECL_RE = re.compile(
 # JavaDoc and other annotations like @JsonInclude in between.
 _JSON_PROPERTY_LOOKBACK = 250
 
+# @JsonIgnore on a field: Jackson never maps it, so it is not a wire key
+# whatever it is named. @JsonIgnore(false) switches the ignore off, and
+# @JsonIgnoreProperties is a class-level annotation, not this one.
+_JSON_IGNORE_RE = re.compile(r"@JsonIgnore\b(?!\s*\(\s*false\s*\))")
+
+
+def _json_ignored(cleaned: str, field_pos: int) -> bool:
+    """Whether the field declared at field_pos carries @JsonIgnore.
+
+    Only the text since the previous statement or block boundary is read,
+    so an annotation on an earlier member never binds to this one, and it
+    is the cleaned text, so one mentioned in a comment does not count.
+    """
+    start = max(cleaned.rfind(c, 0, field_pos) for c in ";{}")
+    return _JSON_IGNORE_RE.search(cleaned, start + 1, field_pos) is not None
+
 
 def load_all_schemas(spec_dir: Path) -> tuple[
     dict[str, list[str]],
@@ -304,7 +320,7 @@ def _extract_types_from_java(content: str) -> dict[str, list[str]]:
     # class-level constants, never serialized.
     field_decls = [
         fm for fm in _FIELD_DECL_RE.finditer(cleaned)
-        if "static" not in fm.group(1)
+        if "static" not in fm.group(1) and not _json_ignored(cleaned, fm.start())
     ]
 
     # Build the merged property stream. Each entry is (position,

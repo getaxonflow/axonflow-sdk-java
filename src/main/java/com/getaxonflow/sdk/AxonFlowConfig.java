@@ -4,6 +4,7 @@ package com.getaxonflow.sdk;
 
 import com.getaxonflow.sdk.exceptions.ConfigurationException;
 import com.getaxonflow.sdk.types.Mode;
+import com.getaxonflow.sdk.types.PEPHandshake;
 import com.getaxonflow.sdk.util.CacheConfig;
 import com.getaxonflow.sdk.util.RetryConfig;
 import java.io.InputStream;
@@ -116,6 +117,9 @@ public final class AxonFlowConfig {
   /** Receives the deprecations the platform declares; see {@link Builder#onRouteDeprecation}. */
   private final Consumer<PlatformRouteDeprecation> onRouteDeprecation;
 
+  /** The PEP capability declaration; see {@link Builder#pepHandshake}. */
+  private final PEPHandshake pepHandshake;
+
   private AxonFlowConfig(Builder builder) {
     this.tryMode = "1".equals(System.getenv("AXONFLOW_TRY"));
     this.endpoint =
@@ -135,6 +139,7 @@ public final class AxonFlowConfig {
     this.userAgent =
         builder.userAgent != null ? builder.userAgent : "axonflow-sdk-java/" + SDK_VERSION;
     this.onRouteDeprecation = builder.onRouteDeprecation;
+    this.pepHandshake = builder.pepHandshake;
 
     validate();
   }
@@ -320,6 +325,15 @@ public final class AxonFlowConfig {
   }
 
   /**
+   * Returns the PEP capability declaration this client presents, or null when it presents none.
+   *
+   * @return the declaration, or null
+   */
+  public PEPHandshake getPEPHandshake() {
+    return pepHandshake;
+  }
+
+  /**
    * Returns the X-Axonflow-Client header value identifying this SDK + version.
    *
    * <p>Per ADR-050 §4, every governed request to the agent carries this header so the agent can
@@ -378,6 +392,7 @@ public final class AxonFlowConfig {
     builder.cacheConfig = this.cacheConfig;
     builder.userAgent = this.userAgent;
     builder.onRouteDeprecation = this.onRouteDeprecation;
+    builder.pepHandshake = this.pepHandshake;
     return builder;
   }
 
@@ -414,6 +429,7 @@ public final class AxonFlowConfig {
     private CacheConfig cacheConfig;
     private String userAgent;
     private Consumer<PlatformRouteDeprecation> onRouteDeprecation;
+    private PEPHandshake pepHandshake;
 
     private Builder() {}
 
@@ -614,6 +630,22 @@ public final class AxonFlowConfig {
      */
     public Builder onRouteDeprecation(Consumer<PlatformRouteDeprecation> listener) {
       this.onRouteDeprecation = listener;
+      return this;
+    }
+
+    /**
+     * Sets the PEP capability declaration this client presents on every call to a plane that reads
+     * it: {@code decide} (and {@code decideAndFulfill} and {@code fulfillRequest}'s engine
+     * round-trip), AuthZEN {@code evaluate} and {@code evaluateAll}, {@code mcpCheckInput} and
+     * {@code mcpCheckOutput} (and their {@code checkTool*} aliases), and the gateway pre-check. No
+     * other route receives it. {@link AxonFlow#withPEPHandshake} derives a client presenting a
+     * different one.
+     *
+     * @param pepHandshake the declaration, or null for none (the default: no header is sent)
+     * @return this builder
+     */
+    public Builder pepHandshake(PEPHandshake pepHandshake) {
+      this.pepHandshake = pepHandshake;
       return this;
     }
 

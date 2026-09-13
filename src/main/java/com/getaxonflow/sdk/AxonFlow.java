@@ -316,6 +316,23 @@ public final class AxonFlow implements Closeable {
   }
 
   /**
+   * A client identical to this one but presenting {@code pepHandshake} as its PEP capability
+   * declaration, in place of this one's.
+   *
+   * <p>One process can be two enforcement points, a request path and a response path that discharge
+   * different obligations; each presents its own through a client derived this way. It is derived
+   * exactly as {@link #asUser} derives one: the same connection pool and dispatcher, and the same
+   * rule that a derived client is never {@link #close() closed}.
+   *
+   * @param pepHandshake the declaration the derived client presents
+   * @return a derived client presenting that declaration
+   */
+  public AxonFlow withPEPHandshake(PEPHandshake pepHandshake) {
+    Objects.requireNonNull(pepHandshake, "pepHandshake cannot be null");
+    return new AxonFlow(this, config.toBuilder().pepHandshake(pepHandshake).build());
+  }
+
+  /**
    * Derivation constructor: same pool, different identity.
    *
    * <p>Deliberately NOT a copy of every field. Anything holding a reference to the client that
@@ -748,7 +765,8 @@ public final class AxonFlow implements Closeable {
     final PolicyApprovalRequest finalRequest = effectiveRequest;
     return retryExecutor.execute(
         () -> {
-          Request httpRequest = buildRequest("POST", "/api/policy/pre-check", finalRequest);
+          Request httpRequest =
+              onPEPPlane(buildRequest("POST", "/api/policy/pre-check", finalRequest));
           try (Response response = executeHttp(httpClient, httpRequest)) {
             PolicyApprovalResult result = parseResponse(response, PolicyApprovalResult.class);
 
@@ -2840,7 +2858,8 @@ public final class AxonFlow implements Closeable {
             request = new MCPCheckInputRequest(connectorType, statement);
           }
 
-          Request httpRequest = buildRequest("POST", "/api/v1/mcp/check-input", request);
+          Request httpRequest =
+              onPEPPlane(buildRequest("POST", "/api/v1/mcp/check-input", request));
           try (Response response = executeHttp(httpClient, httpRequest)) {
             ResponseBody responseBody = response.body();
             if (responseBody == null) {
@@ -2928,7 +2947,7 @@ public final class AxonFlow implements Closeable {
     Objects.requireNonNull(request, "request cannot be null");
     return retryExecutor.execute(
         () -> {
-          Request httpRequest = buildRequest("POST", Pep.DECIDE_PATH, request);
+          Request httpRequest = onPEPPlane(buildRequest("POST", Pep.DECIDE_PATH, request));
           try (Response response = executeHttp(httpClient, httpRequest)) {
             return parseResponse(response, DecideResponse.class);
           }
@@ -3200,7 +3219,8 @@ public final class AxonFlow implements Closeable {
               new MCPCheckOutputRequest(
                   connectorType, responseData, message, metadata, rowCount, tool);
 
-          Request httpRequest = buildRequest("POST", "/api/v1/mcp/check-output", request);
+          Request httpRequest =
+              onPEPPlane(buildRequest("POST", "/api/v1/mcp/check-output", request));
           try (Response response = executeHttp(httpClient, httpRequest)) {
             ResponseBody responseBody = response.body();
             if (responseBody == null) {
@@ -4401,13 +4421,14 @@ public final class AxonFlow implements Closeable {
     // Built through the same helper every other call uses, so this surface
     // inherits the configured endpoint, user agent, auth headers and mode
     // rather than assembling a second opinion about any of them. Only the
-    // profile header is added on top.
+    // profile header is added on top, and onPEPPlane adds the capability declaration.
     Request httpRequest =
-        buildRequest("POST", AUTHZEN_PATH, null)
-            .newBuilder()
-            .post(RequestBody.create(body, JSON))
-            .header(AUTHZEN_PROFILE_HEADER, AuthZENContract.PROFILE_V1)
-            .build();
+        onPEPPlane(
+            buildRequest("POST", AUTHZEN_PATH, null)
+                .newBuilder()
+                .post(RequestBody.create(body, JSON))
+                .header(AUTHZEN_PROFILE_HEADER, AuthZENContract.PROFILE_V1)
+                .build());
 
     String raw;
     int status;
@@ -4501,6 +4522,19 @@ public final class AxonFlow implements Closeable {
   // ========================================================================
   // Internal Methods
   // ========================================================================
+
+  /**
+   * Adds this client's PEP capability declaration to a request on one of the four planes that read
+   * it: decide, AuthZEN evaluation, the MCP checks and the gateway pre-check. Every other route is
+   * built without it, which is why the header is set here and not in {@link #buildRequest}.
+   */
+  private Request onPEPPlane(Request request) {
+    PEPHandshake declared = config.getPEPHandshake();
+    if (declared == null) {
+      return request;
+    }
+    return request.newBuilder().header(PEPHandshake.HEADER, declared.headerValue()).build();
+  }
 
   private Request buildRequest(String method, String path, Object body) {
     HttpUrl url = HttpUrl.parse(config.getEndpoint() + path);

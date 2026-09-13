@@ -366,6 +366,37 @@ This surface does **not** go through the client's `RetryConfig`. That executor i
 
 The rest of the package is hand-written and is meant to be edited: `Attribute`, `AttributeValue`, `AttributeMap`, `AuthZENDecision`, `AuthZENEvaluation`, `AuthZENRefusals`, and the six exception types (`AuthZENEvaluationException` and its five subclasses).
 
+### PEP capability handshake
+
+A v11 platform lets an enforcement point declare, on each call, the exact obligation types and schema versions it can discharge. Build the declaration once and give it to the client:
+
+```java
+PEPHandshake declared =
+    PEPHandshake.of(
+        "checkout-gateway", // names this enforcement point within your credential
+        "https://pep.example.com", // what a decision proof is bound to
+        List.of(PEPCapability.of(AuthZENObligationType.FIELD_REDACT, 1)));
+
+AxonFlow client =
+    AxonFlow.create(
+        AxonFlowConfig.builder()
+            .endpoint("...")
+            .clientId("...")
+            .clientSecret("...")
+            .pepHandshake(declared)
+            .build());
+
+DecideResponse decision = client.decide(request); // carries X-Axonflow-PEP-Handshake
+```
+
+The client sends it on every call to a plane that reads it: `decide`, the engine round-trip of `fulfillRequest` and `decideAndFulfill`, `evaluate` and `evaluateAll`, `mcpCheckInput` and `mcpCheckOutput` (and their `checkTool*` aliases), and the gateway pre-check (`getPolicyApprovedContext`, `preCheck`), the async forms included. It does **not** send it to `proxyLLMCall` (`/api/request`), the OpenAI-compatible route or any other route, because none of them reads it.
+
+One process can be two enforcement points: a request path and a response path that discharge different obligations. `client.withPEPHandshake(other)` derives a client presenting `other` in place of the client's declaration. Like `asUser`, it shares the parent's connection pool, so never close a derived client.
+
+- **There is no default.** A client given no declaration sends no header, and the platform behaves as it did before the handshake existed. `List.of()` declares that the enforcement point discharges nothing; a null list is refused.
+- **What a declaration changes.** On an Enterprise deployment, an allow verdict carrying a mandatory obligation the declared set cannot discharge becomes a deny, so declare every obligation your enforcement point carries out, and only those. A Community deployment records the declaration without denying on it, and drops any capability in a family it does not issue.
+- **Refused before it is sent.** `PEPHandshake.of` and `PEPCapability.of` apply the platform's own rules and throw `PEPHandshakeException` naming the member at fault (`getPointer()` is `/pep_id`, `/audience` or `/capabilities`), instead of the first governed call coming back `400`. A `PEPHandshake` is immutable and computes its header once, so every request carries exactly the value that was validated.
+
 ## Reading decisions: who is asking decides what comes back
 
 `explainDecision` and `listDecisions` — and the audit reads — are scoped to the
