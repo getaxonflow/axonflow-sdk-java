@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 /** Tests for policy simulation methods. */
 @WireMockTest
 @DisplayName("Policy Simulation")
+@SuppressWarnings("deprecation")
 class PolicySimulationTest {
 
   private AxonFlow axonflow;

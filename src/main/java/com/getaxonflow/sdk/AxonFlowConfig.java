@@ -619,11 +619,13 @@ public final class AxonFlowConfig {
      * Sets the listener that receives the deprecations the platform declares on a route this client
      * called.
      *
-     * <p>From v11.0.0 the legacy static- and dynamic-policy routes carry {@code
-     * X-AxonFlow-Removed-In} and a successor {@code Link}, and an RFC 9745 {@code Deprecation}
-     * header once the deprecating release is tagged. The listener is called once per route per
-     * client (a client {@code asUser} derives shares the record), on the thread that made the call.
-     * When unset, the SDK logs each deprecated route once at WARN.
+     * <p>From v11.0.0 the legacy policy routes (the static- and dynamic-policy routes and the
+     * policy simulation routes) carry {@code X-AxonFlow-Removed-In} and a successor {@code Link},
+     * and an RFC 9745 {@code Deprecation} header once the deprecating release is tagged. The
+     * listener is called once per route per client (a client {@code asUser} derives shares the
+     * record), on the thread that made the call. A route whose path carries an id is reported once,
+     * as its template ({@code GET /api/v1/static-policies/{id}}), not once per id. When unset, the
+     * SDK logs each deprecated route once at WARN.
      *
      * @param listener the listener, or null to log instead
      * @return this builder

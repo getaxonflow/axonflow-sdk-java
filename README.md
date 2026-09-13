@@ -416,6 +416,14 @@ TypedPolicySystemCorpus system = typed.system(); // the platform's own controls
 - **Refusals are typed.** Every refusal is a `TypedPolicyRefusalException` with the HTTP status, the platform's reason (such as `publication_refused`, `activation_refused` or `tier_limit`), any findings, and `getRetryAfter()` when the refusal is retryable; a 401 is the client's `AuthenticationException`. On an edition with separation of duties, publishing refuses with the finding code `APPROVER_IS_AUTHOR`: the route names no approver, and such a deployment approves in the customer portal.
 - **The document is the authoring model itself,** a `Map<String, Object>` rather than Java types, so a field the policy vocabulary gains is authorable without an SDK release. A null fixtures list sends none; an empty one sends `[]`. `validate` answers identically on every edition; the edition's boundary is applied when you publish.
 
+## v11.0.0 deprecations
+
+A v11.0.0 platform deprecates its legacy policy routes and removes them in v11.1. Every response from them carries `X-AxonFlow-Removed-In: v11.1` and a successor `Link` naming `/api/v1/typed-policies`, plus an RFC 9745 `Deprecation` header once v11.0.0 is tagged, and the client reports each such route once through `AxonFlowConfig.Builder.onRouteDeprecation` (or logs it once at WARN when that is unset). A client derived with `asUser` shares that record, so a route is reported once per client family, and a route whose path carries an id is reported as its template, such as `POST /api/v1/static-policies/{id}/override`.
+
+- **Policy simulation.** `simulatePolicies`, `getPolicyImpactReport` and `detectPolicyConflicts`, and their `Async` forms, are `@Deprecated` and keep answering until v11.1, but on a v11.0.0 platform their results come from the legacy engine, which no longer decides, so they do not predict what the platform enforces; policy is authored and tested through `client.typedPolicies()` (see [Typed policy authoring](#typed-policy-authoring-v1100)).
+- **The other legacy policy routes.** The SDK's other methods on `/api/v1/static-policies` and `/api/v1/dynamic-policies` reach routes the platform stamps and removes the same way (it stamps its other legacy families too). The client reports each at runtime; those methods are not marked `@Deprecated` in this release.
+- **Per-policy overrides.** A v11.0.0 platform retires them: `createPolicyOverride` and `deletePolicyOverride` throw a `LegacyPolicyWriteFrozenException` (409, `LEGACY_POLICY_WRITE_FROZEN`) whose message names the typed policy route, where a system control is changed in the organization's typed document.
+
 ## Reading decisions: who is asking decides what comes back
 
 `explainDecision` and `listDecisions` — and the audit reads — are scoped to the
