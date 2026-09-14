@@ -5,8 +5,7 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
+## [9.4.0] - 2026-09-14: decision provenance, the PEP capability handshake, typed policy authoring, and the simulation family deprecated
 The first Java SDK release carrying these entries sends the PEP capability handshake, which a
 platform reads from v10.4.0, and reaches /api/v1/typed-policies, which needs a v11.0.0 platform;
 against an older platform it works unchanged. Upgrade the SDK before the platform: from v11.0.0,
@@ -109,6 +108,14 @@ and only a release that sends the handshake can declare it.
   `EffectivePoliciesOptions` and `getEffectiveStaticPolicies` now say what the platform does with
   them: the effective route declares no query parameter and applies none of their options, so
   filter the returned policies instead.
+- **The published jar is now compiled AGAINST the Java 11 API, not merely to Java 11 bytecode
+  (#231).** `pom.xml` set `maven.compiler.source` and `maven.compiler.target`, which fix the
+  language level and the class-file version but leave `javac` linking against the class library
+  of whatever JDK runs the build. A Java 16+ API therefore compiled clean on a newer JDK and
+  failed only at run time on Java 11, which is the declared minimum in both the pom and the
+  README. The SDK pom and all five example poms now set `maven.compiler.release` to 11 instead.
+  The floor is unchanged; only its enforcement is.
+
 
 ## [9.3.0] - 2026-09-06: read-path identity, a heartbeat that fires on first use, and the MIT licence
 
