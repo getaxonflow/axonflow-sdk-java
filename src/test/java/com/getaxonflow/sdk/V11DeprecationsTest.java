@@ -278,6 +278,36 @@ class V11DeprecationsTest {
       catchThrowable(() -> axonflow.toggleDynamicPolicy(id, true));
     }
 
+    // Each call sent its own request, with its id in its path, so a method that shares its template
+    // with another (updateDynamicPolicy and toggleDynamicPolicy are both PUT
+    // /api/v1/dynamic-policies/{id}) is seen to send: exactly 22 requests, in call order.
+    List<String> templates =
+        List.of(
+            "GET /api/v1/static-policies/{id}",
+            "PUT /api/v1/static-policies/{id}",
+            "DELETE /api/v1/static-policies/{id}",
+            "PATCH /api/v1/static-policies/{id}",
+            "GET /api/v1/static-policies/{id}/versions",
+            "POST /api/v1/static-policies/{id}/override",
+            "DELETE /api/v1/static-policies/{id}/override",
+            "GET /api/v1/dynamic-policies/{id}",
+            "PUT /api/v1/dynamic-policies/{id}",
+            "DELETE /api/v1/dynamic-policies/{id}",
+            "PUT /api/v1/dynamic-policies/{id}");
+    List<String> expected = new ArrayList<>();
+    for (String id : List.of("pol_a", "pol_b")) {
+      for (String template : templates) {
+        expected.add(template.replace("{id}", id));
+      }
+    }
+    // WireMock lists serve events newest first.
+    List<String> served =
+        getAllServeEvents().stream()
+            .map(e -> e.getRequest().getMethod().getName() + " " + e.getRequest().getUrl())
+            .collect(Collectors.toList());
+    Collections.reverse(served);
+    assertThat(served).containsExactlyElementsOf(expected);
+
     // Eleven methods, twice each; updateDynamicPolicy and toggleDynamicPolicy share PUT.
     assertThat(reported)
         .extracting(PlatformRouteDeprecation::getRoute)

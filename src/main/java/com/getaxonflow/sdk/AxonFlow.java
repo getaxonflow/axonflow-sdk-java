@@ -201,8 +201,8 @@ public final class AxonFlow implements Closeable {
         && !config.getClientSecret().isEmpty()
         && (config.getClientId() == null || config.getClientId().isEmpty())) {
       throw new ConfigurationException(
-          "clientId is required when clientSecret is set. "
-              + "Set clientId to your tenant identity to avoid data being stored under the wrong tenant.",
+          "clientId is required when clientSecret is set. Set clientId to your tenant identity to"
+              + " avoid data being stored under the wrong tenant.",
           "clientId");
     }
 
@@ -7731,14 +7731,20 @@ public final class AxonFlow implements Closeable {
     }
 
     /**
-     * The document in force, as the exact bytes that were signed, or empty when nothing is active
-     * (the platform's 404).
+     * The document in force, as the exact bytes that were signed, or empty when nothing is active.
+     *
+     * <p>Nothing is active only when the platform says so: a 404 whose reason is {@code
+     * nothing_active}. Any other 404, from a platform before v11.0.0 or an endpoint that is not an
+     * agent, is a {@link TypedPolicyRefusalException} with status 404. A v11.0.0 platform answers a
+     * document store it cannot read with 503 {@code storage_unavailable}, which throws it too
+     * (getaxonflow/axonflow-enterprise#4255).
      *
      * @return the active document, if any
+     * @throws TypedPolicyRefusalException for any other refusal, a 404 included
      */
     public Optional<ActiveTypedPolicy> active() {
       TypedPolicyAnswer answer = sendTypedPolicy("GET", "/active", null);
-      if (answer.status == 404) {
+      if (answer.status == 404 && "nothing_active".equals(typedReason(answer))) {
         return Optional.empty();
       }
       JsonNode node = typedPolicyObject(answer, "/active");
@@ -7841,6 +7847,7 @@ public final class AxonFlow implements Closeable {
         answer.status,
         textMember(body, "reason"),
         textMember(body, "code"),
+        textMember(body, "policy"),
         findings,
         retryAfter);
   }
@@ -7848,6 +7855,15 @@ public final class AxonFlow implements Closeable {
   private static String textMember(JsonNode body, String member) {
     JsonNode value = body == null ? null : body.get(member);
     return value != null && value.isTextual() ? value.asText() : null;
+  }
+
+  /** The platform's {@code reason} in a JSON answer, or null. */
+  private String typedReason(TypedPolicyAnswer answer) {
+    try {
+      return answer.body == null ? null : textMember(objectMapper.readTree(answer.body), "reason");
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      return null;
+    }
   }
 
   private <T> T typedPolicyJson(String method, String route, Object payload, Class<T> type) {
