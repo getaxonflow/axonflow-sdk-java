@@ -70,8 +70,11 @@ cd "$ROOT"
 mvn -q -DskipTests -DskipUnitTests=true -Dfmt.skip=true package || { echo "FAIL: the SDK build"; exit 1; }
 mvn -q -DskipTests dependency:build-classpath -Dmdep.outputFile="$OUT/cp.txt" || { echo "FAIL: the classpath"; exit 1; }
 # typed-policies' default document, put on its classpath by the example's own build (its pom's
-# resources), so a wrong path there fails run 2. Only the resources phase runs: compiling the example
-# with its pom would resolve the released SDK, not this tree's.
+# resources), so a wrong path there fails the leg before any run. Only the resources phase runs:
+# compiling the example with its pom would resolve the released SDK, not this tree's. The output is
+# cleared first: a missing resource directory is skipped without an error, so a document an earlier
+# run left there would otherwise satisfy the check below.
+rm -rf "$ROOT/examples/typed-policies/target/classes"
 mvn -q -f "$ROOT/examples/typed-policies/pom.xml" resources:resources || { echo "FAIL: the example's resources"; exit 1; }
 [ -f "$ROOT/examples/typed-policies/target/classes/typed_policy_publish_body.json" ] || { echo "FAIL: the example's build did not put its default document on its classpath"; exit 1; }
 # The jar this build produced, by its version: a glob would also match a jar an earlier build left.
