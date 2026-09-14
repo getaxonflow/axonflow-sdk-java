@@ -111,14 +111,35 @@ class TypedPoliciesTest {
   }
 
   @Test
+  @DisplayName("the edition names its vocabulary, and reads it as absent when unsent")
+  void editionVocabulary() {
+    answering(
+        "GET",
+        "/edition",
+        200,
+        "{\"success\":true,\"catalog\":\"deployment\",\"catalog_digest\":\"sha256:vocabulary\","
+            + "\"registry_version\":2,\"catalog_fixture\":true}");
+    TypedAuthoringEdition edition = client.typedPolicies().edition();
+    assertThat(edition.getCatalogDigest()).isEqualTo("sha256:vocabulary");
+    assertThat(edition.getRegistryVersion()).isEqualTo(2);
+    assertThat(edition.getCatalogFixture()).isTrue();
+    reset();
+    answering("GET", "/edition", 200, "{\"success\":true,\"catalog\":\"deployment\"}");
+    TypedAuthoringEdition bare = client.typedPolicies().edition();
+    assertThat(bare.getCatalogDigest()).isNull();
+    assertThat(bare.getRegistryVersion()).isNull();
+    assertThat(bare.getCatalogFixture()).isNull();
+  }
+
+  @Test
   @DisplayName("validate sends the document and fixtures and returns every finding")
   void validate() {
     answering(
         "POST",
         "/validate",
         200,
-        "{\"success\":false,\"findings\":[{\"code\":\"ACTION_NOT_REGISTERED\",\"severity\":\"reject\","
-            + "\"policy_id\":\"grant.refund\",\"summary\":\"not registered\",\"detail\":\"tool.x\"}]}");
+        "{\"success\":false,\"findings\":[{\"code\":\"ACTION_NOT_REGISTERED\",\"severity\":\"reject\",\"policy_id\":\"grant.refund\",\"summary\":\"not"
+            + " registered\",\"detail\":\"tool.x\"}]}");
     TypedPolicyValidation validation = client.typedPolicies().validate(DOCUMENT, FIXTURES);
     verify(
         postRequestedFor(urlEqualTo(ROUTE + "/validate"))
@@ -192,6 +213,71 @@ class TypedPoliciesTest {
   }
 
   @Test
+  @DisplayName("publish carries the template omission report")
+  void publishCarriesTheOmissionReport() {
+    answering(
+        "POST",
+        "/publish",
+        200,
+        "{\"success\":true,\"digest\":\"sha256:abc\",\"version\":1,\"findings\":[],"
+            + "\"template_omissions\":{\"omitted\":[\"sys_a\",\"sys_b\"],\"of\":22,"
+            + "\"message\":\"omits 2 of 22\"}}");
+    TypedPolicyPublication published = client.typedPolicies().publish(DOCUMENT, FIXTURES);
+    assertThat(published.getTemplateOmissions().getOmitted()).containsExactly("sys_a", "sys_b");
+    assertThat(published.getTemplateOmissions().getOf()).isEqualTo(22);
+    assertThat(published.getTemplateOmissions().getMessage()).isEqualTo("omits 2 of 22");
+    assertThat(published.getTemplateOmissionsUnavailable()).isNull();
+  }
+
+  @Test
+  @DisplayName("a publication whose omission report is unavailable says why")
+  void aPublicationWhoseOmissionReportIsUnavailableSaysWhy() {
+    answering(
+        "POST",
+        "/publish",
+        200,
+        "{\"success\":true,\"digest\":\"sha256:abc\",\"version\":1,\"template_omissions_unavailable\":\"the"
+            + " organization template could not be read\"}");
+    TypedPolicyPublication published = client.typedPolicies().publish(DOCUMENT, FIXTURES);
+    assertThat(published.getTemplateOmissions()).isNull();
+    assertThat(published.getTemplateOmissionsUnavailable())
+        .isEqualTo("the organization template could not be read");
+  }
+
+  @Test
+  @DisplayName("activate carries the omission report beside the record, not inside it")
+  void activationCarriesTheOmissionReport() {
+    answering(
+        "POST",
+        "/activate",
+        200,
+        "{\"success\":true,\"activation\":{\"digest\":\"sha256:abc\"},"
+            + "\"template_omissions\":{\"omitted\":[\"sys_a\"],\"of\":22,"
+            + "\"message\":\"omits 1 of 22\"}}");
+    TypedPolicyActivation activation = client.typedPolicies().activate(DIGEST, null);
+    assertThat(activation.getTemplateOmissions().getOmitted()).containsExactly("sys_a");
+    assertThat(activation.getTemplateOmissions().getOf()).isEqualTo(22);
+    assertThat(activation.getTemplateOmissions().getMessage()).isEqualTo("omits 1 of 22");
+    assertThat(activation.getTemplateOmissionsUnavailable()).isNull();
+    assertThat(activation.getActivation()).doesNotContainKey("template_omissions");
+  }
+
+  @Test
+  @DisplayName("an activation whose omission report is unavailable says why")
+  void anActivationWhoseOmissionReportIsUnavailableSaysWhy() {
+    answering(
+        "POST",
+        "/activate",
+        200,
+        "{\"success\":true,\"activation\":{\"digest\":\"sha256:abc\"},\"template_omissions_unavailable\":\"the"
+            + " organization template could not be read\"}");
+    TypedPolicyActivation activation = client.typedPolicies().activate(DIGEST, null);
+    assertThat(activation.getTemplateOmissions()).isNull();
+    assertThat(activation.getTemplateOmissionsUnavailable())
+        .isEqualTo("the organization template could not be read");
+  }
+
+  @Test
   @DisplayName("active keeps the exact bytes that were signed")
   void activeKeepsTheSignedBytes() {
     String signed = "{\"api_version\": \"v1\",   \"metadata\": {\"document_id\": \"doc-1\"}}";
@@ -203,14 +289,39 @@ class TypedPoliciesTest {
   }
 
   @Test
-  @DisplayName("nothing active is empty")
+  @DisplayName("nothing active is empty: the platform's 404 nothing_active")
   void nothingActive() {
     answering(
         "GET",
         "/active",
         404,
-        "{\"success\":false,\"reason\":\"no_active_policy\",\"error\":\"nothing is active\"}");
+        "{\"success\":false,\"reason\":\"nothing_active\",\"error\":\"nothing is active\"}");
     assertThat(client.typedPolicies().active()).isEmpty();
+  }
+
+  @Test
+  @DisplayName("any other 404 on active is a typed refusal, not nothing active")
+  void anotherActive404IsARefusal() {
+    // A platform before v11.0.0, or an endpoint that is not an agent, is not "nothing active".
+    String[][] cases = {
+      {"404 page not found", null},
+      {
+        "{\"success\":false,\"reason\":\"no_such_endpoint\",\"error\":\"no route\"}",
+        "no_such_endpoint"
+      },
+    };
+    for (String[] c : cases) {
+      reset();
+      answering("GET", "/active", 404, c[0]);
+      assertThatThrownBy(() -> client.typedPolicies().active())
+          .as(c[0])
+          .isInstanceOfSatisfying(
+              TypedPolicyRefusalException.class,
+              e -> {
+                assertThat(e.getStatus()).isEqualTo(404);
+                assertThat(e.getReason()).isEqualTo(c[1]);
+              });
+    }
   }
 
   @Test
@@ -234,6 +345,26 @@ class TypedPoliciesTest {
         .containsExactly("enforcement");
     assertThat(system.getAssuranceCounts()).containsEntry("enforcement", 1);
     assertThat(system.getDocument()).containsEntry("api_version", "v1");
+  }
+
+  @Test
+  @DisplayName("a system control names itself, and is not mandatory when unsaid")
+  void aControlNamesItselfAndIsNotMandatoryWhenUnsaid() {
+    answering(
+        "GET",
+        "/system",
+        200,
+        "{\"success\":true,\"system\":{\"controls\":[{\"id\":\"sys.a\",\"name\":\"Block DROP"
+            + " TABLE\","
+            + "\"mandatory\":true},{\"id\":\"sys.b\"},{\"id\":\"sys.c\",\"mandatory\":null}]}}");
+    TypedPolicySystemCorpus system = client.typedPolicies().system();
+    // Compared by value against false, so a drift back to a nullable Boolean fails here.
+    assertThat(system.getControls())
+        .extracting(c -> c.getId(), c -> c.getName(), c -> c.getMandatory())
+        .containsExactly(
+            tuple("sys.a", "Block DROP TABLE", true),
+            tuple("sys.b", null, false),
+            tuple("sys.c", null, false));
   }
 
   // -------------------------------------------------------------------------
@@ -263,6 +394,9 @@ class TypedPoliciesTest {
         break;
       case "edition":
         client.typedPolicies().edition();
+        break;
+      case "active":
+        client.typedPolicies().active();
         break;
       default:
         throw new IllegalArgumentException(operation);
@@ -304,7 +438,7 @@ class TypedPoliciesTest {
         402,
         "tier_limit",
         "ERR_TIER_LIMIT_ORG_ROOT_POLICY",
-        ",\"code\":\"ERR_TIER_LIMIT_ORG_ROOT_POLICY\"",
+        ",\"code\":\"ERR_TIER_LIMIT_ORG_ROOT_POLICY\",\"policy\":\"grant.refund\"",
         Map.of(),
         List.of(),
         null
@@ -325,6 +459,9 @@ class TypedPoliciesTest {
       {"activate", "POST", 409, "activation_refused", null, "", Map.of(), List.of(), null},
       {"validate", "POST", 503, "catalog_not_configured", null, "", Map.of(), List.of(), null},
       {"edition", "GET", 404, "no_such_endpoint", null, "", Map.of(), List.of(), null},
+      // A v11.0.0 platform answers a document store it cannot read with 503 storage_unavailable,
+      // not with nothing_active (getaxonflow/axonflow-enterprise#4255).
+      {"active", "GET", 503, "storage_unavailable", null, "", Map.of(), List.of(), null},
     };
     for (Object[] c : cases) {
       String operation = (String) c[0];
@@ -351,6 +488,10 @@ class TypedPoliciesTest {
                             .collect(Collectors.toList()))
                     .isEqualTo(findings);
                 assertThat(e.getRetryAfter()).isEqualTo(c[8]);
+                // A tier refusal names the policy that crossed the ceiling; an outage refusal
+                // (with Retry-After) names none.
+                assertThat(e.getPolicy())
+                    .isEqualTo(((String) c[5]).contains("\"policy\"") ? "grant.refund" : null);
               });
     }
   }
@@ -410,6 +551,21 @@ class TypedPoliciesTest {
         "{\"success\":true,\"digest\":\"sha256:abc\",\"version\":1,\"findings\":null}");
     assertThat(client.typedPolicies().publish(DOCUMENT, FIXTURES).getFindings()).isEmpty();
     answering(
+        "POST",
+        "/publish",
+        200,
+        "{\"success\":true,\"digest\":\"sha256:abc\",\"template_omissions\":null}");
+    assertThat(client.typedPolicies().publish(DOCUMENT, FIXTURES).getTemplateOmissions()).isNull();
+    answering(
+        "POST",
+        "/publish",
+        200,
+        "{\"success\":true,\"digest\":\"sha256:abc\","
+            + "\"template_omissions\":{\"omitted\":null,\"of\":22,\"message\":\"m\"}}");
+    assertThat(
+            client.typedPolicies().publish(DOCUMENT, FIXTURES).getTemplateOmissions().getOmitted())
+        .isEmpty();
+    answering(
         "GET",
         "/edition",
         200,
@@ -450,7 +606,7 @@ class TypedPoliciesTest {
     answering("POST", "/validate", 200, "{\"success\":true}");
     answering("POST", "/publish", 200, "{\"success\":true,\"digest\":\"sha256:abc\"}");
     answering("POST", "/activate", 200, "{\"success\":true}");
-    answering("GET", "/active", 404, "{}");
+    answering("GET", "/active", 404, "{\"success\":false,\"reason\":\"nothing_active\"}");
     answering("GET", "/system", 200, "{\"success\":true}");
     Consumer<AxonFlow> everyRoute =
         c -> {

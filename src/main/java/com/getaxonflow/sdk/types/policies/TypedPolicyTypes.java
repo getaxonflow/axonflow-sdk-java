@@ -206,6 +206,15 @@ public final class TypedPolicyTypes {
     @JsonProperty("catalog")
     private final String catalog;
 
+    @JsonProperty("catalog_digest")
+    private final String catalogDigest;
+
+    @JsonProperty("registry_version")
+    private final Integer registryVersion;
+
+    @JsonProperty("catalog_fixture")
+    private final Boolean catalogFixture;
+
     @JsonProperty("root")
     private final String root;
 
@@ -225,6 +234,9 @@ public final class TypedPolicyTypes {
     public TypedAuthoringEdition(
         @JsonProperty("success") boolean success,
         @JsonProperty("catalog") String catalog,
+        @JsonProperty("catalog_digest") String catalogDigest,
+        @JsonProperty("registry_version") Integer registryVersion,
+        @JsonProperty("catalog_fixture") Boolean catalogFixture,
         @JsonProperty("root") String root,
         @JsonProperty("max_documents") Integer maxDocuments,
         @JsonProperty("constructs") EditionConstructReport constructs,
@@ -232,6 +244,9 @@ public final class TypedPolicyTypes {
         @JsonProperty("signing_key_custody") String signingKeyCustody) {
       this.success = success;
       this.catalog = catalog;
+      this.catalogDigest = catalogDigest;
+      this.registryVersion = registryVersion;
+      this.catalogFixture = catalogFixture;
       this.root = root;
       this.maxDocuments = maxDocuments;
       this.constructs = constructs;
@@ -246,6 +261,24 @@ public final class TypedPolicyTypes {
     /** Returns the configured authoring vocabulary. */
     public String getCatalog() {
       return catalog;
+    }
+
+    /** Returns the digest that identifies the vocabulary, or null when the platform sends none. */
+    public String getCatalogDigest() {
+      return catalogDigest;
+    }
+
+    /** Returns the vocabulary's registry version, or null when the platform sends none. */
+    public Integer getRegistryVersion() {
+      return registryVersion;
+    }
+
+    /**
+     * Returns whether the vocabulary is a test fixture rather than the deployment's, or null when
+     * the platform sends none.
+     */
+    public Boolean getCatalogFixture() {
+      return catalogFixture;
     }
 
     /** Returns the one authority root this surface publishes under. */
@@ -313,16 +346,39 @@ public final class TypedPolicyTypes {
     @JsonProperty("findings")
     private final List<AuthoringFinding> findings;
 
+    @JsonProperty("template_omissions")
+    private final TemplateOmissionReport templateOmissions;
+
+    @JsonProperty("template_omissions_unavailable")
+    private final String templateOmissionsUnavailable;
+
     @JsonCreator
     public TypedPolicyPublication(
         @JsonProperty("success") boolean success,
         @JsonProperty("digest") String digest,
         @JsonProperty("version") Integer version,
-        @JsonProperty("findings") List<AuthoringFinding> findings) {
+        @JsonProperty("findings") List<AuthoringFinding> findings,
+        @JsonProperty("template_omissions") TemplateOmissionReport templateOmissions,
+        @JsonProperty("template_omissions_unavailable") String templateOmissionsUnavailable) {
       this.success = success;
       this.digest = digest;
       this.version = version;
       this.findings = list(findings);
+      this.templateOmissions = templateOmissions;
+      this.templateOmissionsUnavailable = templateOmissionsUnavailable;
+    }
+
+    /**
+     * Returns the organization template's controls this document omits, which activating it removes
+     * for the organization; null when the platform sends no report.
+     */
+    public TemplateOmissionReport getTemplateOmissions() {
+      return templateOmissions;
+    }
+
+    /** Returns why the platform could not report the omissions, or null. */
+    public String getTemplateOmissionsUnavailable() {
+      return templateOmissionsUnavailable;
     }
 
     public boolean isSuccess() {
@@ -351,12 +407,22 @@ public final class TypedPolicyTypes {
     @JsonProperty("activation")
     private final Map<String, Object> activation;
 
+    @JsonProperty("template_omissions")
+    private final TemplateOmissionReport templateOmissions;
+
+    @JsonProperty("template_omissions_unavailable")
+    private final String templateOmissionsUnavailable;
+
     @JsonCreator
     public TypedPolicyActivation(
         @JsonProperty("success") boolean success,
-        @JsonProperty("activation") Map<String, Object> activation) {
+        @JsonProperty("activation") Map<String, Object> activation,
+        @JsonProperty("template_omissions") TemplateOmissionReport templateOmissions,
+        @JsonProperty("template_omissions_unavailable") String templateOmissionsUnavailable) {
       this.success = success;
       this.activation = map(activation);
+      this.templateOmissions = templateOmissions;
+      this.templateOmissionsUnavailable = templateOmissionsUnavailable;
     }
 
     public boolean isSuccess() {
@@ -365,6 +431,60 @@ public final class TypedPolicyTypes {
 
     public Map<String, Object> getActivation() {
       return activation;
+    }
+
+    /**
+     * Returns the organization template's controls the activated document omits, beside the
+     * activation record rather than inside it; null when the platform sends no report.
+     */
+    public TemplateOmissionReport getTemplateOmissions() {
+      return templateOmissions;
+    }
+
+    /** Returns why the platform could not report the omissions, or null. */
+    public String getTemplateOmissionsUnavailable() {
+      return templateOmissionsUnavailable;
+    }
+  }
+
+  /**
+   * The organization template's controls a document omits: {@code omitted} of the template's {@code
+   * of} controls. Activating the document removes them for the organization.
+   */
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static final class TemplateOmissionReport {
+    @JsonProperty("omitted")
+    private final List<String> omitted;
+
+    @JsonProperty("of")
+    private final Integer of;
+
+    @JsonProperty("message")
+    private final String message;
+
+    @JsonCreator
+    public TemplateOmissionReport(
+        @JsonProperty("omitted") List<String> omitted,
+        @JsonProperty("of") Integer of,
+        @JsonProperty("message") String message) {
+      this.omitted = list(omitted);
+      this.of = of;
+      this.message = message;
+    }
+
+    /** Returns the omitted control ids; empty when none, or when the platform sends null. */
+    public List<String> getOmitted() {
+      return omitted;
+    }
+
+    /** Returns how many controls the template has, or null. */
+    public Integer getOf() {
+      return of;
+    }
+
+    /** Returns the platform's summary, or null. */
+    public String getMessage() {
+      return message;
     }
   }
 
@@ -396,6 +516,9 @@ public final class TypedPolicyTypes {
     @JsonProperty("id")
     private final String id;
 
+    @JsonProperty("name")
+    private final String name;
+
     @JsonProperty("authority")
     private final String authority;
 
@@ -403,7 +526,7 @@ public final class TypedPolicyTypes {
     private final String assurance;
 
     @JsonProperty("mandatory")
-    private final Boolean mandatory;
+    private final boolean mandatory;
 
     @JsonProperty("description")
     private final String description;
@@ -414,21 +537,29 @@ public final class TypedPolicyTypes {
     @JsonCreator
     public TypedPolicySystemControl(
         @JsonProperty("id") String id,
+        @JsonProperty("name") String name,
         @JsonProperty("authority") String authority,
         @JsonProperty("assurance") String assurance,
         @JsonProperty("mandatory") Boolean mandatory,
         @JsonProperty("description") String description,
         @JsonProperty("obligations") List<Map<String, Object>> obligations) {
       this.id = id;
+      this.name = name;
       this.authority = authority;
       this.assurance = assurance;
-      this.mandatory = mandatory;
+      // The platform omits mandatory when it is false.
+      this.mandatory = Boolean.TRUE.equals(mandatory);
       this.description = description;
       this.obligations = list(obligations);
     }
 
     public String getId() {
       return id;
+    }
+
+    /** Returns the control's name, or null when the platform sends none. */
+    public String getName() {
+      return name;
     }
 
     public String getAuthority() {
@@ -440,7 +571,8 @@ public final class TypedPolicyTypes {
       return assurance;
     }
 
-    public Boolean getMandatory() {
+    /** Returns whether the control is mandatory; false when the platform omits it or sends null. */
+    public boolean getMandatory() {
       return mandatory;
     }
 

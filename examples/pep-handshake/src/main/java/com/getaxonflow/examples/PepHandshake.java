@@ -18,11 +18,11 @@ import java.util.List;
  * platform reads from v10.4.0.
  *
  * <p>An enforcement point (a PEP) declares, on each governed call, the exact obligation types and
- * schema versions it can discharge. On an Enterprise deployment an allow verdict carrying a
- * mandatory obligation the declared set cannot discharge becomes a deny, so the enforcement point
- * is never handed an instruction it would drop; a Community deployment records the declaration.
- * From v11.0.0, on both editions, a decide under an organization's redact override refuses a caller
- * that does not declare redaction.
+ * schema versions it can discharge. From v11.0.0, on every edition, the engine refuses a mandatory
+ * obligation the declaration cannot discharge: an organization's redact override on a decide
+ * refuses a caller that does not declare redaction. On an Enterprise deployment, in addition, an
+ * allow verdict carrying a mandatory obligation outside the declared set becomes a deny, so the
+ * enforcement point is never handed an instruction it would drop.
  *
  * <p>This example builds a declaration once for the client, derives a client presenting another one
  * (one process can be two enforcement points), and shows that a declaration the platform would
@@ -30,8 +30,10 @@ import java.util.List;
  *
  * <p>After a document with an organization-scope constraint is activated, a decide that does not
  * supply the attribute the constraint conditions on is denied fail-closed with reasons
- * ["unknown_constraint"]; supply the attribute or run this example on a fresh stack. Run it before
- * the typed-policies example, which publishes and activates such a document.
+ * ["unknown_constraint"]; supply the attribute or run this example on a fresh stack. From v11.0.0
+ * the deny's first reason is that code, followed by one naming each constraint it could not
+ * evaluate and the attribute it needed (getaxonflow/axonflow-enterprise#4247). Run it before the
+ * typed-policies example, which publishes and activates such a document.
  *
  * <p>On Enterprise the client id is the organization id and the secret its license key; a Community
  * deployment accepts any credentials.

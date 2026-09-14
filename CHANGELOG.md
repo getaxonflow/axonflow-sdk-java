@@ -53,17 +53,31 @@ and only a release that sends the handshake can declare it.
   to active. `client.typedPolicies()` reaches the six routes the agent proxies under
   `/api/v1/typed-policies`: `edition()`, `validate(document, fixtures)`, `publish(document,
   fixtures)`, `activate(digest, reason)`, `active()` and `system()`. Every refusal except a 401 is
-  a `TypedPolicyRefusalException` carrying the status, the platform's reason, any findings and
-  `Retry-After`; `active()` is empty when nothing is active. A client derived with `asUser` has
-  its own namespace. Rolling back and withdrawing are customer portal operations the agent does
+  a `TypedPolicyRefusalException` carrying the status, the platform's reason, any findings, the
+  policy a tier refusal names (`getPolicy()`) and `Retry-After`. `active()` is empty only for the
+  platform's `404 nothing_active`; any other 404 is a `TypedPolicyRefusalException` with status
+  404, and a v11.0.0 platform answers a document store it cannot read with 503
+  `storage_unavailable`, which throws it too (getaxonflow/axonflow-enterprise#4255). The answers
+  carry the edition's vocabulary (`getCatalogDigest()`, `getRegistryVersion()`,
+  `getCatalogFixture()`), the organization template controls a publication or an activation omits
+  (`getTemplateOmissions()`, a `TemplateOmissionReport`, or `getTemplateOmissionsUnavailable()`
+  when the platform could not report them), and each system control's `getName()`.
+  `TypedPolicySystemControl.getMandatory()` is a plain `boolean`, false when the platform omits
+  it. A client derived with `asUser` has its own namespace. Rolling back and withdrawing are customer portal operations the agent does
   not proxy, so the SDK has no method for either.
 - **Two runnable examples for the v11 platform (axonflow-enterprise#3746).** `examples/pep-handshake` declares an enforcement
   point's capabilities and decides with them, printing each verdict and its reasons;
   `examples/typed-policies` reads what the deployment may author, validates a document and, with
-  `AXONFLOW_TYPED_POLICY_PUBLISH=1`, publishes and activates it. Run the handshake example first:
-  after a document with an organization-scope constraint is activated, a decide that does not
-  supply the attribute the constraint conditions on is denied fail-closed with reasons
-  `["unknown_constraint"]`.
+  `AXONFLOW_TYPED_POLICY_PUBLISH=1`, publishes and activates it, printing the publication's
+  template-omission report before it activates: activating a document that omits the
+  organization template's controls removes them for the organization. It finds its default
+  document on its classpath, so it runs from any directory, and it exits non-zero when a
+  publication or activation it asked for is refused. Run the handshake example first: after a
+  document with an organization-scope constraint is activated, a decide that does not supply the
+  attribute the constraint conditions on is denied fail-closed with reasons
+  `["unknown_constraint"]`. From v11.0.0 the deny's first reason is that code, followed by one
+  naming each constraint it could not evaluate and the attribute it needed
+  (getaxonflow/axonflow-enterprise#4247).
 
 ### Deprecated
 

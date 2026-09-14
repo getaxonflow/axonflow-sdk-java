@@ -29,6 +29,15 @@
     </dependencies>
 
     <build>
+        <resources>
+            <!-- The default document, on the classpath, so the example runs from any directory. -->
+            <resource>
+                <directory>../../tests/fixtures</directory>
+                <includes>
+                    <include>typed_policy_publish_body.json</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

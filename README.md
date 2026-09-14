@@ -426,8 +426,10 @@ TypedPolicySystemCorpus system = typed.system(); // the platform's own controls
 ```
 
 - **Activation promotes.** A digest whose version does not advance past the active one is refused. Rolling back to an earlier document, and withdrawing the active one, are operations of the customer portal behind its session; the agent does not proxy them, so the SDK has no method for either.
-- **The organization and the author are the ones your credentials resolve to.** The agent stamps both, and the platform overwrites any author named inside the document. A client derived with `asUser` has its own namespace, and its user token is the caller.
-- **Refusals are typed.** Every refusal is a `TypedPolicyRefusalException` with the HTTP status, the platform's reason (such as `publication_refused`, `activation_refused` or `tier_limit`), any findings, and `getRetryAfter()` when the refusal is retryable; a 401 is the client's `AuthenticationException`. On an edition with separation of duties, publishing refuses with the finding code `APPROVER_IS_AUTHOR`: the route names no approver, and such a deployment approves in the customer portal.
+- **Activation replaces the organization template.** Activating a document that omits the organization template's controls removes those controls for the organization. The template's controls carry the destructive-command blocks, DROP and TRUNCATE prevention and the blocking SQL-injection rows. `publish()` and `activate()` report which ones a document omits as `getTemplateOmissions()`, and the example prints that report. The publish fixture the example uses is a minimal example, not a starting point for production: it omits all of them.
+- **The agent stamps the organization and the author.** The platform signs the caller as author whatever the document names. The organization is the one your credentials resolve to; on Community it is the deployment's (`ORG_ID`). A client derived with `asUser` has its own namespace, and its user token is the caller.
+- **Refusals are typed.** Every refusal is a `TypedPolicyRefusalException` with the HTTP status, the platform's reason (such as `publication_refused`, `activation_refused` or `tier_limit`), any findings, `getPolicy()` for the policy a tier refusal names, and `getRetryAfter()` when the refusal is retryable; a 401 is the client's `AuthenticationException`. On an edition with separation of duties, publishing refuses with the finding code `APPROVER_IS_AUTHOR`: the route names no approver, and such a deployment approves in the customer portal.
+- **`active()` is empty only for the platform's `nothing_active`.** Any other 404, from a platform before v11.0.0 or an endpoint that is not an agent, throws `TypedPolicyRefusalException` with status 404. A v11.0.0 platform answers a document store it cannot read with 503 `storage_unavailable`, which throws `TypedPolicyRefusalException` too (getaxonflow/axonflow-enterprise#4255).
 - **The document is the authoring model itself,** a `Map<String, Object>` rather than Java types, so a field the policy vocabulary gains is authorable without an SDK release. A null fixtures list sends none; an empty one sends `[]`. `validate` answers identically on every edition; the edition's boundary is applied when you publish.
 - **System controls are changed in the document, not per policy.** A v11.0.0 platform retires per-policy overrides: `createPolicyOverride` and `deletePolicyOverride` answer 409 `LEGACY_POLICY_WRITE_FROZEN` (agent-api's `PerPolicyOverrideRetired` response), and a system control is enabled, disabled or re-actioned in the organization's typed document, in its `system_controls` section.
 
@@ -742,14 +744,14 @@ Runnable in this repository, against a live agent:
 ```bash
 mvn -q -DskipTests -DskipUnitTests=true install  # put the SDK on the local classpath
 AXONFLOW_AGENT_URL=http://localhost:8080 \
-  mvn -q -f examples/authzen/pom.xml compile exec:java  # AuthZEN: 9 steps, 4 of them refusals
-AXONFLOW_AGENT_URL=http://localhost:8080 \
   mvn -q -f examples/pep-handshake/pom.xml compile exec:java  # the PEP capability handshake
 AXONFLOW_AGENT_URL=http://localhost:8080 AXONFLOW_TYPED_POLICY_PUBLISH=1 \
   mvn -q -f examples/typed-policies/pom.xml compile exec:java  # validate, publish, activate
+AXONFLOW_AGENT_URL=http://localhost:8080 \
+  mvn -q -f examples/authzen/pom.xml compile exec:java  # AuthZEN: 9 steps, 4 of them refusals
 ```
 
-Run `pep-handshake` before `typed-policies`. After a document with an organization-scope constraint is activated, a decide that does not supply the attribute the constraint conditions on is denied fail-closed with reasons ["unknown_constraint"]; supply the attribute or run the example on a fresh stack. On Enterprise the client id is the organization id and the secret its license key; a Community deployment accepts any credentials.
+Run `pep-handshake` before `typed-policies`. After a document with an organization-scope constraint is activated, a decide that does not supply the attribute the constraint conditions on is denied fail-closed with reasons ["unknown_constraint"]; supply the attribute or run the example on a fresh stack. From v11.0.0 the deny's first reason is that code, followed by one naming each constraint it could not evaluate and the attribute it needed (getaxonflow/axonflow-enterprise#4247). On Enterprise the client id is the organization id and the secret its license key; a Community deployment accepts any credentials.
 
 ### Community Features
 
