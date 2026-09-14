@@ -67,8 +67,13 @@ echo "ok: HTTP 404 nothing_active"
 cd "$ROOT"
 # This pom sets surefire's skipTests from its own skipUnitTests property, which overrides a
 # command-line -DskipTests, so -DskipTests alone still runs the whole unit suite.
-mvn -q -DskipTests -DskipUnitTests=true -Dfmt.skip=true package
-mvn -q -DskipTests dependency:build-classpath -Dmdep.outputFile="$OUT/cp.txt"
+mvn -q -DskipTests -DskipUnitTests=true -Dfmt.skip=true package || { echo "FAIL: the SDK build"; exit 1; }
+mvn -q -DskipTests dependency:build-classpath -Dmdep.outputFile="$OUT/cp.txt" || { echo "FAIL: the classpath"; exit 1; }
+# typed-policies' default document, put on its classpath by the example's own build (its pom's
+# resources), so a wrong path there fails run 2. Only the resources phase runs: compiling the example
+# with its pom would resolve the released SDK, not this tree's.
+mvn -q -f "$ROOT/examples/typed-policies/pom.xml" resources:resources || { echo "FAIL: the example's resources"; exit 1; }
+[ -f "$ROOT/examples/typed-policies/target/classes/typed_policy_publish_body.json" ] || { echo "FAIL: the example's build did not put its default document on its classpath"; exit 1; }
 # The jar this build produced, by its version: a glob would also match a jar an earlier build left.
 VERSION=$(awk '/<artifactId>axonflow-sdk<\/artifactId>/ { found = 1 } found && /<version>/ { gsub(/.*<version>|<\/version>.*/, ""); print; exit }' pom.xml)
 SDK_JAR="$ROOT/target/axonflow-sdk-${VERSION}.jar"
@@ -77,15 +82,15 @@ SDK_JAR="$ROOT/target/axonflow-sdk-${VERSION}.jar"
 # binding its logger is a no-op.
 SLF4J_SIMPLE="${HOME}/.m2/repository/org/slf4j/slf4j-simple/2.0.12/slf4j-simple-2.0.12.jar"
 if [ ! -f "$SLF4J_SIMPLE" ]; then
-  mvn -q dependency:get -Dartifact=org.slf4j:slf4j-simple:2.0.12
+  mvn -q dependency:get -Dartifact=org.slf4j:slf4j-simple:2.0.12 || { echo "FAIL: slf4j-simple"; exit 1; }
 fi
 CP="${SDK_JAR}:${SLF4J_SIMPLE}:$(cat "$OUT/cp.txt")"
 for ex in pep-handshake typed-policies; do
   mkdir -p "$OUT/classes/$ex"
-  javac -d "$OUT/classes/$ex" -cp "$CP" "$ROOT"/examples/$ex/src/main/java/com/getaxonflow/examples/*.java
+  # A javac usage error exits 2, which here means only the precondition: map every build failure to 1.
+  javac -d "$OUT/classes/$ex" -cp "$CP" "$ROOT"/examples/$ex/src/main/java/com/getaxonflow/examples/*.java || { echo "FAIL: javac $ex"; exit 1; }
 done
-# typed-policies' build puts its default document on its classpath (its pom's resources).
-TYPED_CP="$OUT/classes/typed-policies:$ROOT/tests/fixtures:$CP"
+TYPED_CP="$OUT/classes/typed-policies:$ROOT/examples/typed-policies/target/classes:$CP"
 HANDSHAKE_CP="$OUT/classes/pep-handshake:$CP"
 
 FAILURES=0
@@ -101,7 +106,7 @@ run_example() {
   grep -vE '^[[:space:]]*$| DEBUG | INFO ' "$log" | sed 's/^/  | /'
   return $rc
 }
-# The first line number matching a pattern in a log, or 0.
+# The first line number matching a pattern in a log, or empty when none does.
 line_of() { grep -n -m1 -E "$2" "$1" | cut -d: -f1 || true; }
 
 echo "=== 1. pep-handshake on a fresh stack"
@@ -121,7 +126,7 @@ check "$(grep -qx 'nothing is active' "$OUT/2.log" && echo ok)" \
 echo "=== 3. typed-policies with AXONFLOW_TYPED_POLICY_PUBLISH=1, as the README runs it"
 rc=0; run_example "$TYPED_CP" com.getaxonflow.examples.TypedPolicies "$OUT/3.log" AXONFLOW_TYPED_POLICY_PUBLISH=1 || rc=$?
 check "$([ $rc = 0 ] && echo ok)" "typed-policies exits 0 (exit $rc)"
-omissions=$(line_of "$OUT/3.log" '^template omissions: ')
+omissions=$(line_of "$OUT/3.log" '^template omissions: [0-9]+ of [0-9]+ template controls: ')
 activated=$(line_of "$OUT/3.log" '^activated$')
 check "$([ -n "$omissions" ] && [ -n "$activated" ] && [ "$omissions" -lt "$activated" ] && echo ok)" \
   "it prints the publication's template-omission report before it activates"
