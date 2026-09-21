@@ -28,12 +28,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The v11.0.0 deprecations: the three policy simulation routes keep answering until v11.1 and are
+ * The v11.0.0 deprecations: the three policy simulation routes keep answering until v12.0 and are
  * reported once per route with the platform's own signal, and the retired per-policy override
  * writes throw the typed frozen exception.
  *
  * <p>The stubs carry the headers a v11 platform stamps on these routes today, as sdk-go #233's live
- * run read them from enterprise {@code 857455033}: {@code X-AxonFlow-Removed-In: v11.1} and {@code
+ * run read them from enterprise {@code 857455033}: {@code X-AxonFlow-Removed-In: v12.0} and {@code
  * Link: </api/v1/typed-policies>; rel="successor-version"}, and no {@code Deprecation} header,
  * because the platform's {@code policypath.DeprecatedSince} stays empty until v11.0.0 is tagged.
  */
@@ -77,7 +77,7 @@ class V11DeprecationsTest {
           post(urlEqualTo("/api/v1/policies/" + route))
               .willReturn(
                   okJson("{}")
-                      .withHeader("X-AxonFlow-Removed-In", "v11.1")
+                      .withHeader("X-AxonFlow-Removed-In", "v12.0")
                       .withHeader("Link", "<" + SUCCESSOR + ">; rel=\"successor-version\"")));
     }
   }
@@ -118,11 +118,11 @@ class V11DeprecationsTest {
     assertThat(reported)
         .containsExactly(
             new PlatformRouteDeprecation(
-                "POST /api/v1/policies/simulate", SUCCESSOR, "v11.1", null),
+                "POST /api/v1/policies/simulate", SUCCESSOR, "v12.0", null),
             new PlatformRouteDeprecation(
-                "POST /api/v1/policies/impact-report", SUCCESSOR, "v11.1", null),
+                "POST /api/v1/policies/impact-report", SUCCESSOR, "v12.0", null),
             new PlatformRouteDeprecation(
-                "POST /api/v1/policies/conflicts", SUCCESSOR, "v11.1", null));
+                "POST /api/v1/policies/conflicts", SUCCESSOR, "v12.0", null));
   }
 
   @Test
@@ -151,7 +151,7 @@ class V11DeprecationsTest {
     for (Method method : reaching) {
       Deprecated deprecated = method.getAnnotation(Deprecated.class);
       assertThat(deprecated).as(method.toGenericString()).isNotNull();
-      // The removal is the platform's (v11.1), and an SDK version is the release's to name.
+      // The removal is the platform's (v12.0), and an SDK version is the release's to name.
       assertThat(deprecated.forRemoval()).as(method.toGenericString()).isFalse();
       assertThat(deprecated.since()).as(method.toGenericString()).isEmpty();
     }
@@ -220,7 +220,7 @@ class V11DeprecationsTest {
                 aResponse()
                     .withStatus(409)
                     .withHeader("Content-Type", "application/json")
-                    .withHeader("X-AxonFlow-Removed-In", "v11.1")
+                    .withHeader("X-AxonFlow-Removed-In", "v12.0")
                     .withHeader("Link", "<" + SUCCESSOR + ">; rel=\"successor-version\"")
                     .withBody(OVERRIDE_RETIRED)));
 
@@ -239,7 +239,7 @@ class V11DeprecationsTest {
     assertThat(reported)
         .containsExactly(
             new PlatformRouteDeprecation(
-                "POST /api/v1/static-policies/{id}/override", SUCCESSOR, "v11.1", null));
+                "POST /api/v1/static-policies/{id}/override", SUCCESSOR, "v12.0", null));
   }
 
   @Test
@@ -249,7 +249,7 @@ class V11DeprecationsTest {
         any(urlPathMatching("/api/v1/(static|dynamic)-policies/.+"))
             .willReturn(
                 okJson("{}")
-                    .withHeader("X-AxonFlow-Removed-In", "v11.1")
+                    .withHeader("X-AxonFlow-Removed-In", "v12.0")
                     .withHeader("Link", "<" + SUCCESSOR + ">; rel=\"successor-version\"")));
 
     for (String id : List.of("pol_a", "pol_b")) {

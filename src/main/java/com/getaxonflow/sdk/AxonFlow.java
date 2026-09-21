@@ -1629,11 +1629,11 @@ public final class AxonFlow implements Closeable {
    * @throws NullPointerException if request is null
    * @throws AxonFlowException if the request fails
    * @deprecated A v11.0.0 platform deprecates {@code POST /api/v1/policies/simulate} and removes it
-   *     in v11.1. Every response carries {@code X-AxonFlow-Removed-In: v11.1} and a successor
+   *     in v12.0. Every response carries {@code X-AxonFlow-Removed-In: v12.0} and a successor
    *     {@code Link} naming {@code /api/v1/typed-policies}, plus an RFC 9745 {@code Deprecation}
    *     header once v11.0.0 is tagged, and the client reports the route once through {@link
    *     AxonFlowConfig.Builder#onRouteDeprecation}. Policy is authored and tested through the typed
-   *     policy methods ({@link #typedPolicies()}). It keeps answering until v11.1; on a v11.0.0
+   *     policy methods ({@link #typedPolicies()}). It keeps answering until v12.0; on a v11.0.0
    *     platform its result comes from the legacy engine, which no longer decides, so it does not
    *     predict what the platform enforces.
    */
@@ -1696,11 +1696,11 @@ public final class AxonFlow implements Closeable {
    * @throws NullPointerException if request is null
    * @throws AxonFlowException if the request fails
    * @deprecated A v11.0.0 platform deprecates {@code POST /api/v1/policies/impact-report} and
-   *     removes it in v11.1. Every response carries {@code X-AxonFlow-Removed-In: v11.1} and a
+   *     removes it in v12.0. Every response carries {@code X-AxonFlow-Removed-In: v12.0} and a
    *     successor {@code Link} naming {@code /api/v1/typed-policies}, plus an RFC 9745 {@code
    *     Deprecation} header once v11.0.0 is tagged, and the client reports the route once through
    *     {@link AxonFlowConfig.Builder#onRouteDeprecation}. Policy is authored and tested through
-   *     the typed policy methods ({@link #typedPolicies()}). It keeps answering until v11.1; on a
+   *     the typed policy methods ({@link #typedPolicies()}). It keeps answering until v12.0; on a
    *     v11.0.0 platform its result comes from the legacy engine, which no longer decides, so it
    *     does not predict what the platform enforces.
    */
@@ -1783,11 +1783,11 @@ public final class AxonFlow implements Closeable {
    * @throws IllegalArgumentException if policyId is non-null and empty
    * @throws AxonFlowException if the request fails
    * @deprecated A v11.0.0 platform deprecates {@code POST /api/v1/policies/conflicts} and removes
-   *     it in v11.1. Every response carries {@code X-AxonFlow-Removed-In: v11.1} and a successor
+   *     it in v12.0. Every response carries {@code X-AxonFlow-Removed-In: v12.0} and a successor
    *     {@code Link} naming {@code /api/v1/typed-policies}, plus an RFC 9745 {@code Deprecation}
    *     header once v11.0.0 is tagged, and the client reports the route once through {@link
    *     AxonFlowConfig.Builder#onRouteDeprecation}. Policy is authored and tested through the typed
-   *     policy methods ({@link #typedPolicies()}). It keeps answering until v11.1; on a v11.0.0
+   *     policy methods ({@link #typedPolicies()}). It keeps answering until v12.0; on a v11.0.0
    *     platform its result comes from the legacy engine, which no longer decides, so it does not
    *     predict what the platform enforces.
    */
