@@ -47,14 +47,14 @@ Videos covering different angles of the platform:
 <dependency>
     <groupId>com.getaxonflow</groupId>
     <artifactId>axonflow-sdk</artifactId>
-    <version>8.0.0</version>
+    <version>9.4.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```groovy
-implementation 'com.getaxonflow:axonflow-sdk:8.0.0'
+implementation 'com.getaxonflow:axonflow-sdk:9.4.0'
 ```
 
 ## Evaluation Tier (Free License)
