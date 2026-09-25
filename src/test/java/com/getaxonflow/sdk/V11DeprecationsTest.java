@@ -32,10 +32,12 @@ import org.junit.jupiter.api.Test;
  * reported once per route with the platform's own signal, and the retired per-policy override
  * writes throw the typed frozen exception.
  *
- * <p>The stubs carry the headers a v11 platform stamps on these routes today, as sdk-go #233's live
- * run read them from enterprise {@code 857455033}: {@code X-AxonFlow-Removed-In: v12.0} and {@code
- * Link: </api/v1/typed-policies>; rel="successor-version"}, and no {@code Deprecation} header,
- * because the platform's {@code policypath.DeprecatedSince} stays empty until v11.0.0 is tagged.
+ * <p>The stubs carry the headers a v11.1.0 platform stamps on these routes: {@code
+ * X-AxonFlow-Removed-In: v12.0} and {@code Link: </api/v1/typed-policies>;
+ * rel="successor-version"}. (sdk-go #233's live run read the same routes from enterprise {@code
+ * 857455033}, a v11.0.0-era build, as {@code X-AxonFlow-Removed-In: v11.1}; the removal release
+ * moved to v12.0 in v11.1.0.) The {@code Deprecation} header is absent in the stubs because the
+ * platform's {@code policypath.DeprecatedSince} was empty before v11.0.0 was tagged.
  */
 @WireMockTest
 @SuppressWarnings("deprecation")

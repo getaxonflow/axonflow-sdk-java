@@ -2,6 +2,8 @@
 
 Real-stack proof of the v11.0.0 deprecations through the SDK. `V11DeprecationsTest.java` calls the three policy simulation methods the SDK marks `@Deprecated` (`simulatePolicies`, `detectPolicyConflicts` and `getPolicyImpactReport`) and the two retired override writes against a real v11 agent and orchestrator, and reads what `AxonFlowConfig.Builder.onRouteDeprecation` reports. Nothing is mocked.
 
+Requires a v11.1.0 or later platform: a v11.0.0 platform stamps `X-AxonFlow-Removed-In: v11.1`, and this leg reds against it.
+
 ## What it proves
 
 | Step | Expected |
