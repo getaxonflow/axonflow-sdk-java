@@ -27,7 +27,7 @@ public final class PlatformRouteDeprecation {
    *     e.g. {@code GET /api/v1/static-policies} or {@code POST
    *     /api/v1/static-policies/{id}/override}
    * @param successor the route that replaces it, or null when the platform names none
-   * @param removedIn the release that removes it, e.g. {@code v11.1}, or null
+   * @param removedIn the release that removes it, e.g. {@code v12.0}, or null
    * @param deprecation the RFC 9745 {@code Deprecation} value, or null when not sent
    */
   public PlatformRouteDeprecation(
@@ -52,7 +52,7 @@ public final class PlatformRouteDeprecation {
     return successor;
   }
 
-  /** Returns the release that removes the route, e.g. {@code v11.1}, or null. */
+  /** Returns the release that removes the route, e.g. {@code v12.0}, or null. */
   public String getRemovedIn() {
     return removedIn;
   }

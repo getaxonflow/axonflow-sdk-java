@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
  *       getPolicyImpactReport} is refused with a non-2xx on a fresh v11 organization (never pinned
  *       to one status: getaxonflow/axonflow-enterprise#4223).
  *   <li>Each of the three routes is reported exactly once through {@code onRouteDeprecation}, with
- *       {@code X-AxonFlow-Removed-In: v11.1}, the successor exactly {@code /api/v1/typed-policies},
+ *       {@code X-AxonFlow-Removed-In: v12.0}, the successor exactly {@code /api/v1/typed-policies},
  *       and a {@code Deprecation} header absent or {@code @<unix seconds>}.
  *   <li>A second call of each, and a client derived with {@code asUser}, report nothing new.
  *   <li>{@code createPolicyOverride} and {@code deletePolicyOverride} throw {@code
@@ -188,7 +188,7 @@ public class V11DeprecationsTest {
         check(
             SUCCESSOR.equals(d.getSuccessor()),
             key + ": the successor is exactly " + SUCCESSOR + " (" + d.getSuccessor() + ")");
-        check("v11.1".equals(d.getRemovedIn()), key + ": removed in v11.1 (" + d.getRemovedIn() + ")");
+        check("v12.0".equals(d.getRemovedIn()), key + ": removed in v12.0 (" + d.getRemovedIn() + ")");
         check(
             d.getDeprecation() == null || DEPRECATION.matcher(d.getDeprecation()).matches(),
             key + ": Deprecation absent or @<unix seconds> (" + d.getDeprecation() + ")");

@@ -38,7 +38,7 @@ import java.util.Map;
  *       provenance.
  *   <li>MCP check-output carries the provenance.
  *   <li>A legacy static-policy read is reported once through {@code onRouteDeprecation}, naming
- *       {@code /api/v1/typed-policies} as the successor and {@code v11.1} as the removal release.
+ *       {@code /api/v1/typed-policies} as the successor and {@code v12.0} as the removal release.
  *   <li>A valid legacy static-policy write and a valid dynamic-policy write each throw {@code
  *       LegacyPolicyWriteFrozenException}.
  * </ol>
@@ -204,8 +204,8 @@ public class V11DecisionProvenanceTest {
           "/api/v1/typed-policies".equals(staticReports.get(0).getSuccessor()),
           "the report names the typed route as the successor");
       check(
-          "v11.1".equals(staticReports.get(0).getRemovedIn()),
-          "the report names v11.1 as the removal release");
+          "v12.0".equals(staticReports.get(0).getRemovedIn()),
+          "the report names v12.0 as the removal release");
     }
   }
 
