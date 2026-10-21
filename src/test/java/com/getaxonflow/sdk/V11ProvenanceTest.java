@@ -271,7 +271,7 @@ class V11ProvenanceTest {
         get(urlPathEqualTo("/api/v1/static-policies"))
             .willReturn(
                 okJson("{\"policies\": []}")
-                    .withHeader("X-AxonFlow-Removed-In", "v11.1")
+                    .withHeader("X-AxonFlow-Removed-In", "v12.0")
                     .withHeader(
                         "Link",
                         "</api/v1/audit>; rel=\"related\"",
@@ -300,7 +300,7 @@ class V11ProvenanceTest {
     assertThat(reported)
         .containsExactly(
             new PlatformRouteDeprecation(
-                "GET /api/v1/static-policies", "/api/v1/typed-policies", "v11.1", null),
+                "GET /api/v1/static-policies", "/api/v1/typed-policies", "v12.0", null),
             new PlatformRouteDeprecation(
                 "GET /api/v1/dynamic-policies", null, null, "@1788220800"));
   }
@@ -335,7 +335,7 @@ class V11ProvenanceTest {
 
     String want =
         "GET /api/v1/static-policies is deprecated by the AxonFlow platform; "
-            + "use /api/v1/typed-policies instead; it is removed in v11.1.";
+            + "use /api/v1/typed-policies instead; it is removed in v12.0.";
     assertThat(appender.list)
         .filteredOn(e -> e.getLevel() == Level.WARN && want.equals(e.getFormattedMessage()))
         .hasSize(1);
