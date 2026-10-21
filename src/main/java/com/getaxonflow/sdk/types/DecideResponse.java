@@ -70,6 +70,12 @@ public final class DecideResponse {
   @JsonProperty("document_version")
   private final Integer documentVersion;
 
+  @JsonProperty("pending_approval")
+  private final DecisionPendingApproval pendingApproval;
+
+  @JsonProperty("approval_id")
+  private final String approvalId;
+
   /**
    * Creates a decide response, as Jackson reads it from the wire (v11.0.0 shape).
    *
@@ -110,7 +116,9 @@ public final class DecideResponse {
       @JsonProperty("legacy_validators") List<LegacyValidatorAction> legacyValidators,
       @JsonProperty("policy_identities") List<PolicyIdentity> policyIdentities,
       @JsonProperty("policy_packs") List<String> policyPacks,
-      @JsonProperty("document_version") Integer documentVersion) {
+      @JsonProperty("document_version") Integer documentVersion,
+      @JsonProperty("pending_approval") DecisionPendingApproval pendingApproval,
+      @JsonProperty("approval_id") String approvalId) {
     this.verdict = verdict;
     this.decisionId = decisionId;
     this.traceId = traceId;
@@ -143,6 +151,47 @@ public final class DecideResponse {
             ? Collections.unmodifiableList(new ArrayList<>(policyPacks))
             : Collections.emptyList();
     this.documentVersion = documentVersion;
+    this.pendingApproval = pendingApproval;
+    this.approvalId = approvalId;
+  }
+
+  /** Source compatible constructor retaining the v11.0 provenance shape. */
+  public DecideResponse(
+      String verdict,
+      String decisionId,
+      String traceId,
+      List<String> reasons,
+      List<Obligation> obligations,
+      List<String> evaluatedPolicies,
+      String stage,
+      Instant expiresAt,
+      String error,
+      String engine,
+      String subjectType,
+      String policyBundle,
+      List<LegacyValidatorAction> legacyValidators,
+      List<PolicyIdentity> policyIdentities,
+      List<String> policyPacks,
+      Integer documentVersion) {
+    this(
+        verdict,
+        decisionId,
+        traceId,
+        reasons,
+        obligations,
+        evaluatedPolicies,
+        stage,
+        expiresAt,
+        error,
+        engine,
+        subjectType,
+        policyBundle,
+        legacyValidators,
+        policyIdentities,
+        policyPacks,
+        documentVersion,
+        null,
+        null);
   }
 
   /**
@@ -178,6 +227,8 @@ public final class DecideResponse {
         stage,
         expiresAt,
         error,
+        null,
+        null,
         null,
         null,
         null,
@@ -279,6 +330,16 @@ public final class DecideResponse {
     return documentVersion;
   }
 
+  /** The pending human review; callers must not execute while this is present. */
+  public DecisionPendingApproval getPendingApproval() {
+    return pendingApproval;
+  }
+
+  /** The approval consumed by an allowed retry, when present. */
+  public String getApprovalId() {
+    return approvalId;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -299,7 +360,9 @@ public final class DecideResponse {
         && Objects.equals(legacyValidators, that.legacyValidators)
         && Objects.equals(policyIdentities, that.policyIdentities)
         && Objects.equals(policyPacks, that.policyPacks)
-        && Objects.equals(documentVersion, that.documentVersion);
+        && Objects.equals(documentVersion, that.documentVersion)
+        && Objects.equals(pendingApproval, that.pendingApproval)
+        && Objects.equals(approvalId, that.approvalId);
   }
 
   @Override
@@ -320,7 +383,9 @@ public final class DecideResponse {
         legacyValidators,
         policyIdentities,
         policyPacks,
-        documentVersion);
+        documentVersion,
+        pendingApproval,
+        approvalId);
   }
 
   @Override
@@ -366,6 +431,11 @@ public final class DecideResponse {
         + policyPacks
         + ", documentVersion="
         + documentVersion
+        + ", pendingApproval="
+        + pendingApproval
+        + ", approvalId='"
+        + approvalId
+        + '\''
         + '}';
   }
 }

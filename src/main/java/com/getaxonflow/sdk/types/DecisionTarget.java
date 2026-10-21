@@ -25,6 +25,9 @@ public final class DecisionTarget {
   @JsonProperty("provider")
   private final String provider;
 
+  @JsonProperty("server")
+  private final String server;
+
   @JsonProperty("tool")
   private final String tool;
 
@@ -34,6 +37,7 @@ public final class DecisionTarget {
    * @param type {@code "llm"}, {@code "tool"}, or {@code "agent"} (may be null)
    * @param model the model name when {@code type=llm} (may be null)
    * @param provider the provider when {@code type=llm} (may be null)
+   * @param server the exact server when {@code type=tool} (may be null)
    * @param tool the tool name when {@code type=tool} (may be null)
    */
   @JsonCreator
@@ -41,11 +45,18 @@ public final class DecisionTarget {
       @JsonProperty("type") String type,
       @JsonProperty("model") String model,
       @JsonProperty("provider") String provider,
+      @JsonProperty("server") String server,
       @JsonProperty("tool") String tool) {
     this.type = type;
     this.model = model;
     this.provider = provider;
+    this.server = server;
     this.tool = tool;
+  }
+
+  /** Source-compatible constructor for callers that do not name a tool server. */
+  public DecisionTarget(String type, String model, String provider, String tool) {
+    this(type, model, provider, null, tool);
   }
 
   /** Returns the target type: {@code "llm"}, {@code "tool"}, or {@code "agent"}, or null. */
@@ -63,6 +74,11 @@ public final class DecisionTarget {
     return provider;
   }
 
+  /** Returns the exact tool server, or null. */
+  public String getServer() {
+    return server;
+  }
+
   /** Returns the tool name (when {@code type=tool}), or null. */
   public String getTool() {
     return tool;
@@ -76,12 +92,13 @@ public final class DecisionTarget {
     return Objects.equals(type, that.type)
         && Objects.equals(model, that.model)
         && Objects.equals(provider, that.provider)
+        && Objects.equals(server, that.server)
         && Objects.equals(tool, that.tool);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(type, model, provider, tool);
+    return Objects.hash(type, model, provider, server, tool);
   }
 
   @Override
@@ -95,6 +112,9 @@ public final class DecisionTarget {
         + '\''
         + ", provider='"
         + provider
+        + '\''
+        + ", server='"
+        + server
         + '\''
         + ", tool='"
         + tool
