@@ -118,6 +118,7 @@
         "status",
         "tier",
         "timestamp",
+        "upstream",
         "version"
       ],
       "orchestrator-api.yaml": [
@@ -148,6 +149,30 @@
         "timestamp"
       ]
     },
+    "PendingApproval": {
+      "agent-api.yaml": [
+        "approval_id",
+        "expires_at",
+        "plane",
+        "retry",
+        "status"
+      ],
+      "orchestrator-api.yaml": [
+        "approval_status",
+        "created_at",
+        "decision",
+        "decision_reason",
+        "plan_id",
+        "policies_matched",
+        "step_id",
+        "step_index",
+        "step_input",
+        "step_name",
+        "step_type",
+        "workflow_id",
+        "workflow_name"
+      ]
+    },
     "UpdatePolicyRequest": {
       "orchestrator-api.yaml": [
         "action",
@@ -174,7 +199,7 @@
     }
   },
   "intra_file_duplicates": {},
-  "openapi_specs_sha": "36e0e96b7e5c16626d394272b727b533f2b94a04",
+  "openapi_specs_sha": "ba5201a52edd2bfbe9f1dadd736f19cae03d9cc4",
   "per_type_drift": {
     "AISystemRegistry": {
       "sdk_only": [
@@ -252,8 +277,10 @@
     "ClientResponse": {
       "sdk_only": [],
       "spec_only": [
-        "approval_request_id",
-        "metadata"
+        "code",
+        "metadata",
+        "policy_packs",
+        "response_plane"
       ]
     },
     "ConfigureKillSwitchRequest": {
@@ -335,25 +362,11 @@
         "policy_version_at_decision"
       ]
     },
-    "DecisionTarget": {
-      "sdk_only": [],
-      "spec_only": [
-        "server"
-      ]
-    },
     "DynamicPolicy": {
       "sdk_only": [
         "organization_id"
       ],
       "spec_only": []
-    },
-    "DynamicPolicyMatch": {
-      "sdk_only": [
-        "reason"
-      ],
-      "spec_only": [
-        "message"
-      ]
     },
     "EffectivePoliciesResponse": {
       "sdk_only": [
@@ -369,15 +382,6 @@
       "sdk_only": [],
       "spec_only": [
         "retry_count"
-      ]
-    },
-    "ExfiltrationCheckInfo": {
-      "sdk_only": [
-        "within_limits"
-      ],
-      "spec_only": [
-        "exceeded",
-        "limit_type"
       ]
     },
     "ExplainPolicy": {
@@ -490,11 +494,25 @@
     "MCPCheckInputRequest": {
       "sdk_only": [],
       "spec_only": [
+        "approval_id",
         "client_id",
         "tenant_id",
         "user_id",
         "user_role",
         "user_token"
+      ]
+    },
+    "MCPCheckInputResponse": {
+      "sdk_only": [],
+      "spec_only": [
+        "approval_id",
+        "engine",
+        "legacy_validators",
+        "pending_approval",
+        "policy_bundle",
+        "policy_packs",
+        "redacted_parameters",
+        "subject_type"
       ]
     },
     "MCPCheckOutputRequest": {
@@ -511,7 +529,9 @@
         "policy_matches",
         "redacted_message"
       ],
-      "spec_only": []
+      "spec_only": [
+        "policy_packs"
+      ]
     },
     "PaginationMeta": {
       "sdk_only": [
@@ -548,9 +568,13 @@
         "estimated_duration"
       ],
       "spec_only": [
+        "engine",
         "error",
+        "policy_bundle",
         "policy_info",
+        "subject_type",
         "success",
+        "verdict",
         "version",
         "workflow_execution_id"
       ]
@@ -570,9 +594,6 @@
         "allowed_providers",
         "applied_policies_detail",
         "evaluation_error",
-        "override_applied",
-        "override_id",
-        "override_reason",
         "preferred_provider",
         "routing_reason",
         "segments_resolved",
@@ -591,7 +612,6 @@
       "spec_only": [
         "block_reason",
         "blocked",
-        "dynamic_policy_info",
         "exfiltration_check",
         "matched_policies",
         "processing_time_ms",
@@ -646,6 +666,7 @@
     "ResumePlanResponse": {
       "sdk_only": [],
       "spec_only": [
+        "ignored_foreign_gate_rows",
         "result",
         "step_result"
       ]
@@ -672,7 +693,16 @@
       "spec_only": [
         "approval_enqueue",
         "approval_id",
-        "decision_id"
+        "decision_id",
+        "engine",
+        "policy_bundle",
+        "subject_type"
+      ]
+    },
+    "TemplateOmissionReport": {
+      "sdk_only": [],
+      "spec_only": [
+        "modified"
       ]
     },
     "TriggerKillSwitchRequest": {
@@ -809,8 +839,6 @@
     "DecisionExplanation",
     "DecisionTarget",
     "DynamicPolicy",
-    "DynamicPolicyInfo",
-    "DynamicPolicyMatch",
     "EditionConstructReport",
     "EffectivePoliciesResponse",
     "ExecutionSnapshot",
@@ -874,6 +902,7 @@
     "StaticPolicy",
     "StepGateRequest",
     "StepGateResponse",
+    "TemplateOmissionReport",
     "TimelineEntry",
     "TokenUsage",
     "ToolContext",
