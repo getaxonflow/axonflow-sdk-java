@@ -25,6 +25,36 @@ class PepTypesTest {
       new ObjectMapper().registerModule(new JavaTimeModule());
 
   @Test
+  @DisplayName("payment approval hold and retry fields use the Decision API wire shape")
+  void paymentApprovalWireShape() throws Exception {
+    DecideRequest request =
+        DecideRequest.builder("tool", "transfer")
+            .target(new DecisionTarget("tool", null, null, "payments-live", "execute_payment"))
+            .approvalId("approval-123")
+            .build();
+    String requestJson = MAPPER.writeValueAsString(request);
+    assertThat(requestJson).contains("\"server\":\"payments-live\"");
+    assertThat(requestJson).contains("\"approval_id\":\"approval-123\"");
+    assertThat(request.toString()).contains("approvalId='<redacted>'");
+    assertThat(request.toString()).doesNotContain("approval-123");
+
+    String hold =
+        "{\"verdict\":\"needs_approval\",\"pending_approval\":{"
+            + "\"approval_id\":\"approval-123\",\"status\":\"pending\",\"plane\":\"decide\","
+            + "\"future\":\"ignored\",\"retry\":{\"body_field\":\"approval_id\","
+            + "\"future\":\"ignored\"}}}";
+    DecideResponse pending = MAPPER.readValue(hold, DecideResponse.class);
+    assertThat(pending.getPendingApproval().getApprovalId()).isEqualTo("approval-123");
+    assertThat(pending.getPendingApproval().getRetry().getBodyField()).isEqualTo("approval_id");
+
+    DecideResponse allowed =
+        MAPPER.readValue(
+            "{\"verdict\":\"allow\",\"approval_id\":\"approval-123\"}", DecideResponse.class);
+    assertThat(allowed.getApprovalId()).isEqualTo("approval-123");
+    assertThat(allowed.getPendingApproval()).isNull();
+  }
+
+  @Test
   @DisplayName("DecideRequest serializes snake_case and omits blank user_token + empty context")
   void decideRequestWireShape() throws Exception {
     DecideRequest req =

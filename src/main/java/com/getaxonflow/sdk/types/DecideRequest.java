@@ -37,6 +37,9 @@ public final class DecideRequest {
   @JsonProperty("context")
   private final Map<String, Object> context;
 
+  @JsonProperty("approval_id")
+  private final String approvalId;
+
   private DecideRequest(Builder b) {
     this.stage = b.stage;
     this.query = b.query;
@@ -46,6 +49,7 @@ public final class DecideRequest {
     this.userToken = (b.userToken == null || b.userToken.isEmpty()) ? null : b.userToken;
     // Omit an empty context map per the wire contract (omit if empty).
     this.context = (b.context == null || b.context.isEmpty()) ? null : b.context;
+    this.approvalId = (b.approvalId == null || b.approvalId.isEmpty()) ? null : b.approvalId;
   }
 
   /**
@@ -89,6 +93,11 @@ public final class DecideRequest {
     return context;
   }
 
+  /** Returns the approved hold this exact retry spends, or null. */
+  public String getApprovalId() {
+    return approvalId;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -99,12 +108,13 @@ public final class DecideRequest {
         && Objects.equals(callerIdentity, that.callerIdentity)
         && Objects.equals(target, that.target)
         && Objects.equals(userToken, that.userToken)
-        && Objects.equals(context, that.context);
+        && Objects.equals(context, that.context)
+        && Objects.equals(approvalId, that.approvalId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(stage, query, callerIdentity, target, userToken, context);
+    return Objects.hash(stage, query, callerIdentity, target, userToken, context, approvalId);
   }
 
   @Override
@@ -125,6 +135,9 @@ public final class DecideRequest {
         + '\''
         + ", context="
         + context
+        + ", approvalId='"
+        + (approvalId != null ? "<redacted>" : null)
+        + '\''
         + '}';
   }
 
@@ -136,6 +149,7 @@ public final class DecideRequest {
     private DecisionTarget target;
     private String userToken;
     private Map<String, Object> context;
+    private String approvalId;
 
     private Builder(String stage, String query) {
       this.stage = stage;
@@ -183,6 +197,12 @@ public final class DecideRequest {
      */
     public Builder context(Map<String, Object> context) {
       this.context = context;
+      return this;
+    }
+
+    /** Names the approved hold spent by an exact retry. */
+    public Builder approvalId(String approvalId) {
+      this.approvalId = approvalId;
       return this;
     }
 
