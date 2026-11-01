@@ -77,22 +77,17 @@ Concurrent executions applies to MAP and WCP executions per tenant. Pending exec
 
 [Get a free Evaluation license](https://getaxonflow.com/evaluation-license?utm_source=readme_sdk_java_eval) · [Run a paid production program](https://getaxonflow.com/design-partner?utm_source=readme_sdk_java_eval) · [Full feature matrix](https://docs.getaxonflow.com/docs/features/community-vs-enterprise?utm_source=readme_sdk_java_eval)
 
-## Try Without Installing
+## Hosted without installing the platform
 
-Skip local setup entirely — try AxonFlow instantly at [**try.getaxonflow.com**](https://docs.getaxonflow.com/docs/deployment/community-saas):
+Start at the [AxonFlow website](https://getaxonflow.com/) and follow Hosted signup to the [verified Portal](https://portal.try.getaxonflow.com/hosted/start). Verify your email, complete account and plan setup, then explicitly link an API client in the Portal. The Portal provides a client ID and secret for that linked client; store the secret securely. A newly registered unpaid Basic account cannot obtain a linked credential through the Portal.
 
 ```bash
-# 1. Register (30 seconds)
-curl -X POST https://try.getaxonflow.com/api/v1/register \
-  -H "Content-Type: application/json" -d '{"label":"my-trial"}'
-
-# 2. Set credentials and auto-connect
 export AXONFLOW_TRY=1
-export AXONFLOW_CLIENT_ID=cs_your-tenant-id
-export AXONFLOW_CLIENT_SECRET=your-secret
+export AXONFLOW_CLIENT_ID='<linked-client-id>'
+export AXONFLOW_CLIENT_SECRET='<linked-client-secret>'
 ```
 
-No Docker, no license, no installation. Rate-limited to 20 req/min. [Learn more](https://docs.getaxonflow.com/docs/deployment/community-saas).
+Use `AxonFlow.create(AxonFlowConfig.fromEnvironment())` or pass the linked client ID and secret to `AxonFlowConfig.builder()` with endpoint `https://try.getaxonflow.com`. An explicitly configured endpoint takes precedence over `AXONFLOW_TRY=1`, so an existing self-hosted Community client stays on its own Agent. The legacy `AxonFlowTry.register()` overloads now point new Hosted buyers to the Portal; `register(label, endpoint)` remains available for a custom self-hosted Community server. [Learn more](https://docs.getaxonflow.com/docs/deployment/community-saas).
 
 ## Quick Start
 
@@ -548,7 +543,7 @@ try {
 
 The SDK includes automatic retry with exponential backoff. The retry policy
 itself is not configurable per HTTP status — retries fire on connect/timeout
-errors, `5xx` server errors, and `429 Too Many Requests`. Authentication
+errors, `5xx` server errors, and ordinary `429 Too Many Requests` capacity responses. An answered Hosted monthly-governance-cap 429 is terminal, including when the Agent's tier-limit header survives a truncated body. Authentication
 failures (`401`/`403`), policy violations, and other `4xx` client errors are
 always terminal and never retried (see `RetryExecutor.isRetryable`). This
 contract is locked in as a regression test for
