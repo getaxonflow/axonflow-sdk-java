@@ -38,8 +38,12 @@ public class AxonFlowTry {
   public static TryRegistration register(String label, String endpoint)
       throws IOException, InterruptedException {
     URI origin = URI.create(endpoint);
-    if ("try.getaxonflow.com".equalsIgnoreCase(origin.getHost())
-        || "try-staging.getaxonflow.com".equalsIgnoreCase(origin.getHost())) {
+    String host = origin.getHost();
+    if (host != null) {
+      host = host.replaceFirst("\\.+$", "");
+    }
+    if ("try.getaxonflow.com".equalsIgnoreCase(host)
+        || "try-staging.getaxonflow.com".equalsIgnoreCase(host)) {
       throw new IOException(
           "New Hosted accounts start at "
               + HOSTED_START_URL
