@@ -79,7 +79,7 @@ Concurrent executions applies to MAP and WCP executions per tenant. Pending exec
 
 ## Hosted without installing the platform
 
-Start at the [AxonFlow website](https://getaxonflow.com/) and follow Hosted signup to the [verified Portal](https://portal.try.getaxonflow.com/hosted/start). Verify your email, complete account and plan setup, then explicitly link an API client in the Portal. The Portal provides a client ID and secret for that linked client; store the secret securely. A newly registered unpaid Basic account cannot obtain a linked credential through the Portal.
+Start at the [AxonFlow website](https://getaxonflow.com/) and follow Hosted signup to the [verified Portal](https://portal.try.getaxonflow.com/hosted/start). Verify your email and activate a plan, then download the Hosted API link command from the Portal. Run it locally and approve its device code from your signed-in owner session. It writes a separate revocable API credential to the protected `~/.config/axonflow/hosted-api.json` file. Use the file's `endpoint`, `clientId`, and `clientSecret` values for SDK configuration; keep the secret out of source control and prompts. A newly registered unpaid Basic account cannot obtain a linked credential through the Portal.
 
 ```bash
 export AXONFLOW_TRY=1
@@ -87,7 +87,7 @@ export AXONFLOW_CLIENT_ID='<linked-client-id>'
 export AXONFLOW_CLIENT_SECRET='<linked-client-secret>'
 ```
 
-Use `AxonFlow.create(AxonFlowConfig.fromEnvironment())` or pass the linked client ID and secret to `AxonFlowConfig.builder()` with endpoint `https://try.getaxonflow.com`. An explicitly configured endpoint takes precedence over `AXONFLOW_TRY=1`, so an existing self-hosted Community client stays on its own Agent. The legacy `AxonFlowTry.register()` overloads now point new Hosted buyers to the Portal; `register(label, endpoint)` remains available for a custom self-hosted Community server. [Learn more](https://docs.getaxonflow.com/docs/deployment/community-saas).
+Use `AxonFlow.create(AxonFlowConfig.fromEnvironment())` or pass the linked file's `clientId` and `clientSecret` to `AxonFlowConfig.builder()` with its `endpoint` (normally `https://try.getaxonflow.com`). An explicitly configured endpoint takes precedence over `AXONFLOW_TRY=1`, so an existing self-hosted Community client stays on its own Agent. The legacy `AxonFlowTry.register()` overloads now point new Hosted buyers to the Portal; `register(label, endpoint)` remains available for a custom self-hosted Community server. An answered Hosted 402 payment refusal or 429 allowance refusal remains an error, so resolve the plan or allowance before retrying. [Learn more](https://docs.getaxonflow.com/docs/deployment/community-saas).
 
 ## Quick Start
 
