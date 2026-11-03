@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [9.5.1] - Unpublished release candidate
+
 ### Fixed
 
 - `AxonFlowTry.register()` no longer attempts anonymous Hosted tenant creation; it directs new buyers to the verified Portal. Custom self-hosted Community registration and explicitly configured credentials/endpoints remain available.
