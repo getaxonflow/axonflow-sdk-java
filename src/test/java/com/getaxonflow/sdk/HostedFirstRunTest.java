@@ -56,7 +56,8 @@ class HostedFirstRunTest {
     assertThatThrownBy(() -> AxonFlowTry.register("trial", "https://try.getaxonflow.com."))
         .isInstanceOf(IOException.class)
         .hasMessageContaining(AxonFlowTry.HOSTED_START_URL);
-    assertThatThrownBy(() -> AxonFlowTry.register("trial", "https://try-staging.getaxonflow.com.:443"))
+    assertThatThrownBy(
+            () -> AxonFlowTry.register("trial", "https://try-staging.getaxonflow.com.:443"))
         .isInstanceOf(IOException.class)
         .hasMessageContaining(AxonFlowTry.HOSTED_START_URL);
   }
