@@ -5,6 +5,13 @@ All notable changes to the AxonFlow Java SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- `AxonFlowTry.register()` no longer attempts anonymous Hosted tenant creation; it directs new buyers to the verified Portal. Custom self-hosted Community registration and explicitly configured credentials/endpoints remain available.
+- Answered Hosted `402 hosted_payment_required` preserves HTTP 402 and its error code as a terminal SDK error. Answered Hosted `429 hosted_monthly_limit_reached` remains a terminal `RateLimitException` after one request, including a truncated body with the Agent's monthly-tier header. Ordinary 429 capacity responses retain retry behavior.
+
 ## [9.5.0] - 2026-10-21: Decision API approval retry fields
 
 ### Added

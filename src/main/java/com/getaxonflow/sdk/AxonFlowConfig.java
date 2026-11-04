@@ -121,7 +121,9 @@ public final class AxonFlowConfig {
   private final PEPHandshake pepHandshake;
 
   private AxonFlowConfig(Builder builder) {
-    this.tryMode = "1".equals(System.getenv("AXONFLOW_TRY"));
+    // An explicit endpoint always wins over the legacy convenience switch.
+    // This keeps a configured self-hosted Community client on its own Agent.
+    this.tryMode = "1".equals(System.getenv("AXONFLOW_TRY")) && builder.endpoint == null;
     this.endpoint =
         this.tryMode
             ? normalizeUrl(TRY_ENDPOINT)

@@ -39,6 +39,21 @@ public class RateLimitException extends AxonFlowException {
     this.upgrade = null;
   }
 
+  /** An answered Hosted monthly governance cap. Unlike an ordinary 429, it is terminal. */
+  public static RateLimitException hostedMonthlyLimit(String message) {
+    return new RateLimitException(message, "hosted_monthly_limit_reached");
+  }
+
+  private RateLimitException(String message, String errorCode) {
+    super(message, 429, errorCode);
+    this.limit = 0;
+    this.remaining = 0;
+    this.resetAt = null;
+    this.limitType = "monthly_governed_events";
+    this.tier = null;
+    this.upgrade = null;
+  }
+
   /**
    * Creates a new RateLimitException with rate limit details.
    *

@@ -119,7 +119,7 @@ public final class RetryExecutor {
 
     // Retry rate limit errors
     if (e instanceof RateLimitException) {
-      return true;
+      return !"hosted_monthly_limit_reached".equals(((RateLimitException) e).getErrorCode());
     }
 
     // Retry server errors (5xx)

@@ -10,28 +10,45 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-/** Registration helper for try.getaxonflow.com shared evaluation server. */
+/** Legacy registration helper for self-hosted Community servers. */
 public class AxonFlowTry {
 
   public static final String TRY_ENDPOINT = "https://try.getaxonflow.com";
+  public static final String HOSTED_START_URL = "https://portal.try.getaxonflow.com/hosted/start";
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final HttpClient CLIENT =
       HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 
-  /** Register for a free evaluation tenant. Store the secret securely — it is shown only once. */
+  /**
+   * Direct new Hosted buyers to the verified Portal journey. Existing linked credentials can be
+   * supplied through {@link AxonFlowConfig.Builder#clientId(String)} and {@link
+   * AxonFlowConfig.Builder#clientSecret(String)}.
+   */
   public static TryRegistration register() throws IOException, InterruptedException {
     return register("", TRY_ENDPOINT);
   }
 
-  /** Register with an optional label. */
+  /** Legacy overload: directs new Hosted buyers to verified Portal signup. */
   public static TryRegistration register(String label) throws IOException, InterruptedException {
     return register(label, TRY_ENDPOINT);
   }
 
-  /** Register with a custom endpoint (for local testing). */
+  /** Register with a custom self-hosted Community endpoint. */
   public static TryRegistration register(String label, String endpoint)
       throws IOException, InterruptedException {
+    URI origin = URI.create(endpoint);
+    String host = origin.getHost();
+    if (host != null) {
+      host = host.replaceFirst("\\.+$", "");
+    }
+    if ("try.getaxonflow.com".equalsIgnoreCase(host)
+        || "try-staging.getaxonflow.com".equalsIgnoreCase(host)) {
+      throw new IOException(
+          "New Hosted accounts start at "
+              + HOSTED_START_URL
+              + ": verify your email, complete account and plan setup, then link an API client in the Portal. Configure the linked client ID and secret explicitly in AxonFlowConfig.");
+    }
     String body =
         label != null && !label.isEmpty() ? String.format("{\"label\":\"%s\"}", label) : "{}";
 
@@ -53,7 +70,7 @@ public class AxonFlowTry {
     return MAPPER.readValue(response.body(), TryRegistration.class);
   }
 
-  /** Registration response from try.getaxonflow.com. */
+  /** Registration response from a custom self-hosted Community server. */
   public static class TryRegistration {
     private String tenant_id;
     private String secret;

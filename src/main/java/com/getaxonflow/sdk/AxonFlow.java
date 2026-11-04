@@ -4977,6 +4977,18 @@ public final class AxonFlow implements Closeable {
     // Try to extract error message from JSON body
     String errorMessage = extractErrorMessage(body, message);
 
+    // An answered Hosted cap is a governance refusal, even if the body was
+    // truncated after the Agent wrote its monthly-tier header. Ordinary 429s
+    // still use the retryable rate-limit path below.
+    if (code == 429
+        && ("monthly_governed_events".equals(response.header("X-Axonflow-Tier-Limit"))
+            || hasErrorCode(body, "hosted_monthly_limit_reached"))) {
+      throw RateLimitException.hostedMonthlyLimit(errorMessage);
+    }
+    if (code == 402 && hasErrorCode(body, "hosted_payment_required")) {
+      throw new AxonFlowException(errorMessage, 402, "hosted_payment_required");
+    }
+
     // v11.0.0: a legacy policy write is refused with its own code, which is not a version conflict.
     if (code == 409) {
       String frozen = legacyPolicyWriteFrozenMessage(body);
@@ -5056,6 +5068,18 @@ public final class AxonFlow implements Closeable {
       return frozenMessage.isEmpty() ? "legacy policy write frozen" : frozenMessage;
     } catch (JsonProcessingException e) {
       return null;
+    }
+  }
+
+  private boolean hasErrorCode(String body, String expected) {
+    if (body == null || body.isEmpty()) {
+      return false;
+    }
+    try {
+      JsonNode error = objectMapper.readTree(body).path("error");
+      return expected.equals(error.asText(null));
+    } catch (JsonProcessingException e) {
+      return false;
     }
   }
 
